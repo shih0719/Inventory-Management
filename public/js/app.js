@@ -963,8 +963,8 @@ async function searchBatchProducts(
           (p) => `
         <div class="px-3 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 text-sm" 
              data-product-id="${p.id}"
-             data-product-name="${p.name.replace(/"/g, '&quot;')}"
-             data-product-sku="${p.sku.replace(/"/g, '&quot;')}"
+             data-product-name="${p.name.replace(/"/g, "&quot;")}"
+             data-product-sku="${p.sku.replace(/"/g, "&quot;")}"
              data-product-accountable="${p.accountable_quantity}"
              data-product-non-accountable="${p.non_accountable_quantity}"
              data-index="${resultsDiv.dataset.index}">
@@ -977,17 +977,17 @@ async function searchBatchProducts(
         )
         .join("");
       resultsDiv.classList.remove("hidden");
-      
+
       // Add click event listeners
-      resultsDiv.querySelectorAll('[data-product-id]').forEach(item => {
-        item.addEventListener('click', function() {
+      resultsDiv.querySelectorAll("[data-product-id]").forEach((item) => {
+        item.addEventListener("click", function () {
           selectBatchProduct(
             this.dataset.productId,
             this.dataset.productName,
             this.dataset.productAccountable,
             this.dataset.productNonAccountable,
             this.dataset.productSku,
-            this.dataset.index
+            this.dataset.index,
           );
         });
       });
