@@ -108,12 +108,18 @@ async function getByProduct(req, res) {
     const { productId } = req.params;
 
     const transactions = await db.all(
-      `SELECT t.*, p.name as product_name, p.sku, tg.display_name as tag_name, tg.color as tag_color
-             FROM transactions t
-             JOIN products p ON t.product_id = p.id
-             JOIN tags tg ON t.tag_id = tg.id
-             WHERE t.product_id = ?
-             ORDER BY t.created_at DESC`,
+      `SELECT t.*, 
+              p.name as product_name, 
+              p.sku, 
+              tg.display_name as tag_name, 
+              tg.color as tag_color,
+              b.batch_number
+       FROM transactions t
+       JOIN products p ON t.product_id = p.id
+       JOIN tags tg ON t.tag_id = tg.id
+       LEFT JOIN batches b ON t.batch_id = b.id
+       WHERE t.product_id = ?
+       ORDER BY t.created_at DESC`,
       [productId],
     );
 
@@ -127,17 +133,59 @@ async function getByProduct(req, res) {
 // Get all transactions with optional filtering
 async function getAll(req, res) {
   try {
-    const { limit = 100, offset = 0 } = req.query;
+    const {
+      limit = 100,
+      offset = 0,
+      sku,
+      tag_id,
+      min_quantity,
+      max_quantity,
+    } = req.query;
 
-    const transactions = await db.all(
-      `SELECT t.*, p.name as product_name, p.sku, tg.display_name as tag_name, tg.color as tag_color
-             FROM transactions t
-             JOIN products p ON t.product_id = p.id
-             JOIN tags tg ON t.tag_id = tg.id
-             ORDER BY t.created_at DESC
-             LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)],
-    );
+    let sql = `
+      SELECT t.*, 
+             p.name as product_name, 
+             p.sku, 
+             tg.display_name as tag_name, 
+             tg.color as tag_color,
+             b.batch_number
+      FROM transactions t
+      JOIN products p ON t.product_id = p.id
+      JOIN tags tg ON t.tag_id = tg.id
+      LEFT JOIN batches b ON t.batch_id = b.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+
+    // Filter by SKU
+    if (sku) {
+      sql += " AND p.sku LIKE ?";
+      params.push(`%${sku}%`);
+    }
+
+    // Filter by tag
+    if (tag_id) {
+      sql += " AND t.tag_id = ?";
+      params.push(parseInt(tag_id));
+    }
+
+    // Filter by minimum quantity (for in-stock/positive changes)
+    if (min_quantity !== undefined) {
+      sql += " AND t.quantity_change >= ?";
+      params.push(parseInt(min_quantity));
+    }
+
+    // Filter by maximum quantity (for out-of-stock/negative changes)
+    if (max_quantity !== undefined) {
+      sql += " AND t.quantity_change <= ?";
+      params.push(parseInt(max_quantity));
+    }
+
+    sql += " ORDER BY t.created_at DESC LIMIT ? OFFSET ?";
+    params.push(parseInt(limit), parseInt(offset));
+
+    const transactions = await db.all(sql, params);
 
     res.json({ success: true, data: transactions });
   } catch (error) {

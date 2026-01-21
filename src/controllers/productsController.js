@@ -3,7 +3,15 @@ const db = require("../config/database");
 // Get all products with optional filtering
 async function getAll(req, res) {
   try {
-    const { sku, tag } = req.query;
+    const { sku, name, tag, page = 1, limit = 10 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let countSql = `
+            SELECT COUNT(DISTINCT p.id) as total
+            FROM products p
+            LEFT JOIN transactions t ON p.id = t.product_id
+            WHERE p.is_deleted = 0
+        `;
     let sql = `
             SELECT DISTINCT p.* 
             FROM products p
@@ -11,21 +19,45 @@ async function getAll(req, res) {
             WHERE p.is_deleted = 0
         `;
     const params = [];
+    const countParams = [];
 
     if (sku) {
       sql += " AND p.sku LIKE ?";
+      countSql += " AND p.sku LIKE ?";
       params.push(`%${sku}%`);
+      countParams.push(`%${sku}%`);
+    }
+
+    if (name) {
+      sql += " AND p.name LIKE ?";
+      countSql += " AND p.name LIKE ?";
+      params.push(`%${name}%`);
+      countParams.push(`%${name}%`);
     }
 
     if (tag) {
       sql += " AND t.tag_id = ?";
+      countSql += " AND t.tag_id = ?";
       params.push(tag);
+      countParams.push(tag);
     }
 
-    sql += " ORDER BY p.created_at DESC";
+    sql += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+    params.push(parseInt(limit), offset);
 
+    const totalResult = await db.get(countSql, countParams);
     const products = await db.all(sql, params);
-    res.json({ success: true, data: products });
+
+    res.json({
+      success: true,
+      data: products,
+      pagination: {
+        total: totalResult.total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(totalResult.total / parseInt(limit)),
+      },
+    });
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({ success: false, error: error.message });

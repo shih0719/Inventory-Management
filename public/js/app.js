@@ -5,6 +5,9 @@ const API_BASE = "/api";
 let products = [];
 let tags = [];
 let currentEditingProduct = null;
+let currentPage = 1;
+let totalPages = 1;
+let totalProducts = 0;
 
 // Initialize app
 document.addEventListener("DOMContentLoaded", async () => {
@@ -58,20 +61,26 @@ function populateTagSelectors() {
 }
 
 // Load products from API
-async function loadProducts() {
+async function loadProducts(page = 1) {
   try {
     const sku = document.getElementById("filter-sku").value;
+    const name = document.getElementById("filter-name").value;
     const tag = document.getElementById("filter-tag").value;
 
-    let url = `${API_BASE}/products?`;
-    if (sku) url += `sku=${encodeURIComponent(sku)}&`;
-    if (tag) url += `tag=${tag}&`;
+    let url = `${API_BASE}/products?page=${page}&limit=10`;
+    if (sku) url += `&sku=${encodeURIComponent(sku)}`;
+    if (name) url += `&name=${encodeURIComponent(name)}`;
+    if (tag) url += `&tag=${tag}`;
 
     const response = await fetch(url);
     const result = await response.json();
     if (result.success) {
       products = result.data;
+      currentPage = result.pagination.page;
+      totalPages = result.pagination.totalPages;
+      totalProducts = result.pagination.total;
       renderProducts();
+      renderPagination();
     }
   } catch (error) {
     console.error("Error loading products:", error);
@@ -223,15 +232,120 @@ function renderProductsCards() {
   });
 }
 
+// Render pagination controls
+function renderPagination() {
+  const totalSpan = document.getElementById("total-products");
+  const buttonsContainer = document.getElementById("pagination-buttons");
+
+  totalSpan.textContent = totalProducts;
+  buttonsContainer.innerHTML = "";
+
+  if (totalPages <= 1) {
+    buttonsContainer.innerHTML =
+      '<span class="text-sm text-gray-500">第 1 頁，共 1 頁</span>';
+    return;
+  }
+
+  // Previous button
+  const prevBtn = document.createElement("button");
+  prevBtn.className = `px-3 py-1 rounded ${
+    currentPage === 1
+      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+      : "bg-blue-500 text-white hover:bg-blue-600"
+  }`;
+  prevBtn.textContent = "上一頁";
+  prevBtn.disabled = currentPage === 1;
+  prevBtn.onclick = () => {
+    if (currentPage > 1) {
+      loadProducts(currentPage - 1);
+    }
+  };
+  buttonsContainer.appendChild(prevBtn);
+
+  // Page numbers
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage < maxVisiblePages - 1) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  if (startPage > 1) {
+    const firstBtn = document.createElement("button");
+    firstBtn.className =
+      "px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300";
+    firstBtn.textContent = "1";
+    firstBtn.onclick = () => loadProducts(1);
+    buttonsContainer.appendChild(firstBtn);
+
+    if (startPage > 2) {
+      const dots = document.createElement("span");
+      dots.className = "px-2 text-gray-500";
+      dots.textContent = "...";
+      buttonsContainer.appendChild(dots);
+    }
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    const pageBtn = document.createElement("button");
+    pageBtn.className = `px-3 py-1 rounded ${
+      i === currentPage
+        ? "bg-blue-600 text-white font-semibold"
+        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+    }`;
+    pageBtn.textContent = i;
+    pageBtn.onclick = () => loadProducts(i);
+    buttonsContainer.appendChild(pageBtn);
+  }
+
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      const dots = document.createElement("span");
+      dots.className = "px-2 text-gray-500";
+      dots.textContent = "...";
+      buttonsContainer.appendChild(dots);
+    }
+
+    const lastBtn = document.createElement("button");
+    lastBtn.className =
+      "px-3 py-1 rounded bg-gray-200 text-gray-700 hover:bg-gray-300";
+    lastBtn.textContent = totalPages;
+    lastBtn.onclick = () => loadProducts(totalPages);
+    buttonsContainer.appendChild(lastBtn);
+  }
+
+  // Next button
+  const nextBtn = document.createElement("button");
+  nextBtn.className = `px-3 py-1 rounded ${
+    currentPage === totalPages
+      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+      : "bg-blue-500 text-white hover:bg-blue-600"
+  }`;
+  nextBtn.textContent = "下一頁";
+  nextBtn.disabled = currentPage === totalPages;
+  nextBtn.onclick = () => {
+    if (currentPage < totalPages) {
+      loadProducts(currentPage + 1);
+    }
+  };
+  buttonsContainer.appendChild(nextBtn);
+}
+
 // Setup event listeners
 function setupEventListeners() {
   // Filter inputs
-  document
-    .getElementById("filter-sku")
-    .addEventListener("input", debounce(loadProducts, 500));
+  document.getElementById("filter-sku").addEventListener(
+    "input",
+    debounce(() => loadProducts(1), 500),
+  );
+  document.getElementById("filter-name").addEventListener(
+    "input",
+    debounce(() => loadProducts(1), 500),
+  );
   document
     .getElementById("filter-tag")
-    .addEventListener("change", loadProducts);
+    .addEventListener("change", () => loadProducts(1));
 
   // Add product button
   document.getElementById("add-product-btn").addEventListener("click", () => {
@@ -303,6 +417,31 @@ function setupEventListeners() {
   document
     .getElementById("batch-details-modal-close")
     .addEventListener("click", () => closeModal("batch-details-modal"));
+
+  // All transactions
+  document
+    .getElementById("view-all-transactions-btn")
+    .addEventListener("click", openAllTransactionsModal);
+  document
+    .getElementById("all-transactions-modal-close")
+    .addEventListener("click", () => closeModal("all-transactions-modal"));
+  document
+    .getElementById("all-trans-search-btn")
+    .addEventListener("click", loadAllTransactions);
+}
+
+// Populate all transactions tag filter
+function populateAllTransTagFilter() {
+  const filterTag = document.getElementById("all-trans-filter-tag");
+  if (!filterTag) return;
+
+  filterTag.innerHTML = '<option value="">全部標籤</option>';
+  tags.forEach((tag) => {
+    const option = document.createElement("option");
+    option.value = tag.id;
+    option.textContent = tag.display_name;
+    filterTag.appendChild(option);
+  });
 }
 
 // Handle product form submission
@@ -491,7 +630,7 @@ function renderHistory(transactions) {
   if (transactions.length === 0) {
     tbody.innerHTML = `
             <tr>
-                <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
                     沒有交易記錄
                 </td>
             </tr>
@@ -520,6 +659,13 @@ function renderHistory(transactions) {
                 ${transaction.quantity_change > 0 ? "+" : ""}${
       transaction.quantity_change
     }
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+                ${
+                  transaction.batch_number
+                    ? `<span class="badge bg-purple-100 text-purple-800">${transaction.batch_number}</span>`
+                    : "-"
+                }
             </td>
             <td class="px-4 py-3 text-sm text-gray-600">${
               transaction.remarks || "-"
@@ -583,6 +729,91 @@ async function handleCSVTemplateDownload() {
     console.error("Error downloading template:", error);
     showNotification("下載範本失敗", "error");
   }
+}
+
+// Open all transactions modal
+async function openAllTransactionsModal() {
+  populateAllTransTagFilter();
+  openModal("all-transactions-modal");
+  await loadAllTransactions();
+}
+
+// Load all transactions with filters
+async function loadAllTransactions() {
+  try {
+    const sku = document.getElementById("all-trans-filter-sku").value;
+    const tagId = document.getElementById("all-trans-filter-tag").value;
+    const type = document.getElementById("all-trans-filter-type").value;
+
+    let url = `${API_BASE}/transactions?limit=500`;
+    if (sku) url += `&sku=${encodeURIComponent(sku)}`;
+    if (tagId) url += `&tag_id=${tagId}`;
+    if (type === "in") url += `&min_quantity=0`;
+    if (type === "out") url += `&max_quantity=-1`;
+
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (result.success) {
+      renderAllTransactions(result.data);
+    }
+  } catch (error) {
+    console.error("Error loading all transactions:", error);
+    showNotification("載入異動記錄失敗", "error");
+  }
+}
+
+// Render all transactions table
+function renderAllTransactions(transactions) {
+  const tbody = document.getElementById("all-transactions-table-body");
+  const totalSpan = document.getElementById("all-trans-total");
+
+  tbody.innerHTML = "";
+  totalSpan.textContent = transactions.length;
+
+  if (transactions.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+          沒有找到異動記錄
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  transactions.forEach((trans) => {
+    const row = document.createElement("tr");
+    row.className = "hover:bg-gray-50";
+    row.innerHTML = `
+      <td class="px-4 py-3 text-sm text-gray-900">${formatDateTime(
+        trans.created_at,
+      )}</td>
+      <td class="px-4 py-3 text-sm font-medium text-gray-900">${trans.sku}</td>
+      <td class="px-4 py-3 text-sm text-gray-900">${trans.product_name}</td>
+      <td class="px-4 py-3">
+        <span class="badge" style="background-color: ${
+          trans.tag_color
+        }20; color: ${trans.tag_color}">
+          ${trans.tag_name}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-sm font-semibold ${
+        trans.quantity_change > 0 ? "text-green-600" : "text-red-600"
+      }">
+        ${trans.quantity_change > 0 ? "+" : ""}${trans.quantity_change}
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-600">
+        ${
+          trans.batch_number
+            ? `<span class="badge bg-purple-100 text-purple-800">${trans.batch_number}</span>`
+            : "-"
+        }
+      </td>
+      <td class="px-4 py-3 text-sm text-gray-600">${trans.remarks || "-"}</td>
+    `;
+    tbody.appendChild(row);
+  });
 }
 
 // Utility functions
