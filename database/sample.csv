@@ -1,0 +1,11 @@
+SKU,Name,Type,Model,IsAccountable,Quantity
+SKU-001,筆記型電腦,電子產品,Dell XPS 15,1,10
+SKU-002,無線滑鼠,配件,Logitech MX Master,1,50
+SKU-003,USB-C 轉接頭,配件,Anker A8342,0,100
+SKU-004,辦公椅,家具,Herman Miller Aeron,1,5
+SKU-005,白板筆,文具,EXPO,0,200
+SKU-006,網路交換器,網路設備,Cisco SG350-28,1,3
+SKU-007,HDMI 線,配件,AmazonBasics 2m,0,75
+SKU-008,桌上型電腦,電子產品,HP EliteDesk 800,1,8
+SKU-009,投影機,電子產品,Epson EB-2250U,1,2
+SKU-010,延長線,配件,突波保護 6插座,0,30
