@@ -62,12 +62,10 @@ async function loadProducts() {
   try {
     const sku = document.getElementById("filter-sku").value;
     const tag = document.getElementById("filter-tag").value;
-    const accountable = document.getElementById("filter-accountable").value;
 
     let url = `${API_BASE}/products?`;
     if (sku) url += `sku=${encodeURIComponent(sku)}&`;
     if (tag) url += `tag=${tag}&`;
-    if (accountable) url += `accountable=${accountable}&`;
 
     const response = await fetch(url);
     const result = await response.json();
@@ -107,9 +105,11 @@ function renderProductsTable() {
     const row = document.createElement("tr");
     row.className = "hover:bg-gray-50";
     row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${
-              product.sku
-            }</td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900">${
+                product.sku
+              }</div>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${
               product.name
             }</td>
@@ -120,24 +120,24 @@ function renderProductsTable() {
               product.model || "-"
             }</td>
             <td class="px-6 py-4 whitespace-nowrap">
-                <span class="badge ${
-                  product.is_accountable
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-800"
-                }">
-                    ${product.is_accountable ? "有帳" : "無帳"}
-                </span>
+                <div class="text-sm">
+                    <span class="badge bg-green-100 text-green-800">有帳: ${
+                      product.accountable_quantity
+                    }</span>
+                </div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-              product.quantity > 0 ? "text-green-600" : "text-red-600"
-            }">
-                ${product.quantity}
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm">
+                    <span class="badge bg-gray-100 text-gray-800">無帳: ${
+                      product.non_accountable_quantity
+                    }</span>
+                </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                 <div class="flex gap-2">
                     <button onclick="openTransactionModal(${product.id}, '${
       product.name
-    }', ${product.quantity})" 
+    }', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
                             class="text-blue-600 hover:text-blue-800 font-medium">異動</button>
                     <button onclick="openHistoryModal(${product.id}, '${
       product.name
@@ -179,13 +179,6 @@ function renderProductsCards() {
                     <h3 class="font-bold text-gray-900">${product.name}</h3>
                     <p class="text-sm text-gray-600">SKU: ${product.sku}</p>
                 </div>
-                <span class="badge ${
-                  product.is_accountable
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-800"
-                }">
-                    ${product.is_accountable ? "有帳" : "無帳"}
-                </span>
             </div>
             <div class="grid grid-cols-2 gap-2 mb-3 text-sm">
                 <div>
@@ -196,17 +189,23 @@ function renderProductsCards() {
                     <span class="text-gray-600">型號：</span>
                     <span class="text-gray-900">${product.model || "-"}</span>
                 </div>
-                <div class="col-span-2">
-                    <span class="text-gray-600">庫存：</span>
-                    <span class="font-semibold ${
-                      product.quantity > 0 ? "text-green-600" : "text-red-600"
-                    }">${product.quantity}</span>
+                <div>
+                    <span class="text-gray-600">有帳庫存：</span>
+                    <span class="font-semibold text-green-600">${
+                      product.accountable_quantity
+                    }</span>
+                </div>
+                <div>
+                    <span class="text-gray-600">無帳庫存：</span>
+                    <span class="font-semibold text-gray-600">${
+                      product.non_accountable_quantity
+                    }</span>
                 </div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button onclick="openTransactionModal(${product.id}, '${
       product.name
-    }', ${product.quantity})" 
+    }', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
                         class="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600">異動</button>
                 <button onclick="openHistoryModal(${product.id}, '${
       product.name
@@ -232,9 +231,6 @@ function setupEventListeners() {
     .addEventListener("input", debounce(loadProducts, 500));
   document
     .getElementById("filter-tag")
-    .addEventListener("change", loadProducts);
-  document
-    .getElementById("filter-accountable")
     .addEventListener("change", loadProducts);
 
   // Add product button
@@ -319,8 +315,11 @@ async function handleProductSubmit(e) {
     name: document.getElementById("product-name").value,
     type: document.getElementById("product-type").value,
     model: document.getElementById("product-model").value,
-    is_accountable: document.getElementById("product-accountable").checked,
-    quantity: parseInt(document.getElementById("product-quantity").value) || 0,
+    accountable_quantity:
+      parseInt(document.getElementById("product-accountable-qty").value) || 0,
+    non_accountable_quantity:
+      parseInt(document.getElementById("product-non-accountable-qty").value) ||
+      0,
   };
 
   try {
@@ -365,9 +364,10 @@ async function editProduct(id) {
       document.getElementById("product-name").value = product.name;
       document.getElementById("product-type").value = product.type;
       document.getElementById("product-model").value = product.model || "";
-      document.getElementById("product-accountable").checked =
-        product.is_accountable;
-      document.getElementById("product-quantity").value = product.quantity;
+      document.getElementById("product-accountable-qty").value =
+        product.accountable_quantity;
+      document.getElementById("product-non-accountable-qty").value =
+        product.non_accountable_quantity;
 
       openModal("product-modal");
     }
@@ -407,11 +407,18 @@ async function deleteProduct(id, name) {
 }
 
 // Open transaction modal
-function openTransactionModal(productId, productName, currentQuantity) {
+function openTransactionModal(
+  productId,
+  productName,
+  accountableQty,
+  nonAccountableQty,
+) {
   document.getElementById("transaction-product-id").value = productId;
   document.getElementById("transaction-product-name").textContent = productName;
-  document.getElementById("transaction-current-quantity").textContent =
-    currentQuantity;
+  document.getElementById("transaction-accountable-qty").textContent =
+    accountableQty;
+  document.getElementById("transaction-non-accountable-qty").textContent =
+    nonAccountableQty;
   document.getElementById("transaction-form").reset();
   openModal("transaction-modal");
 }
@@ -428,6 +435,7 @@ async function handleTransactionSubmit(e) {
     quantity_change: parseInt(
       document.getElementById("transaction-quantity").value,
     ),
+    quantity_type: document.getElementById("transaction-quantity-type").value,
     remarks: document.getElementById("transaction-remarks").value,
   };
 
@@ -641,7 +649,7 @@ function addBatchItem() {
         ✕ 移除
       </button>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">產品 *</label>
         <select class="batch-product-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm" required>
@@ -649,9 +657,16 @@ function addBatchItem() {
           ${products
             .map(
               (p) =>
-                `<option value="${p.id}" data-quantity="${p.quantity}">${p.name} (${p.sku}) - 庫存: ${p.quantity}</option>`,
+                `<option value="${p.id}" data-accountable="${p.accountable_quantity}" data-non-accountable="${p.non_accountable_quantity}">${p.name} (${p.sku})</option>`,
             )
             .join("")}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">類型 *</label>
+        <select class="batch-quantity-type-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm" required>
+          <option value="accountable">有帳</option>
+          <option value="non_accountable">無帳</option>
         </select>
       </div>
       <div>
@@ -706,20 +721,25 @@ async function handleBatchSubmit(e) {
 
   for (const itemDiv of itemDivs) {
     const productSelect = itemDiv.querySelector(".batch-product-select");
+    const quantityTypeSelect = itemDiv.querySelector(
+      ".batch-quantity-type-select",
+    );
     const quantityInput = itemDiv.querySelector(".batch-quantity-input");
     const remarksInput = itemDiv.querySelector(".batch-remarks-input");
 
     const productId = productSelect.value;
+    const quantityType = quantityTypeSelect.value;
     const quantityChange = parseInt(quantityInput.value);
     const remarks = remarksInput.value;
 
-    if (!productId || !quantityChange) {
+    if (!productId || !quantityChange || !quantityType) {
       showNotification("請填寫所有必填欄位", "error");
       return;
     }
 
     items.push({
       product_id: parseInt(productId),
+      quantity_type: quantityType,
       quantity_change: quantityChange,
       remarks: remarks || "",
     });

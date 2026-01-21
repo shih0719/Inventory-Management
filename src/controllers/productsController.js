@@ -3,7 +3,7 @@ const db = require("../config/database");
 // Get all products with optional filtering
 async function getAll(req, res) {
   try {
-    const { sku, tag, accountable } = req.query;
+    const { sku, tag } = req.query;
     let sql = `
             SELECT DISTINCT p.* 
             FROM products p
@@ -15,11 +15,6 @@ async function getAll(req, res) {
     if (sku) {
       sql += " AND p.sku LIKE ?";
       params.push(`%${sku}%`);
-    }
-
-    if (accountable !== undefined) {
-      sql += " AND p.is_accountable = ?";
-      params.push(accountable === "true" ? 1 : 0);
     }
 
     if (tag) {
@@ -62,7 +57,14 @@ async function getById(req, res) {
 // Create new product
 async function create(req, res) {
   try {
-    const { type, sku, name, model, is_accountable, quantity } = req.body;
+    const {
+      type,
+      sku,
+      name,
+      model,
+      accountable_quantity,
+      non_accountable_quantity,
+    } = req.body;
 
     if (!type || !sku || !name) {
       return res.status(400).json({
@@ -71,23 +73,30 @@ async function create(req, res) {
       });
     }
 
-    // Check if same SKU with same accountable status already exists
+    // Check if SKU already exists
     const existing = await db.get(
-      "SELECT id FROM products WHERE sku = ? AND is_accountable = ? AND is_deleted = 0",
-      [sku, is_accountable ? 1 : 0],
+      "SELECT id FROM products WHERE sku = ? AND is_deleted = 0",
+      [sku],
     );
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        error: `此 SKU 的${is_accountable ? "有帳" : "無帳"}產品已存在`,
+        error: "此 SKU 已存在",
       });
     }
 
     const result = await db.run(
-      `INSERT INTO products (type, sku, name, model, is_accountable, quantity) 
+      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity) 
              VALUES (?, ?, ?, ?, ?, ?)`,
-      [type, sku, name, model || "", is_accountable ? 1 : 0, quantity || 0],
+      [
+        type,
+        sku,
+        name,
+        model || "",
+        accountable_quantity || 0,
+        non_accountable_quantity || 0,
+      ],
     );
 
     const newProduct = await db.get("SELECT * FROM products WHERE id = ?", [
@@ -97,9 +106,10 @@ async function create(req, res) {
   } catch (error) {
     console.error("Error creating product:", error);
     if (error.message.includes("UNIQUE constraint failed")) {
-      return res
-        .status(400)
-        .json({ success: false, error: "SKU already exists" });
+      return res.status(400).json({
+        success: false,
+        error: "此 SKU 已存在",
+      });
     }
     res.status(500).json({ success: false, error: error.message });
   }
@@ -109,7 +119,7 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const { type, name, model, is_accountable } = req.body;
+    const { type, name, model } = req.body;
 
     const product = await db.get(
       "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
@@ -123,19 +133,9 @@ async function update(req, res) {
 
     await db.run(
       `UPDATE products 
-             SET type = ?, name = ?, model = ?, is_accountable = ?
+             SET type = ?, name = ?, model = ?
              WHERE id = ?`,
-      [
-        type || product.type,
-        name || product.name,
-        model || product.model,
-        is_accountable !== undefined
-          ? is_accountable
-            ? 1
-            : 0
-          : product.is_accountable,
-        id,
-      ],
+      [type || product.type, name || product.name, model || product.model, id],
     );
 
     const updatedProduct = await db.get("SELECT * FROM products WHERE id = ?", [

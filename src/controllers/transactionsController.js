@@ -3,12 +3,26 @@ const db = require("../config/database");
 // Create new transaction and update product quantity
 async function create(req, res) {
   try {
-    const { product_id, tag_id, quantity_change, remarks } = req.body;
+    const { product_id, tag_id, quantity_change, quantity_type, remarks } =
+      req.body;
 
-    if (!product_id || !tag_id || quantity_change === undefined) {
+    if (
+      !product_id ||
+      !tag_id ||
+      quantity_change === undefined ||
+      !quantity_type
+    ) {
       return res.status(400).json({
         success: false,
-        error: "product_id, tag_id, and quantity_change are required",
+        error:
+          "product_id, tag_id, quantity_change, and quantity_type are required",
+      });
+    }
+
+    if (!["accountable", "non_accountable"].includes(quantity_type)) {
+      return res.status(400).json({
+        success: false,
+        error: "quantity_type must be 'accountable' or 'non_accountable'",
       });
     }
 
@@ -24,13 +38,25 @@ async function create(req, res) {
         .json({ success: false, error: "Product not found" });
     }
 
+    // Determine which quantity field to update
+    const quantityField =
+      quantity_type === "accountable"
+        ? "accountable_quantity"
+        : "non_accountable_quantity";
+    const currentQuantity =
+      quantity_type === "accountable"
+        ? product.accountable_quantity
+        : product.non_accountable_quantity;
+
     // Calculate new quantity
-    const newQuantity = product.quantity + parseInt(quantity_change);
+    const newQuantity = currentQuantity + parseInt(quantity_change);
 
     if (newQuantity < 0) {
       return res.status(400).json({
         success: false,
-        error: "Insufficient quantity in stock",
+        error: `Insufficient ${
+          quantity_type === "accountable" ? "有帳" : "無帳"
+        } quantity in stock`,
       });
     }
 
@@ -42,11 +68,18 @@ async function create(req, res) {
       const result = await db.run(
         `INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) 
                  VALUES (?, ?, ?, ?)`,
-        [product_id, tag_id, quantity_change, remarks || ""],
+        [
+          product_id,
+          tag_id,
+          quantity_change,
+          `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
+            remarks || ""
+          }`,
+        ],
       );
 
       // Update product quantity
-      await db.run("UPDATE products SET quantity = ? WHERE id = ?", [
+      await db.run(`UPDATE products SET ${quantityField} = ? WHERE id = ?`, [
         newQuantity,
         product_id,
       ]);

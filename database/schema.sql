@@ -5,15 +5,14 @@
 CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL,
-    sku TEXT NOT NULL,
+    sku TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     model TEXT,
-    is_accountable BOOLEAN NOT NULL DEFAULT 1,
-    quantity INTEGER NOT NULL DEFAULT 0,
+    accountable_quantity INTEGER NOT NULL DEFAULT 0,
+    non_accountable_quantity INTEGER NOT NULL DEFAULT 0,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(sku, is_accountable)
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tags Table (Predefined transaction categories)

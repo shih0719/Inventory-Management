@@ -39,11 +39,18 @@ async function createBatch(req, res) {
 
       // Process each item
       for (const item of items) {
-        const { product_id, quantity_change, remarks } = item;
+        const { product_id, quantity_change, quantity_type, remarks } = item;
 
-        if (!product_id || quantity_change === undefined) {
+        if (!product_id || quantity_change === undefined || !quantity_type) {
           errors.push(
-            `Product ID ${product_id}: Missing product_id or quantity_change`,
+            `Product ID ${product_id}: Missing product_id, quantity_change, or quantity_type`,
+          );
+          continue;
+        }
+
+        if (!["accountable", "non_accountable"].includes(quantity_type)) {
+          errors.push(
+            `Product ID ${product_id}: quantity_type must be 'accountable' or 'non_accountable'`,
           );
           continue;
         }
@@ -59,12 +66,24 @@ async function createBatch(req, res) {
           continue;
         }
 
+        // Determine which quantity field to update
+        const quantityField =
+          quantity_type === "accountable"
+            ? "accountable_quantity"
+            : "non_accountable_quantity";
+        const currentQuantity =
+          quantity_type === "accountable"
+            ? product.accountable_quantity
+            : product.non_accountable_quantity;
+
         // Calculate new quantity
-        const newQuantity = product.quantity + parseInt(quantity_change);
+        const newQuantity = currentQuantity + parseInt(quantity_change);
 
         if (newQuantity < 0) {
           errors.push(
-            `Product ID ${product_id}: Insufficient quantity in stock`,
+            `Product ID ${product_id}: Insufficient ${
+              quantity_type === "accountable" ? "有帳" : "無帳"
+            } quantity in stock`,
           );
           continue;
         }
@@ -73,11 +92,19 @@ async function createBatch(req, res) {
         await db.run(
           `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks) 
            VALUES (?, ?, ?, ?, ?)`,
-          [product_id, tag_id, batchId, quantity_change, remarks || ""],
+          [
+            product_id,
+            tag_id,
+            batchId,
+            quantity_change,
+            `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
+              remarks || ""
+            }`,
+          ],
         );
 
         // Update product quantity
-        await db.run("UPDATE products SET quantity = ? WHERE id = ?", [
+        await db.run(`UPDATE products SET ${quantityField} = ? WHERE id = ?`, [
           newQuantity,
           product_id,
         ]);
@@ -85,6 +112,7 @@ async function createBatch(req, res) {
         processedItems.push({
           product_id,
           product_name: product.name,
+          quantity_type,
           quantity_change,
         });
       }

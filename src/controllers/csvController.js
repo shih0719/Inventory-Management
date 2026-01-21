@@ -30,7 +30,7 @@ async function importCSV(req, res) {
         for (const row of results) {
           rowNumber++;
           try {
-            const { SKU, Name, Type, Model, IsAccountable, Quantity } = row;
+            const { SKU, Name, Type, Model, IsAccount, NoAccount } = row;
 
             if (!SKU || !Name || !Type) {
               errors.push(
@@ -39,11 +39,8 @@ async function importCSV(req, res) {
               continue;
             }
 
-            const isAccountable =
-              IsAccountable === "1" || IsAccountable?.toLowerCase() === "true"
-                ? 1
-                : 0;
-            const quantity = parseInt(Quantity) || 0;
+            const accountableQty = parseInt(IsAccount) || 0;
+            const nonAccountableQty = parseInt(NoAccount) || 0;
 
             // Check if product exists
             const existing = await db.get(
@@ -52,19 +49,32 @@ async function importCSV(req, res) {
             );
 
             if (existing) {
-              // Update existing product
               await db.run(
-                `UPDATE products SET name = ?, type = ?, model = ?, is_accountable = ?, quantity = ? 
-                                 WHERE sku = ?`,
-                [Name, Type, Model || "", isAccountable, quantity, SKU],
+                `UPDATE products SET name = ?, type = ?, model = ?, 
+                 accountable_quantity = ?, non_accountable_quantity = ? 
+                 WHERE sku = ?`,
+                [
+                  Name,
+                  Type,
+                  Model || "",
+                  accountableQty,
+                  nonAccountableQty,
+                  SKU,
+                ],
               );
               updated++;
             } else {
-              // Insert new product
               await db.run(
-                `INSERT INTO products (sku, name, type, model, is_accountable, quantity) 
-                                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [SKU, Name, Type, Model || "", isAccountable, quantity],
+                `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity) 
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                  SKU,
+                  Name,
+                  Type,
+                  Model || "",
+                  accountableQty,
+                  nonAccountableQty,
+                ],
               );
               imported++;
             }
@@ -101,12 +111,20 @@ async function importCSV(req, res) {
 async function exportCSV(req, res) {
   try {
     const products = await db.all(
-      `SELECT sku as SKU, name as Name, type as Type, model as Model, 
-                    is_accountable as IsAccountable, quantity as Quantity
-             FROM products 
-             WHERE is_deleted = 0
-             ORDER BY sku ASC`,
+      `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity
+       FROM products 
+       WHERE is_deleted = 0
+       ORDER BY sku ASC`,
     );
+
+    const exportData = products.map((product) => ({
+      SKU: product.sku,
+      Name: product.name,
+      Type: product.type,
+      Model: product.model || "",
+      IsAccount: product.accountable_quantity,
+      NoAccount: product.non_accountable_quantity,
+    }));
 
     const timestamp = new Date()
       .toISOString()
@@ -128,12 +146,12 @@ async function exportCSV(req, res) {
         { id: "Name", title: "Name" },
         { id: "Type", title: "Type" },
         { id: "Model", title: "Model" },
-        { id: "IsAccountable", title: "IsAccountable" },
-        { id: "Quantity", title: "Quantity" },
+        { id: "IsAccount", title: "IsAccount" },
+        { id: "NoAccount", title: "NoAccount" },
       ],
     });
 
-    await csvWriter.writeRecords(products);
+    await csvWriter.writeRecords(exportData);
 
     res.download(filepath, filename, (err) => {
       if (err) {
