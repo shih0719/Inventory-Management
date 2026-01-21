@@ -962,12 +962,12 @@ async function searchBatchProducts(
         .map(
           (p) => `
         <div class="px-3 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 text-sm" 
-             onclick="selectBatchProduct(${p.id}, '${p.name.replace(
-            /'/g,
-            "\\'",
-          )}, ${p.accountable_quantity}, ${
-            p.non_accountable_quantity
-          }, '${p.sku.replace(/'/g, "\\'")}', ${resultsDiv.dataset.index})">
+             data-product-id="${p.id}"
+             data-product-name="${p.name.replace(/"/g, '&quot;')}"
+             data-product-sku="${p.sku.replace(/"/g, '&quot;')}"
+             data-product-accountable="${p.accountable_quantity}"
+             data-product-non-accountable="${p.non_accountable_quantity}"
+             data-index="${resultsDiv.dataset.index}">
           <div class="font-medium text-gray-900">${p.name}</div>
           <div class="text-xs text-gray-600">SKU: ${p.sku} | 有帳: ${
             p.accountable_quantity
@@ -977,6 +977,20 @@ async function searchBatchProducts(
         )
         .join("");
       resultsDiv.classList.remove("hidden");
+      
+      // Add click event listeners
+      resultsDiv.querySelectorAll('[data-product-id]').forEach(item => {
+        item.addEventListener('click', function() {
+          selectBatchProduct(
+            this.dataset.productId,
+            this.dataset.productName,
+            this.dataset.productAccountable,
+            this.dataset.productNonAccountable,
+            this.dataset.productSku,
+            this.dataset.index
+          );
+        });
+      });
     } else {
       resultsDiv.innerHTML =
         '<div class="px-3 py-2 text-sm text-gray-500">沒有找到產品</div>';
