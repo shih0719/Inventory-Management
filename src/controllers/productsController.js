@@ -21,18 +21,29 @@ async function getAll(req, res) {
     const params = [];
     const countParams = [];
 
-    if (sku) {
-      sql += " AND p.sku LIKE ?";
-      countSql += " AND p.sku LIKE ?";
-      params.push(`%${sku}%`);
-      countParams.push(`%${sku}%`);
-    }
+    // If both sku and name are provided with the same value (from search),
+    // use OR logic to search in both fields
+    if (sku && name && sku === name) {
+      sql += " AND (p.sku LIKE ? OR p.name LIKE ?)";
+      countSql += " AND (p.sku LIKE ? OR p.name LIKE ?)";
+      const searchPattern = `%${sku}%`;
+      params.push(searchPattern, searchPattern);
+      countParams.push(searchPattern, searchPattern);
+    } else {
+      // Separate filters use AND logic
+      if (sku) {
+        sql += " AND p.sku LIKE ?";
+        countSql += " AND p.sku LIKE ?";
+        params.push(`%${sku}%`);
+        countParams.push(`%${sku}%`);
+      }
 
-    if (name) {
-      sql += " AND p.name LIKE ?";
-      countSql += " AND p.name LIKE ?";
-      params.push(`%${name}%`);
-      countParams.push(`%${name}%`);
+      if (name) {
+        sql += " AND p.name LIKE ?";
+        countSql += " AND p.name LIKE ?";
+        params.push(`%${name}%`);
+        countParams.push(`%${name}%`);
+      }
     }
 
     if (tag) {

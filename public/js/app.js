@@ -881,17 +881,17 @@ function addBatchItem() {
       </button>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-      <div>
+      <div class="relative">
         <label class="block text-sm font-medium text-gray-700 mb-1">產品 *</label>
-        <select class="batch-product-select w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm" required>
-          <option value="">選擇產品...</option>
-          ${products
-            .map(
-              (p) =>
-                `<option value="${p.id}" data-accountable="${p.accountable_quantity}" data-non-accountable="${p.non_accountable_quantity}">${p.name} (${p.sku})</option>`,
-            )
-            .join("")}
-        </select>
+        <input 
+          type="text" 
+          class="batch-product-search w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm" 
+          placeholder="搜尋 SKU 或名稱..."
+          data-index="${index}"
+          autocomplete="off"
+        />
+        <input type="hidden" class="batch-product-id" data-index="${index}" />
+        <div class="batch-product-results absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto hidden" data-index="${index}"></div>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">類型 *</label>
@@ -912,6 +912,93 @@ function addBatchItem() {
   `;
 
   container.appendChild(itemDiv);
+
+  // Add event listener for product search
+  const searchInput = itemDiv.querySelector(".batch-product-search");
+  const resultsDiv = itemDiv.querySelector(".batch-product-results");
+  const hiddenInput = itemDiv.querySelector(".batch-product-id");
+
+  let searchTimeout;
+  searchInput.addEventListener("input", function () {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+
+    if (query.length < 1) {
+      resultsDiv.classList.add("hidden");
+      hiddenInput.value = "";
+      return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+      await searchBatchProducts(query, resultsDiv, searchInput, hiddenInput);
+    }, 300);
+  });
+
+  // Hide results when clicking outside
+  document.addEventListener("click", function (e) {
+    if (!itemDiv.contains(e.target)) {
+      resultsDiv.classList.add("hidden");
+    }
+  });
+}
+
+// Search products for batch transaction
+async function searchBatchProducts(
+  query,
+  resultsDiv,
+  searchInput,
+  hiddenInput,
+) {
+  try {
+    const response = await fetch(
+      `${API_BASE}/products?sku=${encodeURIComponent(
+        query,
+      )}&name=${encodeURIComponent(query)}&limit=50`,
+    );
+    const result = await response.json();
+
+    if (result.success && result.data.length > 0) {
+      resultsDiv.innerHTML = result.data
+        .map(
+          (p) => `
+        <div class="px-3 py-2 hover:bg-purple-50 cursor-pointer border-b border-gray-100 text-sm" 
+             onclick="selectBatchProduct(${p.id}, '${p.name.replace(
+            /'/g,
+            "\\'",
+          )}, ${p.accountable_quantity}, ${
+            p.non_accountable_quantity
+          }, '${p.sku.replace(/'/g, "\\'")}', ${resultsDiv.dataset.index})">
+          <div class="font-medium text-gray-900">${p.name}</div>
+          <div class="text-xs text-gray-600">SKU: ${p.sku} | 有帳: ${
+            p.accountable_quantity
+          } | 無帳: ${p.non_accountable_quantity}</div>
+        </div>
+      `,
+        )
+        .join("");
+      resultsDiv.classList.remove("hidden");
+    } else {
+      resultsDiv.innerHTML =
+        '<div class="px-3 py-2 text-sm text-gray-500">沒有找到產品</div>';
+      resultsDiv.classList.remove("hidden");
+    }
+  } catch (error) {
+    console.error("Error searching products:", error);
+  }
+}
+
+// Select product for batch transaction
+function selectBatchProduct(id, name, accountable, nonAccountable, sku, index) {
+  const itemDiv = document.querySelector(`[data-index="${index}"]`);
+  if (!itemDiv) return;
+
+  const searchInput = itemDiv.querySelector(".batch-product-search");
+  const hiddenInput = itemDiv.querySelector(".batch-product-id");
+  const resultsDiv = itemDiv.querySelector(".batch-product-results");
+
+  searchInput.value = `${name} (${sku})`;
+  hiddenInput.value = id;
+  resultsDiv.classList.add("hidden");
 }
 
 function removeBatchItem(index) {
@@ -951,14 +1038,14 @@ async function handleBatchSubmit(e) {
   }
 
   for (const itemDiv of itemDivs) {
-    const productSelect = itemDiv.querySelector(".batch-product-select");
+    const productIdInput = itemDiv.querySelector(".batch-product-id");
     const quantityTypeSelect = itemDiv.querySelector(
       ".batch-quantity-type-select",
     );
     const quantityInput = itemDiv.querySelector(".batch-quantity-input");
     const remarksInput = itemDiv.querySelector(".batch-remarks-input");
 
-    const productId = productSelect.value;
+    const productId = productIdInput.value;
     const quantityType = quantityTypeSelect.value;
     const quantityChange = parseInt(quantityInput.value);
     const remarks = remarksInput.value;
