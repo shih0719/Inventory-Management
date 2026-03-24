@@ -214,10 +214,38 @@ async function softDelete(req, res) {
   }
 }
 
+// Product Location Query: Get all locations where a product is stored
+async function getProductLocations(req, res) {
+  try {
+    const { sku } = req.params;
+
+    const product = await db.get("SELECT id, name, sku FROM products WHERE sku = ? AND is_deleted = 0", [sku]);
+    if (!product) {
+      return res.status(404).json({ success: false, error: "Product not found" });
+    }
+
+    const sql = `
+      SELECT l.* 
+      FROM locations l
+      JOIN product_locations pl ON l.id = pl.location_id
+      WHERE pl.product_id = ?
+      ORDER BY l.name ASC
+    `;
+
+    const locations = await db.all(sql, [product.id]);
+
+    res.json({ success: true, data: { product, locations } });
+  } catch (error) {
+    console.error("Error fetching product locations:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   getAll,
   getById,
   create,
   update,
   softDelete,
+  getProductLocations,
 };

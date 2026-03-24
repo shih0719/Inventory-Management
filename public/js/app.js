@@ -4,16 +4,41 @@ const API_BASE = "/api";
 // Global state
 let products = [];
 let tags = [];
+let locations = [];
+let html5QrCode = null; // Camera scanner instance
 let currentEditingProduct = null;
 let currentPage = 1;
 let totalPages = 1;
 let totalProducts = 0;
+let serverUrl = window.location.origin;
 
 // Initialize app
 document.addEventListener("DOMContentLoaded", async () => {
+  // Try to get actual server IP for QR codes
+  try {
+    const infoRes = await fetch(`${API_BASE}/info`);
+    const info = await infoRes.json();
+    if (info.url) serverUrl = info.url;
+  } catch (e) {
+    console.warn("Could not fetch server info, falling back to current origin");
+  }
+
   await loadTags();
+  await loadLocations();
   await loadProducts();
   setupEventListeners();
+  
+  // Check for URL parameters (e.g., ?location=A-01)
+  const urlParams = new URLSearchParams(window.location.search);
+  const locationParam = urlParams.get('location');
+  if (locationParam) {
+    // Small delay to ensure everything is rendered
+    setTimeout(() => {
+      openLocationContentModal(locationParam);
+      // Optional: Clean up URL without reload
+      // window.history.replaceState({}, document.title, window.location.pathname);
+    }, 500);
+  }
 });
 
 // Load tags from API
@@ -29,6 +54,50 @@ async function loadTags() {
     console.error("Error loading tags:", error);
     showNotification("載入標籤失敗", "error");
   }
+}
+
+// Load locations from API
+async function loadLocations() {
+  try {
+    const response = await fetch(`${API_BASE}/locations`);
+    const result = await response.json();
+    if (result.success) {
+      locations = result.data;
+      populateLocationSelectors();
+      renderLocationsTable();
+    }
+  } catch (error) {
+    console.error("Error loading locations:", error);
+    showNotification("載入櫃位失敗", "error");
+  }
+}
+
+// Populate location selectors
+function populateLocationSelectors() {
+  const transactionLocation = document.getElementById("transaction-location");
+  const batchLocation = document.getElementById("batch-location");
+  const plModalSelect = document.getElementById("pl-modal-location-select");
+
+  if(transactionLocation) transactionLocation.innerHTML = '<option value="">選擇櫃位...</option>';
+  if(batchLocation) batchLocation.innerHTML = '<option value="">無</option>';
+  if(plModalSelect) plModalSelect.innerHTML = '<option value="">選擇欲綁定的櫃位...</option>';
+
+  locations.forEach((loc) => {
+    const option1 = document.createElement("option");
+    option1.value = loc.id;
+    option1.textContent = loc.name;
+    if(transactionLocation) transactionLocation.appendChild(option1);
+
+    const option2 = document.createElement("option");
+    option2.value = loc.id;
+    option2.textContent = loc.name;
+    if(batchLocation) batchLocation.appendChild(option2);
+
+    const option3 = document.createElement("option");
+    option3.value = loc.name; // Tag is used in API params as identifier
+    option3.textContent = loc.name;
+    if(plModalSelect) plModalSelect.appendChild(option3);
+  });
 }
 
 // Populate tag selector dropdowns
@@ -144,11 +213,11 @@ function renderProductsTable() {
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                 <div class="flex gap-2">
-                    <button onclick="openTransactionModal(${product.id}, '${
-      product.name
-    }', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
+                    <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
                             class="text-blue-600 hover:text-blue-800 font-medium">異動</button>
-                    <button onclick="openHistoryModal(${product.id}, '${
+                    <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')" 
+                            class="text-teal-600 hover:text-teal-800 font-medium">📍 櫃位</button>
+                    <button onclick="openHistoryModal(${product.id}, '${product.name}', '${product.sku}')"
       product.name
     }', '${product.sku}')" 
                             class="text-purple-600 hover:text-purple-800 font-medium">歷史</button>
@@ -212,11 +281,11 @@ function renderProductsCards() {
                 </div>
             </div>
             <div class="flex gap-2 flex-wrap">
-                <button onclick="openTransactionModal(${product.id}, '${
-      product.name
-    }', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
+                <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
                         class="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600">異動</button>
-                <button onclick="openHistoryModal(${product.id}, '${
+                <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')" 
+                        class="flex-1 bg-teal-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-600">📍 櫃位</button>
+                <button onclick="openHistoryModal(${product.id}, '${product.name}', '${product.sku}')"
       product.name
     }', '${product.sku}')" 
                         class="flex-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-600">歷史</button>
@@ -428,6 +497,59 @@ function setupEventListeners() {
   document
     .getElementById("all-trans-search-btn")
     .addEventListener("click", loadAllTransactions);
+
+  // Locations Management 
+  document.getElementById("location-create-form")?.addEventListener("submit", handleLocationCreate);
+  document.getElementById("location-scan-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const inputEL = document.getElementById("scan-location-input");
+    const val = inputEL.value.trim();
+    if(!val) return;
+    
+    await openLocationContentModal(val);
+    inputEL.value = ''; // clear upon success or attempt
+    inputEL.focus(); // keep focus for next scan
+  });
+  document.getElementById("open-camera-btn")?.addEventListener("click", openCameraScanner);
+  document.getElementById("camera-scan-modal-close")?.addEventListener("click", closeCameraScanner);
+
+  // Product Locations
+  document.getElementById("product-locations-modal-close")?.addEventListener("click", () => closeModal("product-locations-modal"));
+  document.getElementById("assign-location-form")?.addEventListener("submit", handleAssignLocation);
+
+  // Location Content
+  document.getElementById("location-content-modal-close")?.addEventListener("click", () => closeModal("location-content-modal"));
+
+  // Location QR Code
+  document.getElementById("location-qrcode-modal-close")?.addEventListener("click", () => closeModal("location-qrcode-modal"));
+  document.getElementById("location-qrcode-modal-print")?.addEventListener("click", () => {
+    const printWindow = window.open('', '_blank');
+    const qrContent = document.getElementById("qrcode-container").innerHTML;
+    const locName = document.getElementById("qr-modal-location-name").textContent;
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>櫃位標籤 - ${locName}</title>
+          <style>
+            body { font-family: sans-serif; text-align: center; padding: 20px; }
+            .label-box { border: 2px solid #000; padding: 20px; display: inline-block; }
+            h1 { font-size: 24px; margin-bottom: 10px; }
+            .qr-placeholder img { width: 200px; height: 200px; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="label-box">
+            <h1>櫃位：${locName}</h1>
+            <div class="qr-placeholder">${qrContent}</div>
+            <p style="margin-top: 10px; font-size: 14px;">庫房管理系統標籤</p>
+          </div>
+          <script>window.onload = function() { window.print(); window.close(); }</script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  });
 }
 
 // Populate all transactions tag filter
@@ -571,6 +693,7 @@ async function handleTransactionSubmit(e) {
       document.getElementById("transaction-product-id").value,
     ),
     tag_id: parseInt(document.getElementById("transaction-tag").value),
+    location_id: parseInt(document.getElementById("transaction-location").value) || null,
     quantity_change: parseInt(
       document.getElementById("transaction-quantity").value,
     ),
@@ -1078,12 +1201,15 @@ async function handleBatchSubmit(e) {
   }
 
   try {
+    const batchLocationId = document.getElementById("batch-location") ? document.getElementById("batch-location").value : null;
+
     const response = await fetch(`${API_BASE}/batches`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         items,
         tag_id: parseInt(tagId),
+        location_id: batchLocationId ? parseInt(batchLocationId) : null,
         description: description || "",
       }),
     });
@@ -1218,3 +1344,289 @@ async function viewBatchDetails(batchId) {
     showNotification("載入批次詳情失敗", "error");
   }
 }
+
+// ==========================================
+// Locations Management Functions
+// ==========================================
+
+function renderLocationsTable() {
+  const tbody = document.getElementById("locations-table-body");
+  tbody.innerHTML = "";
+
+  if (locations.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">沒有櫃位記錄</td></tr>`;
+    return;
+  }
+
+  locations.forEach(loc => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="px-4 py-3 text-sm font-medium text-gray-900">${loc.name}</td>
+      <td class="px-4 py-3 text-sm text-gray-600">${loc.description || "-"}</td>
+      <td class="px-4 py-3 text-sm text-gray-600">${formatDateTime(loc.created_at)}</td>
+      <td class="px-4 py-3 text-sm">
+        <div class="flex gap-2">
+          <button onclick="openLocationContentModal('${loc.name}')" class="text-teal-600 hover:text-teal-800 font-medium">查看內容</button>
+          <button onclick="showLocationQRCode('${loc.name}')" class="text-indigo-600 hover:text-indigo-800 font-medium">🏷️ 標籤</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+async function handleLocationCreate(e) {
+  e.preventDefault();
+  const name = document.getElementById("new-location-name").value;
+  const description = document.getElementById("new-location-desc").value;
+
+  try {
+    const response = await fetch(`${API_BASE}/locations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description })
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification("櫃位新增成功", "success");
+      document.getElementById("location-create-form").reset();
+      await loadLocations(); // Backend creates, we reload
+      renderLocationsTable();
+    } else {
+      showNotification(result.error || "櫃位新增失敗", "error");
+    }
+  } catch (err) {
+    showNotification("新增失敗", "error");
+  }
+}
+
+async function openLocationContentModal(tag) {
+  try {
+    const locResponse = await fetch(`${API_BASE}/locations/${encodeURIComponent(tag)}/content`);
+    const locResult = await locResponse.json();
+    if (locResult.success) {
+      const { location, products } = locResult.data;
+      document.getElementById("lc-modal-location-name").textContent = location.name;
+      document.getElementById("lc-modal-location-desc").textContent = location.description || "無";
+      
+      const tbody = document.getElementById("lc-modal-table-body");
+      tbody.innerHTML = "";
+      if (products.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">該櫃位目前沒有產品</td></tr>`;
+      } else {
+        products.forEach(p => {
+          const row = document.createElement("tr");
+          
+          // Need these values for Transaction Modal
+          const accountableQty = p.accountable_quantity || 0;
+          const nonAccountableQty = p.non_accountable_quantity || 0;
+          
+          row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-gray-900">${p.sku}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${p.name}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${p.type}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${p.model || "-"}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">
+              <div class="flex gap-2">
+                <button onclick="openTransactionModalFromLocation(${p.id}, '${p.name}', ${accountableQty}, ${nonAccountableQty}, '${location.id}')" class="text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap">異動</button>
+                <button onclick="unassignLocationFromContentModal('${location.name}', ${p.id}, '${tag}')" class="text-red-600 hover:text-red-800 font-medium whitespace-nowrap">解除綁定</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+      openModal("location-content-modal");
+    } else {
+      showNotification(locResult.error || "找不到此櫃位", "error");
+    }
+  } catch (err) {
+    showNotification("載入櫃位內容失敗", "error");
+  }
+}
+
+async function openProductLocationsModal(productId, sku, name) {
+  document.getElementById("pl-modal-product-id").value = productId;
+  document.getElementById("pl-modal-product-name").textContent = name;
+  document.getElementById("pl-modal-product-sku").textContent = sku;
+  document.getElementById("assign-location-form").reset();
+  
+  openModal("product-locations-modal");
+  await refreshProductLocationsTable(sku);
+}
+
+async function refreshProductLocationsTable(sku) {
+  try {
+    const response = await fetch(`${API_BASE}/products/${encodeURIComponent(sku)}/locations`);
+    const result = await response.json();
+    const tbody = document.getElementById("pl-modal-table-body");
+    tbody.innerHTML = "";
+    
+    if (result.success) {
+      const locs = result.data.locations;
+      if (locs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" class="px-4 py-8 text-center text-gray-500">此產品尚未綁定任何櫃位</td></tr>`;
+      } else {
+        locs.forEach(loc => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-gray-900">${loc.name}</td>
+            <td class="px-4 py-3 text-sm">
+              <button onclick="unassignLocation('${loc.name}', ${document.getElementById("pl-modal-product-id").value}, '${sku}')" class="text-red-600 hover:text-red-800 font-medium">解除綁定</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+    }
+  } catch (err) {
+    showNotification("載入產品櫃位失敗", "error");
+  }
+}
+
+async function handleAssignLocation(e) {
+  e.preventDefault();
+  const productId = parseInt(document.getElementById("pl-modal-product-id").value);
+  const locationName = document.getElementById("pl-modal-location-select").value;
+  const sku = document.getElementById("pl-modal-product-sku").textContent;
+
+  if(!locationName) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/locations/${encodeURIComponent(locationName)}/products`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product_id: productId })
+    });
+    const result = await response.json();
+    if(result.success) {
+      showNotification("綁定成功", "success");
+      await refreshProductLocationsTable(sku);
+    } else {
+      showNotification(result.error || "綁定失敗", "error");
+    }
+  } catch (err) {
+    showNotification("綁定失敗", "error");
+  }
+}
+
+async function unassignLocation(locationName, productId, sku) {
+  if(!confirm(`確定要將產品從櫃位 ${locationName} 移除嗎？`)) return;
+  try {
+    const response = await fetch(`${API_BASE}/locations/${encodeURIComponent(locationName)}/products/${productId}`, {
+      method: "DELETE"
+    });
+    const result = await response.json();
+    if(result.success) {
+      showNotification("解綁成功", "success");
+      await refreshProductLocationsTable(sku);
+    } else {
+      showNotification(result.error || "解綁失敗", "error");
+    }
+} catch(err) {
+    showNotification("解綁失敗", "error");
+  }
+}
+
+// Wrapper for unassigning from content modal to refresh properly
+async function unassignLocationFromContentModal(locationName, productId, originalTag) {
+  if(!confirm(`確定要將產品從櫃位 ${locationName} 移除嗎？`)) return;
+  try {
+    const response = await fetch(`${API_BASE}/locations/${encodeURIComponent(locationName)}/products/${productId}`, {
+      method: "DELETE"
+    });
+    const result = await response.json();
+    if(result.success) {
+      showNotification("解綁成功", "success");
+      await openLocationContentModal(originalTag); // Refresh that modal
+    } else {
+      showNotification(result.error || "解綁失敗", "error");
+    }
+  } catch(err) {
+    showNotification("解綁失敗", "error");
+  }
+}
+
+// Wrapper for opening transaction modal with pre-filled location
+function openTransactionModalFromLocation(productId, productName, accountableQty, nonAccountableQty, locationId) {
+  closeModal("location-content-modal"); // Close the parent modal to prevent z-index overlap
+  openTransactionModal(productId, productName, accountableQty, nonAccountableQty);
+  
+  // Pre-fill location
+  const locationSelect = document.getElementById("transaction-location");
+  if(locationSelect) {
+    locationSelect.value = locationId;
+  }
+}
+
+// Camera Scanning functionality
+async function openCameraScanner() {
+  openModal("camera-scan-modal");
+  
+  // Wait a tick for the modal to be visible before initializing the scanner
+  setTimeout(async () => {
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("reader");
+    }
+    
+    try {
+      await html5QrCode.start(
+        { facingMode: "environment" }, // Rear camera
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decodedText) => {
+          // Success callback
+          await closeCameraScanner();
+          // Pause briefly to ensure camera modal is gone before showing the next
+          setTimeout(async () => {
+            document.getElementById("scan-location-input").value = decodedText;
+            await openLocationContentModal(decodedText);
+            document.getElementById("scan-location-input").value = ''; // clear
+          }, 200);
+        },
+        (errorMessage) => {
+          // Ignore parsing errors (they trigger continuously while seeking)
+        }
+      );
+    } catch (err) {
+      console.error("Camera start error:", err);
+      showNotification("無法啟動相機，請確認已授予網站攝影機權限。", "error");
+      closeModal("camera-scan-modal");
+    }
+  }, 100);
+}
+
+async function closeCameraScanner() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    try {
+      await html5QrCode.stop();
+    } catch(err) {
+      console.error("Error stopping camera", err);
+    }
+  }
+  closeModal("camera-scan-modal");
+}
+
+// QR Code Labels
+function showLocationQRCode(tag) {
+  document.getElementById("qr-modal-location-name").textContent = tag;
+  const container = document.getElementById("qrcode-container");
+  container.innerHTML = ""; // Clear previous
+  
+  // Use the detected serverUrl instead of window.location.href
+  const url = new URL(serverUrl);
+  url.searchParams.set('location', tag);
+  const targetUrl = url.toString();
+  
+  // Generate QR code
+  new QRCode(container, {
+    text: targetUrl,
+    width: 200,
+    height: 200,
+    colorDark : "#000000",
+    colorLight : "#ffffff",
+    correctLevel : QRCode.CorrectLevel.H
+  });
+  
+  openModal("location-qrcode-modal");
+}
+

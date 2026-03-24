@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const os = require("os");
 const { initDatabase } = require("./src/config/database");
 
 const app = express();
@@ -19,6 +20,7 @@ const transactionsRoutes = require("./src/routes/transactions");
 const tagsRoutes = require("./src/routes/tags");
 const csvRoutes = require("./src/routes/csv");
 const batchesRoutes = require("./src/routes/batches");
+const locationsRoutes = require("./src/routes/locations");
 
 // API Routes
 app.use("/api/products", productsRoutes);
@@ -26,10 +28,34 @@ app.use("/api/transactions", transactionsRoutes);
 app.use("/api/tags", tagsRoutes);
 app.use("/api/csv", csvRoutes);
 app.use("/api/batches", batchesRoutes);
+app.use("/api/locations", locationsRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
+});
+
+// Server info endpoint (for IP detection)
+app.get("/api/info", (req, res) => {
+  const interfaces = os.networkInterfaces();
+  let ip = "localhost";
+  
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      // Skip internal and non-IPv4 addresses
+      if (iface.family === "IPv4" && !iface.internal) {
+        ip = iface.address;
+        break;
+      }
+    }
+    if (ip !== "localhost") break;
+  }
+  
+  res.json({
+    ip,
+    port: PORT,
+    url: `http://${ip}:${PORT}`
+  });
 });
 
 // Error handling middleware

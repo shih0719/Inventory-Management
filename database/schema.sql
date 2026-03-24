@@ -23,6 +23,25 @@ CREATE TABLE IF NOT EXISTS tags (
     color TEXT NOT NULL
 );
 
+-- Locations Table (Warehouse shelf locations)
+CREATE TABLE IF NOT EXISTS locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Product Locations Table (Many-to-many relationship mapping product models to locations)
+CREATE TABLE IF NOT EXISTS product_locations (
+    product_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (product_id, location_id),
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (location_id) REFERENCES locations(id)
+);
+
 -- Batches Table (For grouping multiple transactions)
 CREATE TABLE IF NOT EXISTS batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,12 +56,14 @@ CREATE TABLE IF NOT EXISTS transactions (
     product_id INTEGER NOT NULL,
     tag_id INTEGER NOT NULL,
     batch_id INTEGER,
+    location_id INTEGER,
     quantity_change INTEGER NOT NULL,
     remarks TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (tag_id) REFERENCES tags(id),
-    FOREIGN KEY (batch_id) REFERENCES batches(id)
+    FOREIGN KEY (batch_id) REFERENCES batches(id),
+    FOREIGN KEY (location_id) REFERENCES locations(id)
 );
 
 -- Indexes for performance optimization
@@ -51,7 +72,9 @@ CREATE INDEX IF NOT EXISTS idx_products_is_deleted ON products(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_transactions_product_id ON transactions(product_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_transactions_batch_id ON transactions(batch_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_location_id ON transactions(location_id);
 CREATE INDEX IF NOT EXISTS idx_batches_batch_number ON batches(batch_number);
+CREATE INDEX IF NOT EXISTS idx_product_locations_location_id ON product_locations(location_id);
 
 -- Trigger to update updated_at timestamp
 CREATE TRIGGER IF NOT EXISTS update_products_timestamp 
@@ -59,4 +82,12 @@ AFTER UPDATE ON products
 FOR EACH ROW
 BEGIN
     UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
+
+-- Trigger to update updated_at timestamp for locations
+CREATE TRIGGER IF NOT EXISTS update_locations_timestamp 
+AFTER UPDATE ON locations
+FOR EACH ROW
+BEGIN
+    UPDATE locations SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
