@@ -10,6 +10,7 @@
     - **[New]** 實作了 URL 參數支援 (`?location=xxx`)，掃描 QR Code 可直接開啟櫃位視窗。
     - **[New]** 新增了「櫃位標籤」生成與列印功能，整合 `qrcode.js` 自動生成包含伺服器 IP 的跳轉連結。
     - **[New]** 實作了後端 IP 分配偵測 (`/api/info`)，解決手機掃描時 `localhost` 無法存取的連線問題。
+    - **[New]** 建立了 `skills/inventory_query` Skill，讓 AI Agent 能透過 API 查詢庫存，支援遠端主機 IP 配置且可在腳本內預設 `DEFAULT_HOST`。
 3. **[Context]**: 
     - `public/js/app.js`
     - `server.js`
