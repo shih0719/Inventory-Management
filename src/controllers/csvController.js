@@ -152,6 +152,11 @@ async function exportCSV(req, res) {
     });
 
     await csvWriter.writeRecords(exportData);
+    
+    // Convert to ANSI (Big5) for Excel compatibility in Traditional Chinese environment
+    const content = fs.readFileSync(filepath, "utf8");
+    const big5Buffer = iconv.encode(content, "big5");
+    fs.writeFileSync(filepath, big5Buffer);
 
     res.download(filepath, filename, (err) => {
       if (err) {
