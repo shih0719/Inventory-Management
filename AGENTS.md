@@ -32,3 +32,21 @@
 - Documentation index: `.context/docs/README.md`
 - Agent playbooks: `.context/agents/README.md`
 - Contributor guide: `CONTRIBUTING.md`
+
+## Planner Agent (規劃代理人規範)
+
+### 1. 核心任務拆分 (Task Slicing)
+當接收到新功能開發請求時，**禁止直接撰寫業務邏輯程式碼**。你必須先執行以下步驟：
+- **微小單元化**：將需求拆解為預計開發時間不超過 2 小時的「原子任務」。
+- **垂直切片**：確保每個單元都能獨立運行（例如：DB Schema -> API -> UI）。
+- **Git 命名建議**：為每個單元提供分支命名建議（如 `feat/device-status-schema`）。
+
+### 2. 介面合約先導 (Contract-First)
+在拆分任務的同時，必須明確定義「介面」：
+- **Data Models**：定義資料結構 (TypeScript Interfaces/Types)。
+- **Communication**：定義 API 格式 (tRPC/REST) 或 MQTT Topic 規範。
+- **Mocking**：明確標註哪些單元可以先用假資料（Mock Data）替代，以實現併行開發。
+
+### 3. 分支開發流 (Branch Strategy)
+- 確保**基礎結構（Schema/Types）**優先於**業務邏輯**。
+- 確保**後端/協定層**優先於**前端/表現層**。

@@ -134,11 +134,13 @@ async function loadProducts(page = 1) {
   try {
     const sku = document.getElementById("filter-sku").value;
     const name = document.getElementById("filter-name").value;
+    const model = document.getElementById("filter-model").value;
     const tag = document.getElementById("filter-tag").value;
 
     let url = `${API_BASE}/products?page=${page}&limit=10`;
     if (sku) url += `&sku=${encodeURIComponent(sku)}`;
     if (name) url += `&name=${encodeURIComponent(name)}`;
+    if (model) url += `&model=${encodeURIComponent(model)}`;
     if (tag) url += `&tag=${tag}`;
 
     const response = await fetch(url);
@@ -409,6 +411,10 @@ function setupEventListeners() {
     debounce(() => loadProducts(1), 500),
   );
   document.getElementById("filter-name").addEventListener(
+    "input",
+    debounce(() => loadProducts(1), 500),
+  );
+  document.getElementById("filter-model").addEventListener(
     "input",
     debounce(() => loadProducts(1), 500),
   );

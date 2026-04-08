@@ -3,7 +3,7 @@ const db = require("../config/database");
 // Get all products with optional filtering
 async function getAll(req, res) {
   try {
-    const { sku, name, tag, page = 1, limit = 10 } = req.query;
+    const { sku, name, model, tag, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let countSql = `
@@ -43,6 +43,13 @@ async function getAll(req, res) {
         countSql += " AND p.name LIKE ?";
         params.push(`%${name}%`);
         countParams.push(`%${name}%`);
+      }
+
+      if (model) {
+        sql += " AND p.model LIKE ?";
+        countSql += " AND p.model LIKE ?";
+        params.push(`%${model}%`);
+        countParams.push(`%${model}%`);
       }
     }
 
