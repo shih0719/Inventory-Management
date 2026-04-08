@@ -523,6 +523,9 @@ function setupEventListeners() {
   document.getElementById("product-locations-modal-close")?.addEventListener("click", () => closeModal("product-locations-modal"));
   document.getElementById("assign-location-form")?.addEventListener("submit", handleAssignLocation);
 
+  // System Update
+  document.getElementById("check-update-btn")?.addEventListener("click", handleCheckUpdate);
+
   // Location Content
   document.getElementById("location-content-modal-close")?.addEventListener("click", () => closeModal("location-content-modal"));
 
@@ -1634,5 +1637,74 @@ function showLocationQRCode(tag) {
   });
   
   openModal("location-qrcode-modal");
+}
+
+// --- System Update Functions ---
+
+// Handle check update
+async function handleCheckUpdate() {
+  const btn = document.getElementById("check-update-btn");
+  const originalText = btn.innerHTML;
+  
+  try {
+    btn.disabled = true;
+    btn.innerHTML = '⏳ 檢查中...';
+    
+    const response = await fetch(`${API_BASE}/system/check-update`);
+    const result = await response.json();
+    
+    if (result.success) {
+      if (result.data.updateAvailable) {
+        const confirmUpdate = confirm(
+          `發現新版本！\n目前版本: ${result.data.localHash}\n遠端版本: ${result.data.remoteHash}\n\n是否現在套用更新？系統將會下載並自動重啟。`
+        );
+        if (confirmUpdate) {
+          await handleApplyUpdate();
+        }
+      } else {
+        alert(`目前已是最新版本 (${result.data.localHash})`);
+      }
+    } else {
+      showNotification(result.error || "檢查更新失敗", "error");
+    }
+  } catch (error) {
+    console.error("Check update error:", error);
+    showNotification("無法連接到伺服器進行更新檢查", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+// Handle apply update
+async function handleApplyUpdate() {
+  try {
+    showNotification("正在下載更新...", "info");
+    
+    const response = await fetch(`${API_BASE}/system/apply-update`, {
+      method: "POST"
+    });
+    const result = await response.json();
+    
+    if (result.success) {
+      // 顯示倒數提示
+      let countdown = 5;
+      showNotification(`更新成功！系統將在 ${countdown} 秒後自動重載...`, "success");
+      const interval = setInterval(() => {
+        countdown--;
+        if (countdown < 0) {
+          clearInterval(interval);
+          window.location.reload();
+        } else {
+          showNotification(`更新成功！系統將在 ${countdown} 秒後自動重載...`, "success");
+        }
+      }, 1000);
+    } else {
+      showNotification(result.error || "更新套用失敗", "error");
+    }
+  } catch (error) {
+    console.error("Apply update error:", error);
+    showNotification("更新過程發生錯誤", "error");
+  }
 }
 

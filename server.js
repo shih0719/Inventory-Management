@@ -21,6 +21,8 @@ const tagsRoutes = require("./src/routes/tags");
 const csvRoutes = require("./src/routes/csv");
 const batchesRoutes = require("./src/routes/batches");
 const locationsRoutes = require("./src/routes/locations");
+const systemRoutes = require("./src/routes/system");
+
 
 // API Routes
 app.use("/api/products", productsRoutes);
@@ -29,6 +31,8 @@ app.use("/api/tags", tagsRoutes);
 app.use("/api/csv", csvRoutes);
 app.use("/api/batches", batchesRoutes);
 app.use("/api/locations", locationsRoutes);
+app.use("/api/system", systemRoutes);
+
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
