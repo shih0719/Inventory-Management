@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const webhookService = require("../services/webhookService");
 
 // Create new transaction and update product quantity
 async function create(req, res) {
@@ -91,6 +92,20 @@ async function create(req, res) {
         "SELECT * FROM transactions WHERE id = ?",
         [result.id],
       );
+
+      // Fire webhook (non-blocking)
+      webhookService.fire("inventory.changed", {
+        transaction_id: result.id,
+        product_id,
+        sku: product.sku,
+        product_name: product.name,
+        quantity_type,
+        quantity_change: parseInt(quantity_change),
+        new_quantity: newQuantity,
+        tag_id,
+        remarks: remarks || "",
+      });
+
       res.status(201).json({ success: true, data: transaction });
     } catch (error) {
       await db.run("ROLLBACK");

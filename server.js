@@ -22,6 +22,7 @@ const csvRoutes = require("./src/routes/csv");
 const batchesRoutes = require("./src/routes/batches");
 const locationsRoutes = require("./src/routes/locations");
 const systemRoutes = require("./src/routes/system");
+const webhooksRoutes = require("./src/routes/webhooks");
 
 
 // API Routes
@@ -32,6 +33,7 @@ app.use("/api/csv", csvRoutes);
 app.use("/api/batches", batchesRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api/webhooks", webhooksRoutes);
 
 
 // Health check endpoint

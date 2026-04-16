@@ -404,6 +404,103 @@
 
 ---
 
+## 🔔 Webhooks — `/api/webhooks`
+
+> 事件推送管理。當庫存變動時，系統會主動 POST 通知已訂閱的外部端點。
+> 詳細運作說明請參閱 [WEBHOOK_GUIDE.md](./WEBHOOK_GUIDE.md)
+
+### `GET /api/webhooks`
+取得所有 Webhook 訂閱。
+
+**Response 200**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": 1, "name": "n8n-notify", "url": "http://...", "events": "[\"inventory.changed\"]", "is_active": 1, "created_at": "..." }
+  ]
+}
+```
+
+---
+
+### `POST /api/webhooks`
+新增 Webhook 訂閱。
+
+**Request Body**
+```json
+{
+  "name": "n8n-notify",
+  "url": "http://192.168.1.50:5678/webhook/inventory",
+  "events": ["inventory.changed", "batch.created"]
+}
+```
+
+| 欄位 | Required | 說明 |
+|------|----------|------|
+| `name` | Yes | 識別名稱 |
+| `url`  | Yes | 外部接收端點（需為合法 URL） |
+| `events` | No | 預設訂閱全部事件 |
+
+支援的 events：`inventory.changed`、`batch.created`
+
+**Response 201**: `{ "success": true, "data": { ...subscription } }`
+**Response 400**: 缺少必填欄位或 URL 格式錯誤
+
+---
+
+### `PUT /api/webhooks/:id`
+更新訂閱（可停用、修改 URL 或事件）。
+
+**Path Param**: `id`
+**Request Body**（全部選填，只傳要更新的欄位）
+```json
+{ "name": "...", "url": "...", "events": ["inventory.changed"], "is_active": 0 }
+```
+**Response 200**: `{ "success": true, "data": { ...updated } }`
+
+---
+
+### `DELETE /api/webhooks/:id`
+刪除訂閱。
+
+**Path Param**: `id`
+**Response 200**: `{ "success": true, "message": "Subscription deleted" }`
+
+---
+
+### `GET /api/webhooks/:id/logs`
+查詢指定訂閱的推送紀錄。
+
+| Query Param | Default |
+|-------------|---------|
+| `limit`     | 50      |
+| `offset`    | 0       |
+
+**Response 200**
+```json
+{
+  "success": true,
+  "data": [
+    { "id": 1, "event": "inventory.changed", "status_code": 200,
+      "attempts": 1, "success": 1, "error_message": null, "created_at": "..." }
+  ]
+}
+```
+
+---
+
+### `POST /api/webhooks/:id/test`
+對指定訂閱手動觸發一次測試推送（使用訂閱的第一個 event）。
+
+**Path Param**: `id`
+**Response 200**
+```json
+{ "success": true, "message": "Test webhook fired for event \"inventory.changed\". Check logs for delivery result." }
+```
+
+---
+
 ## 📊 API Summary Table
 
 | Method | Path | 功能 |
@@ -418,12 +515,12 @@
 | GET    | `/api/products/:sku/locations` | 商品存放儲位 |
 | GET    | `/api/transactions` | 所有交易記錄 |
 | GET    | `/api/transactions/product/:productId` | 商品交易記錄 |
-| POST   | `/api/transactions` | 建立單筆交易 |
+| POST   | `/api/transactions` | 建立單筆交易 🔔 |
 | GET    | `/api/tags` | 所有標籤 |
 | POST   | `/api/csv/import` | 批量匯入 CSV |
 | GET    | `/api/csv/export` | 匯出 CSV |
 | GET    | `/api/csv/template` | 下載 CSV 範本 |
-| POST   | `/api/batches` | 建立批次交易 |
+| POST   | `/api/batches` | 建立批次交易 🔔 |
 | GET    | `/api/batches` | 所有批次 |
 | GET    | `/api/batches/:id` | 批次明細 |
 | GET    | `/api/locations` | 所有儲位 |
@@ -433,3 +530,12 @@
 | DELETE | `/api/locations/:tag/products/:productId` | 移除儲位商品 |
 | GET    | `/api/system/check-update` | 檢查版本更新 |
 | POST   | `/api/system/apply-update` | 套用更新並重啟 |
+| GET    | `/api/webhooks` | 所有 Webhook 訂閱 |
+| POST   | `/api/webhooks` | 新增訂閱 |
+| PUT    | `/api/webhooks/:id` | 更新訂閱 |
+| DELETE | `/api/webhooks/:id` | 刪除訂閱 |
+| GET    | `/api/webhooks/:id/logs` | 推送紀錄 |
+| POST   | `/api/webhooks/:id/test` | 手動測試推送 |
+
+> 🔔 標記的端點在成功執行後會觸發 Webhook 通知。
+

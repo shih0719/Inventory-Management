@@ -1,6 +1,7 @@
 const db = require("../config/database");
+const webhookService = require("../services/webhookService");
 
-// Create batch transaction (multiple products at once)
+// Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
   try {
     const { items, tag_id, description } = req.body;
@@ -19,116 +20,117 @@ async function createBatch(req, res) {
       });
     }
 
-    // Generate batch number
+    // ── Phase 1: Pre-validate ALL items before touching the DB ──────────────
+    const validationErrors = [];
+    const validatedItems = []; // Enriched items ready for execution
+
+    for (let i = 0; i < items.length; i++) {
+      const { product_id, quantity_change, quantity_type, remarks } = items[i];
+      const index = `Item[${i}] (product_id: ${product_id ?? "N/A"})`;
+
+      if (!product_id || quantity_change === undefined || !quantity_type) {
+        validationErrors.push(`${index}: Missing product_id, quantity_change, or quantity_type`);
+        continue;
+      }
+
+      if (!["accountable", "non_accountable"].includes(quantity_type)) {
+        validationErrors.push(`${index}: quantity_type must be 'accountable' or 'non_accountable'`);
+        continue;
+      }
+
+      const product = await db.get(
+        "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
+        [product_id],
+      );
+
+      if (!product) {
+        validationErrors.push(`${index}: Product not found`);
+        continue;
+      }
+
+      const currentQuantity =
+        quantity_type === "accountable"
+          ? product.accountable_quantity
+          : product.non_accountable_quantity;
+
+      const newQuantity = currentQuantity + parseInt(quantity_change);
+
+      if (newQuantity < 0) {
+        validationErrors.push(
+          `${index} (${product.name}): 庫存不足，` +
+          `現有 ${quantity_type === "accountable" ? "有帳" : "無帳"} 數量 ${currentQuantity}，` +
+          `請求異動 ${quantity_change}`
+        );
+        continue;
+      }
+
+      validatedItems.push({
+        product_id,
+        product_name: product.name,
+        quantity_type,
+        quantity_change: parseInt(quantity_change),
+        remarks: remarks || "",
+        quantityField: quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity",
+        newQuantity,
+      });
+    }
+
+    // If ANY item failed validation → reject the entire batch
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `批次驗證失敗，共 ${validationErrors.length} 筆錯誤，整批取消`,
+        errors: validationErrors,
+      });
+    }
+
+    // ── Phase 2: All items passed — execute atomically ──────────────────────
     const timestamp = new Date().getTime();
     const batchNumber = `BATCH-${timestamp}`;
 
-    // Start transaction
     await db.run("BEGIN TRANSACTION");
 
     try {
-      // Create batch record
       const batchResult = await db.run(
         "INSERT INTO batches (batch_number, description) VALUES (?, ?)",
         [batchNumber, description || ""],
       );
-
       const batchId = batchResult.id;
-      const processedItems = [];
-      const errors = [];
 
-      // Process each item
-      for (const item of items) {
-        const { product_id, quantity_change, quantity_type, remarks } = item;
-
-        if (!product_id || quantity_change === undefined || !quantity_type) {
-          errors.push(
-            `Product ID ${product_id}: Missing product_id, quantity_change, or quantity_type`,
-          );
-          continue;
-        }
-
-        if (!["accountable", "non_accountable"].includes(quantity_type)) {
-          errors.push(
-            `Product ID ${product_id}: quantity_type must be 'accountable' or 'non_accountable'`,
-          );
-          continue;
-        }
-
-        // Check if product exists
-        const product = await db.get(
-          "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-          [product_id],
-        );
-
-        if (!product) {
-          errors.push(`Product ID ${product_id}: Product not found`);
-          continue;
-        }
-
-        // Determine which quantity field to update
-        const quantityField =
-          quantity_type === "accountable"
-            ? "accountable_quantity"
-            : "non_accountable_quantity";
-        const currentQuantity =
-          quantity_type === "accountable"
-            ? product.accountable_quantity
-            : product.non_accountable_quantity;
-
-        // Calculate new quantity
-        const newQuantity = currentQuantity + parseInt(quantity_change);
-
-        if (newQuantity < 0) {
-          errors.push(
-            `Product ID ${product_id}: Insufficient ${
-              quantity_type === "accountable" ? "有帳" : "無帳"
-            } quantity in stock`,
-          );
-          continue;
-        }
-
-        // Insert transaction record
+      for (const item of validatedItems) {
         await db.run(
-          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks) 
+          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks)
            VALUES (?, ?, ?, ?, ?)`,
           [
-            product_id,
+            item.product_id,
             tag_id,
             batchId,
-            quantity_change,
-            `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
-              remarks || ""
-            }`,
+            item.quantity_change,
+            `[${item.quantity_type === "accountable" ? "有帳" : "無帳"}] ${item.remarks}`,
           ],
         );
 
-        // Update product quantity
-        await db.run(`UPDATE products SET ${quantityField} = ? WHERE id = ?`, [
-          newQuantity,
-          product_id,
-        ]);
-
-        processedItems.push({
-          product_id,
-          product_name: product.name,
-          quantity_type,
-          quantity_change,
-        });
+        await db.run(
+          `UPDATE products SET ${item.quantityField} = ? WHERE id = ?`,
+          [item.newQuantity, item.product_id],
+        );
       }
 
-      // If all items failed, rollback
-      if (processedItems.length === 0) {
-        await db.run("ROLLBACK");
-        return res.status(400).json({
-          success: false,
-          error: "All items failed to process",
-          errors,
-        });
-      }
-
-      // Commit transaction
       await db.run("COMMIT");
+
+      const processedItems = validatedItems.map(({ product_id, product_name, quantity_type, quantity_change }) => ({
+        product_id, product_name, quantity_type, quantity_change,
+      }));
+
+      // Fire webhook (non-blocking)
+      webhookService.fire("batch.created", {
+        batch_id: batchId,
+        batch_number: batchNumber,
+        tag_id,
+        description: description || "",
+        processed_count: processedItems.length,
+        items: processedItems,
+      });
 
       res.status(201).json({
         success: true,
@@ -137,7 +139,6 @@ async function createBatch(req, res) {
           batch_id: batchId,
           batch_number: batchNumber,
           processed_items: processedItems,
-          errors: errors.length > 0 ? errors : undefined,
         },
       });
     } catch (error) {

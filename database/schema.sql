@@ -91,3 +91,30 @@ FOR EACH ROW
 BEGIN
     UPDATE locations SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
 END;
+
+-- Webhook Subscriptions Table
+CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    url        TEXT NOT NULL,
+    events     TEXT NOT NULL DEFAULT '["inventory.changed","batch.created"]',
+    is_active  INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Webhook Delivery Logs Table
+CREATE TABLE IF NOT EXISTS webhook_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    subscription_id INTEGER NOT NULL,
+    event           TEXT NOT NULL,
+    payload         TEXT NOT NULL,
+    status_code     INTEGER,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    success         INTEGER NOT NULL DEFAULT 0,
+    error_message   TEXT,
+    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (subscription_id) REFERENCES webhook_subscriptions(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_subscription_id ON webhook_logs(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
