@@ -3,7 +3,7 @@ const db = require("../config/database");
 // Get all products with optional filtering
 async function getAll(req, res) {
   try {
-    const { sku, name, model, tag, page = 1, limit = 10 } = req.query;
+    const { sku, name, model, tag, low_stock, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let countSql = `
@@ -60,6 +60,11 @@ async function getAll(req, res) {
       countParams.push(tag);
     }
 
+    if (low_stock === "true") {
+      sql += " AND p.min_stock > 0 AND p.accountable_quantity < p.min_stock";
+      countSql += " AND p.min_stock > 0 AND p.accountable_quantity < p.min_stock";
+    }
+
     sql += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
     params.push(parseInt(limit), offset);
 
@@ -114,6 +119,7 @@ async function create(req, res) {
       model,
       accountable_quantity,
       non_accountable_quantity,
+      min_stock,
     } = req.body;
 
     if (!type || !sku || !name) {
@@ -137,8 +143,8 @@ async function create(req, res) {
     }
 
     const result = await db.run(
-      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         type,
         sku,
@@ -146,6 +152,7 @@ async function create(req, res) {
         model || "",
         accountable_quantity || 0,
         non_accountable_quantity || 0,
+        min_stock != null ? parseInt(min_stock) : 0,
       ],
     );
 
@@ -169,7 +176,7 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const { type, name, model } = req.body;
+    const { type, name, model, min_stock } = req.body;
 
     const product = await db.get(
       "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
@@ -182,10 +189,16 @@ async function update(req, res) {
     }
 
     await db.run(
-      `UPDATE products 
-             SET type = ?, name = ?, model = ?
+      `UPDATE products
+             SET type = ?, name = ?, model = ?, min_stock = ?
              WHERE id = ?`,
-      [type || product.type, name || product.name, model || product.model, id],
+      [
+        type || product.type,
+        name || product.name,
+        model || product.model,
+        min_stock != null ? parseInt(min_stock) : product.min_stock,
+        id,
+      ],
     );
 
     const updatedProduct = await db.get("SELECT * FROM products WHERE id = ?", [

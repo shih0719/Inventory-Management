@@ -3,7 +3,7 @@ const https = require("https");
 const db = require("../config/database");
 
 // Supported events for this system
-const SUPPORTED_EVENTS = ["inventory.changed", "batch.created"];
+const SUPPORTED_EVENTS = ["inventory.changed", "batch.created", "inventory.low"];
 
 /**
  * Fire a webhook event (fire-and-forget, non-blocking)

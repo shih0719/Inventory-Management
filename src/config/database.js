@@ -54,17 +54,50 @@ function initDatabase() {
       }
       console.log("✅ Database schema initialized");
 
-      // Execute seeds
-      const seeds = fs.readFileSync(SEEDS_PATH, "utf8");
-      db.exec(seeds, (err) => {
+      // Migration: add min_stock column to products if missing
+      db.all("PRAGMA table_info(products)", (err, columns) => {
         if (err) {
-          console.error("❌ Seeds execution failed:", err.message);
+          console.error("❌ Failed to inspect products table:", err.message);
           reject(err);
           return;
         }
-        console.log("✅ Seed data loaded");
-        resolve(db);
+        const hasMinStock = columns.some((c) => c.name === "min_stock");
+        const ensureMinStock = hasMinStock
+          ? Promise.resolve()
+          : new Promise((res, rej) => {
+              db.run(
+                "ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0",
+                (e) => {
+                  if (e) {
+                    rej(e);
+                  } else {
+                    console.log("✅ Added min_stock column to products");
+                    res();
+                  }
+                },
+              );
+            });
+
+        ensureMinStock
+          .then(() => loadSeeds())
+          .catch((e) => {
+            console.error("❌ Migration failed:", e.message);
+            reject(e);
+          });
       });
+
+      function loadSeeds() {
+        const seeds = fs.readFileSync(SEEDS_PATH, "utf8");
+        db.exec(seeds, (err) => {
+          if (err) {
+            console.error("❌ Seeds execution failed:", err.message);
+            reject(err);
+            return;
+          }
+          console.log("✅ Seed data loaded");
+          resolve(db);
+        });
+      }
     });
   });
 }

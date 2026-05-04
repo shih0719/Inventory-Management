@@ -11,6 +11,7 @@
 - 📜 **全局異動查詢**：查看所有產品的異動記錄，支持 SKU、標籤、數量類型篩選
 - 📦 **批次異動**：支持一次操作多個產品的庫存變動，自動記錄批次編號
 - 📤 **CSV 導入導出**：批次匯入產品資料，匯出當前庫存快照
+- 🔔 **低庫存預警**：每個商品可設定 `min_stock` 閾值，跨越時自動推送 `inventory.low` Webhook 事件
 - 🔍 **即時過濾**：根據 SKU、標籤快速檢索
 - 📱 **響應式設計**：桌面表格 + 移動端卡片式佈局自適應
 - 🎨 **現代化 UI**：清新藍色調 (#3B82F6)，圓角陰影設計
@@ -170,6 +171,93 @@ inventory-management-system/
 - `POST /api/csv/import` - 匯入 CSV 文件
 - `GET /api/csv/export` - 匯出庫存為 CSV
 
+## 🔔 低庫存預警 (Low Stock Alert)
+
+每個商品可設定一個「最低庫存閾值」（`min_stock`）。當**有帳數量**（`accountable_quantity`）由 ≥ `min_stock` 跨越到 < `min_stock` 的瞬間，系統會推送一次 `inventory.low` Webhook 事件，可串接 n8n、LINE Notify 等通知服務。
+
+### 設計原則
+
+- **只比對有帳數量** — 「無帳」庫存依定義為暫存品/樣品/維修件，不應計入可用庫存
+- **Edge-triggered（邊界觸發）** — 只在跨越閾值的瞬間發一次事件；商品在低位繼續減少時**不會重複發**，直到補貨回到 ≥ `min_stock` 後再次跌破才會再發
+- **CSV 匯入不觸發** — CSV 視為資料校正而非業務交易
+- **`min_stock = 0`（預設）= 停用** — 對該商品不發任何低庫存警報
+
+### 1. 設定商品的 `min_stock`
+
+#### 方法 A：透過 API 單一商品更新
+
+```bash
+curl -X PUT http://localhost:3000/api/products/1 \
+  -H "Content-Type: application/json" \
+  -d '{"min_stock": 5}'
+```
+
+新增商品時也可帶入：
+
+```bash
+curl -X POST http://localhost:3000/api/products \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"SKU-001","name":"螺絲","type":"耗材","min_stock":10}'
+```
+
+#### 方法 B：透過 CSV 批量設定
+
+在 CSV 檔案加上 `MinStock` 欄位：
+
+```csv
+SKU,Name,Type,Model,IsAccount,NoAccount,MinStock
+SKU-001,辦公室筆電,電子產品,Dell XPS 15,10,5,5
+SKU-002,無線滑鼠,配件,Logitech MX Master,50,30,20
+```
+
+> 若更新既有商品時 CSV 中**沒有** `MinStock` 欄位（舊範本），系統會**保留原本的 `min_stock` 值**，不會清成 0。
+
+### 2. 訂閱 `inventory.low` 事件
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "low-stock-line-notify",
+    "url": "http://192.168.1.50:5678/webhook/low-stock",
+    "events": ["inventory.low"]
+  }'
+```
+
+事件 payload：
+
+```json
+{
+  "event": "inventory.low",
+  "timestamp": "2026-05-04T08:00:00.000Z",
+  "data": {
+    "product_id": 1,
+    "sku": "SKU-001",
+    "name": "螺絲 M4",
+    "accountable_quantity": 3,
+    "min_stock": 5
+  }
+}
+```
+
+### 3. 查詢「目前所有低庫存商品」
+
+```bash
+curl "http://localhost:3000/api/products?low_stock=true"
+```
+
+只回傳 `min_stock > 0 AND accountable_quantity < min_stock` 的商品，支援與其他篩選條件（`sku`、`name`、`model`、分頁）合併使用。
+
+### 觸發場景
+
+| 操作 | 是否可能觸發 `inventory.low` |
+|---|---|
+| `POST /api/transactions`（單筆交易，`quantity_type=accountable`） | ✅ 是 |
+| `POST /api/batches`（批次交易，每個 `accountable` item 各自判定） | ✅ 是（每個跨閾值的 item 各 fire 一次） |
+| `POST /api/transactions`（`quantity_type=non_accountable`） | ❌ 否 |
+| `POST /api/csv/import` | ❌ 否（依設計：CSV 為資料校正） |
+| `PUT /api/products/:id` 直接改 `min_stock` 拉高至超過當前庫存 | ❌ 否（不視為庫存異動） |
+
 ## 📝 CSV 格式規範
 
 ### 欄位順序
@@ -189,6 +277,7 @@ SKU-003,USB-C 轉接頭,配件,Anker A8342,0,100
 - **Model**：型號（選填）
 - **IsAccount**：有帳庫存數量（必填，沒有填 0）
 - **NoAccount**：無帳庫存數量（必填，沒有填 0）
+- **MinStock**：最低庫存閾值（選填；更新既有商品時若欄位缺漏，保留原值；新增商品時預設 0）
 
 ### 重要说明
 

@@ -38,6 +38,7 @@
 | `name`      | string | No       | 模糊搜尋名稱（若 sku===name 則以 OR 搜尋）|
 | `model`     | string | No       | 模糊搜尋型號 |
 | `tag`       | number | No       | 依 tag_id 篩選 |
+| `low_stock` | string | No       | `true` 時只回傳 `accountable_quantity < min_stock AND min_stock > 0` 的商品 |
 | `page`      | number | No       | 頁碼（預設 `1`）|
 | `limit`     | number | No       | 每頁筆數（預設 `10`）|
 
@@ -74,11 +75,14 @@
   "name": "產品名稱",
   "model": "MODEL-X",
   "accountable_quantity": 0,
-  "non_accountable_quantity": 0
+  "non_accountable_quantity": 0,
+  "min_stock": 5
 }
 ```
 **Response 201**: `{ "success": true, "data": { ...newProduct } }`
 **Response 400**: `{ "success": false, "error": "此 SKU 已存在" }`
+
+> `min_stock` 選填，預設 0（=停用該商品的低庫存警報）。
 
 ---
 
@@ -88,9 +92,11 @@
 **Path Param**: `id`
 **Request Body**
 ```json
-{ "type": "...", "name": "...", "model": "..." }
+{ "type": "...", "name": "...", "model": "...", "min_stock": 5 }
 ```
 **Response 200**: `{ "success": true, "data": { ...updatedProduct } }`
+
+> `min_stock` 選填；未提供時保留原值。
 
 ---
 
@@ -212,6 +218,7 @@
 | `Model`     | No       | |
 | `IsAccount` | No       | 有帳數量 |
 | `NoAccount` | No       | 無帳數量 |
+| `MinStock`  | No       | 最低庫存閾值（缺欄時更新時保留原值，新增時預設 0） |
 
 **Response 200**
 ```json
@@ -442,7 +449,23 @@
 | `url`  | Yes | 外部接收端點（需為合法 URL） |
 | `events` | No | 預設訂閱全部事件 |
 
-支援的 events：`inventory.changed`、`batch.created`
+支援的 events：`inventory.changed`、`batch.created`、`inventory.low`
+
+`inventory.low` payload：
+```json
+{
+  "event": "inventory.low",
+  "timestamp": "...",
+  "data": {
+    "product_id": 1,
+    "sku": "SKU001",
+    "name": "螺絲 M4",
+    "accountable_quantity": 3,
+    "min_stock": 5
+  }
+}
+```
+> Edge-triggered：只在跨越閾值的瞬間發送，不重複。
 
 **Response 201**: `{ "success": true, "data": { ...subscription } }`
 **Response 400**: 缺少必填欄位或 URL 格式錯誤

@@ -30,7 +30,7 @@ async function importCSV(req, res) {
         for (const row of results) {
           rowNumber++;
           try {
-            const { SKU, Name, Type, Model, IsAccount, NoAccount } = row;
+            const { SKU, Name, Type, Model, IsAccount, NoAccount, MinStock } = row;
 
             if (!SKU || !Name || !Type) {
               errors.push(
@@ -41,17 +41,21 @@ async function importCSV(req, res) {
 
             const accountableQty = parseInt(IsAccount) || 0;
             const nonAccountableQty = parseInt(NoAccount) || 0;
+            // MinStock omitted from CSV → preserve existing value on update / default 0 on insert
+            const hasMinStock = MinStock !== undefined && MinStock !== "";
+            const minStockVal = hasMinStock ? parseInt(MinStock) || 0 : null;
 
             // Check if product exists
             const existing = await db.get(
-              "SELECT id FROM products WHERE sku = ?",
+              "SELECT id, min_stock FROM products WHERE sku = ?",
               [SKU],
             );
 
             if (existing) {
+              const finalMinStock = hasMinStock ? minStockVal : existing.min_stock;
               await db.run(
-                `UPDATE products SET name = ?, type = ?, model = ?, 
-                 accountable_quantity = ?, non_accountable_quantity = ? 
+                `UPDATE products SET name = ?, type = ?, model = ?,
+                 accountable_quantity = ?, non_accountable_quantity = ?, min_stock = ?
                  WHERE sku = ?`,
                 [
                   Name,
@@ -59,14 +63,15 @@ async function importCSV(req, res) {
                   Model || "",
                   accountableQty,
                   nonAccountableQty,
+                  finalMinStock,
                   SKU,
                 ],
               );
               updated++;
             } else {
               await db.run(
-                `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity) 
-                 VALUES (?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                   SKU,
                   Name,
@@ -74,6 +79,7 @@ async function importCSV(req, res) {
                   Model || "",
                   accountableQty,
                   nonAccountableQty,
+                  hasMinStock ? minStockVal : 0,
                 ],
               );
               imported++;
@@ -111,8 +117,8 @@ async function importCSV(req, res) {
 async function exportCSV(req, res) {
   try {
     const products = await db.all(
-      `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity
-       FROM products 
+      `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock
+       FROM products
        WHERE is_deleted = 0
        ORDER BY sku ASC`,
     );
@@ -124,6 +130,7 @@ async function exportCSV(req, res) {
       Model: product.model || "",
       IsAccount: product.accountable_quantity,
       NoAccount: product.non_accountable_quantity,
+      MinStock: product.min_stock,
     }));
 
     const timestamp = new Date()
@@ -148,6 +155,7 @@ async function exportCSV(req, res) {
         { id: "Model", title: "Model" },
         { id: "IsAccount", title: "IsAccount" },
         { id: "NoAccount", title: "NoAccount" },
+        { id: "MinStock", title: "MinStock" },
       ],
     });
 

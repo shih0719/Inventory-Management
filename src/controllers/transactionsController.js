@@ -106,6 +106,22 @@ async function create(req, res) {
         remarks: remarks || "",
       });
 
+      // Edge-triggered inventory.low: only fire when accountable qty crosses below min_stock
+      if (
+        quantity_type === "accountable" &&
+        product.min_stock > 0 &&
+        currentQuantity >= product.min_stock &&
+        newQuantity < product.min_stock
+      ) {
+        webhookService.fire("inventory.low", {
+          product_id,
+          sku: product.sku,
+          name: product.name,
+          accountable_quantity: newQuantity,
+          min_stock: product.min_stock,
+        });
+      }
+
       res.status(201).json({ success: true, data: transaction });
     } catch (error) {
       await db.run("ROLLBACK");

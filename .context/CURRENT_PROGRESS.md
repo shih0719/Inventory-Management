@@ -10,6 +10,7 @@
     - 注入 `batchesController.js`：`batch.created` 事件
     - 掛載 `/api/webhooks` 到 `server.js`
     - 前次工作：整理 API Reference 文件 → `.context/API_REFERENCE.md`
+    - 排解 `SQLITE_CORRUPT` 問題並確認資料庫自動初始化 (`schema.sql`、`seeds.sql`) 的機制
 3. **[Context]**: 
     - `src/services/webhookService.js` — 核心推送邏輯
     - `src/controllers/webhooksController.js` — 管理 API

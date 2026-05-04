@@ -66,12 +66,15 @@ async function createBatch(req, res) {
 
       validatedItems.push({
         product_id,
+        product_sku: product.sku,
         product_name: product.name,
         quantity_type,
         quantity_change: parseInt(quantity_change),
         remarks: remarks || "",
         quantityField: quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity",
+        currentQuantity,
         newQuantity,
+        min_stock: product.min_stock,
       });
     }
 
@@ -131,6 +134,24 @@ async function createBatch(req, res) {
         processed_count: processedItems.length,
         items: processedItems,
       });
+
+      // Edge-triggered inventory.low per item
+      for (const item of validatedItems) {
+        if (
+          item.quantity_type === "accountable" &&
+          item.min_stock > 0 &&
+          item.currentQuantity >= item.min_stock &&
+          item.newQuantity < item.min_stock
+        ) {
+          webhookService.fire("inventory.low", {
+            product_id: item.product_id,
+            sku: item.product_sku,
+            name: item.product_name,
+            accountable_quantity: item.newQuantity,
+            min_stock: item.min_stock,
+          });
+        }
+      }
 
       res.status(201).json({
         success: true,

@@ -182,8 +182,17 @@ function renderProductsTable() {
   }
 
   products.forEach((product) => {
+    const isLow =
+      product.min_stock > 0 &&
+      product.accountable_quantity < product.min_stock;
     const row = document.createElement("tr");
-    row.className = "hover:bg-gray-50";
+    row.className = isLow ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50";
+    const accBadgeClass = isLow
+      ? "badge bg-red-100 text-red-800"
+      : "badge bg-green-100 text-green-800";
+    const accLabel = isLow
+      ? `⚠️ 有帳: ${product.accountable_quantity} / ${product.min_stock}`
+      : `有帳: ${product.accountable_quantity}`;
     row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm font-medium text-gray-900">${
@@ -201,9 +210,9 @@ function renderProductsTable() {
             }</td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm">
-                    <span class="badge bg-green-100 text-green-800">有帳: ${
-                      product.accountable_quantity
-                    }</span>
+                    <span class="${accBadgeClass}" title="${
+                      isLow ? `低於最低庫存閾值 ${product.min_stock}` : ""
+                    }">${accLabel}</span>
                 </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -251,8 +260,19 @@ function renderProductsCards() {
   }
 
   products.forEach((product) => {
+    const isLow =
+      product.min_stock > 0 &&
+      product.accountable_quantity < product.min_stock;
     const card = document.createElement("div");
-    card.className = "bg-white rounded-lg shadow-md p-4";
+    card.className = isLow
+      ? "bg-red-50 border border-red-200 rounded-lg shadow-md p-4"
+      : "bg-white rounded-lg shadow-md p-4";
+    const accClass = isLow
+      ? "font-semibold text-red-600"
+      : "font-semibold text-green-600";
+    const accText = isLow
+      ? `⚠️ ${product.accountable_quantity} / ${product.min_stock}`
+      : `${product.accountable_quantity}`;
     card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <div>
@@ -271,9 +291,7 @@ function renderProductsCards() {
                 </div>
                 <div>
                     <span class="text-gray-600">有帳庫存：</span>
-                    <span class="font-semibold text-green-600">${
-                      product.accountable_quantity
-                    }</span>
+                    <span class="${accClass}">${accText}</span>
                 </div>
                 <div>
                     <span class="text-gray-600">無帳庫存：</span>
@@ -590,6 +608,8 @@ async function handleProductSubmit(e) {
     non_accountable_quantity:
       parseInt(document.getElementById("product-non-accountable-qty").value) ||
       0,
+    min_stock:
+      parseInt(document.getElementById("product-min-stock").value) || 0,
   };
 
   try {
@@ -638,6 +658,8 @@ async function editProduct(id) {
         product.accountable_quantity;
       document.getElementById("product-non-accountable-qty").value =
         product.non_accountable_quantity;
+      document.getElementById("product-min-stock").value =
+        product.min_stock || 0;
 
       openModal("product-modal");
     }

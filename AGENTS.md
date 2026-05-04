@@ -50,3 +50,17 @@
 ### 3. 分支開發流 (Branch Strategy)
 - 確保**基礎結構（Schema/Types）**優先於**業務邏輯**。
 - 確保**後端/協定層**優先於**前端/表現層**。
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues at `shih0719/Inventory-Management` via the `gh` CLI. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Uses the five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) as-is. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context. `CONTEXT.md` at the repo root points into `.context/`; ADRs in `docs/adr/` (created lazily). See [docs/agents/domain.md](docs/agents/domain.md).
