@@ -511,6 +511,23 @@ function setupEventListeners() {
     .getElementById("batch-details-modal-close")
     .addEventListener("click", () => closeModal("batch-details-modal"));
 
+  // Webhooks
+  document
+    .getElementById("view-webhooks-btn")
+    .addEventListener("click", openWebhooksModal);
+  document
+    .getElementById("webhooks-modal-close")
+    .addEventListener("click", () => closeModal("webhooks-modal"));
+  document
+    .getElementById("webhook-add-btn")
+    .addEventListener("click", () => openWebhookForm(null));
+  document
+    .getElementById("webhook-form-cancel")
+    .addEventListener("click", () => closeModal("webhook-form-modal"));
+  document
+    .getElementById("webhook-form")
+    .addEventListener("submit", handleWebhookSubmit);
+
   // All transactions
   document
     .getElementById("view-all-transactions-btn")
@@ -1727,6 +1744,221 @@ async function handleApplyUpdate() {
   } catch (error) {
     console.error("Apply update error:", error);
     showNotification("更新過程發生錯誤", "error");
+  }
+}
+
+// ── Webhooks ────────────────────────────────────────────────────────────────
+
+async function openWebhooksModal() {
+  openModal("webhooks-modal");
+  await loadWebhooks();
+}
+
+async function loadWebhooks() {
+  const container = document.getElementById("webhooks-list");
+  container.innerHTML = '<p class="text-gray-500 text-sm">載入中...</p>';
+  try {
+    const response = await fetch(`${API_BASE}/webhooks`);
+    const result = await response.json();
+    if (!result.success) {
+      container.innerHTML = `<p class="text-red-500 text-sm">載入失敗：${result.error || ""}</p>`;
+      return;
+    }
+    renderWebhooks(result.data || []);
+  } catch (error) {
+    console.error("Error loading webhooks:", error);
+    container.innerHTML = '<p class="text-red-500 text-sm">載入失敗</p>';
+  }
+}
+
+function renderWebhooks(subs) {
+  const container = document.getElementById("webhooks-list");
+  if (subs.length === 0) {
+    container.innerHTML =
+      '<p class="text-gray-500 text-sm text-center py-4">尚未建立任何 Webhook 訂閱</p>';
+    return;
+  }
+  container.innerHTML = "";
+  subs.forEach((sub) => {
+    let events = [];
+    try {
+      events = JSON.parse(sub.events);
+    } catch {
+      events = [];
+    }
+    const card = document.createElement("div");
+    card.className = "border border-gray-200 rounded-lg p-4 bg-gray-50";
+    card.innerHTML = `
+      <div class="flex justify-between items-start mb-2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <h4 class="font-bold text-gray-900 truncate">${escapeHtml(sub.name)}</h4>
+            <span class="badge ${sub.is_active ? "bg-green-100 text-green-800" : "bg-gray-200 text-gray-600"}">
+              ${sub.is_active ? "啟用" : "停用"}
+            </span>
+          </div>
+          <p class="text-xs text-gray-600 break-all">${escapeHtml(sub.url)}</p>
+          <div class="flex gap-1 flex-wrap mt-2">
+            ${events.map((e) => `<span class="badge bg-pink-100 text-pink-800 text-xs">${escapeHtml(e)}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-wrap mt-3">
+        <button onclick="editWebhook(${sub.id})" class="text-blue-600 hover:text-blue-800 text-sm font-medium">編輯</button>
+        <button onclick="testWebhook(${sub.id})" class="text-purple-600 hover:text-purple-800 text-sm font-medium">測試推送</button>
+        <button onclick="viewWebhookLogs(${sub.id}, '${escapeHtml(sub.name).replace(/'/g, "\\'")}')" class="text-teal-600 hover:text-teal-800 text-sm font-medium">查看紀錄</button>
+        <button onclick="deleteWebhook(${sub.id}, '${escapeHtml(sub.name).replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-800 text-sm font-medium">刪除</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function openWebhookForm(sub) {
+  document.getElementById("webhook-form").reset();
+  document.getElementById("webhook-id").value = "";
+  document.getElementById("webhook-is-active").checked = true;
+  document.querySelectorAll(".webhook-event").forEach((cb) => (cb.checked = true));
+  document.getElementById("webhook-form-title").textContent = sub ? "編輯 Webhook" : "新增 Webhook";
+
+  if (sub) {
+    document.getElementById("webhook-id").value = sub.id;
+    document.getElementById("webhook-name").value = sub.name;
+    document.getElementById("webhook-url").value = sub.url;
+    document.getElementById("webhook-is-active").checked = !!sub.is_active;
+    let events = [];
+    try {
+      events = JSON.parse(sub.events);
+    } catch {
+      events = [];
+    }
+    document.querySelectorAll(".webhook-event").forEach((cb) => {
+      cb.checked = events.includes(cb.value);
+    });
+  }
+  openModal("webhook-form-modal");
+}
+
+async function editWebhook(id) {
+  try {
+    const response = await fetch(`${API_BASE}/webhooks`);
+    const result = await response.json();
+    if (!result.success) {
+      showNotification("載入失敗", "error");
+      return;
+    }
+    const sub = (result.data || []).find((s) => s.id === id);
+    if (!sub) {
+      showNotification("找不到該訂閱", "error");
+      return;
+    }
+    openWebhookForm(sub);
+  } catch (error) {
+    console.error("Error loading webhook:", error);
+    showNotification("載入失敗", "error");
+  }
+}
+
+async function handleWebhookSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById("webhook-id").value;
+  const events = Array.from(document.querySelectorAll(".webhook-event:checked")).map((cb) => cb.value);
+  if (events.length === 0) {
+    showNotification("請至少勾選一個事件", "error");
+    return;
+  }
+  const data = {
+    name: document.getElementById("webhook-name").value.trim(),
+    url: document.getElementById("webhook-url").value.trim(),
+    events,
+    is_active: document.getElementById("webhook-is-active").checked ? 1 : 0,
+  };
+  try {
+    const url = id ? `${API_BASE}/webhooks/${id}` : `${API_BASE}/webhooks`;
+    const method = id ? "PUT" : "POST";
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const result = await response.json();
+    if (result.success) {
+      showNotification(id ? "Webhook 更新成功" : "Webhook 新增成功", "success");
+      closeModal("webhook-form-modal");
+      await loadWebhooks();
+    } else {
+      showNotification(result.error || "操作失敗", "error");
+    }
+  } catch (error) {
+    console.error("Error saving webhook:", error);
+    showNotification("儲存失敗", "error");
+  }
+}
+
+async function deleteWebhook(id, name) {
+  if (!confirm(`確定要刪除 Webhook「${name}」嗎？`)) return;
+  try {
+    const response = await fetch(`${API_BASE}/webhooks/${id}`, { method: "DELETE" });
+    const result = await response.json();
+    if (result.success) {
+      showNotification("已刪除", "success");
+      await loadWebhooks();
+    } else {
+      showNotification(result.error || "刪除失敗", "error");
+    }
+  } catch (error) {
+    console.error("Error deleting webhook:", error);
+    showNotification("刪除失敗", "error");
+  }
+}
+
+async function testWebhook(id) {
+  try {
+    const response = await fetch(`${API_BASE}/webhooks/${id}/test`, { method: "POST" });
+    const result = await response.json();
+    if (result.success) {
+      showNotification("測試推送已觸發，請查看紀錄", "success");
+    } else {
+      showNotification(result.error || "測試失敗", "error");
+    }
+  } catch (error) {
+    console.error("Error testing webhook:", error);
+    showNotification("測試失敗", "error");
+  }
+}
+
+async function viewWebhookLogs(id, name) {
+  try {
+    const response = await fetch(`${API_BASE}/webhooks/${id}/logs?limit=20`);
+    const result = await response.json();
+    if (!result.success) {
+      showNotification(result.error || "載入失敗", "error");
+      return;
+    }
+    const logs = result.data || [];
+    if (logs.length === 0) {
+      alert(`「${name}」尚無推送紀錄`);
+      return;
+    }
+    const lines = logs.map((log) => {
+      const status = log.success ? "✅" : "❌";
+      const code = log.status_code != null ? `HTTP ${log.status_code}` : "—";
+      const err = log.error_message ? ` — ${log.error_message}` : "";
+      return `${status} [${log.created_at}] ${log.event} (${code}, ${log.attempts} 次)${err}`;
+    });
+    alert(`「${name}」最近 ${logs.length} 筆推送：\n\n${lines.join("\n")}`);
+  } catch (error) {
+    console.error("Error loading webhook logs:", error);
+    showNotification("載入失敗", "error");
   }
 }
 
