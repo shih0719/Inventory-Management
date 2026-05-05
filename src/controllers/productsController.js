@@ -13,7 +13,8 @@ async function getAll(req, res) {
             WHERE p.is_deleted = 0
         `;
     let sql = `
-            SELECT DISTINCT p.* 
+            SELECT DISTINCT p.*,
+              (SELECT COUNT(*) FROM product_units pu WHERE pu.product_id = p.id AND pu.status = 'in_stock') AS ap_in_stock_count
             FROM products p
             LEFT JOIN transactions t ON p.id = t.product_id
             WHERE p.is_deleted = 0
@@ -120,6 +121,7 @@ async function create(req, res) {
       accountable_quantity,
       non_accountable_quantity,
       min_stock,
+      track_serial,
     } = req.body;
 
     if (!type || !sku || !name) {
@@ -143,8 +145,8 @@ async function create(req, res) {
     }
 
     const result = await db.run(
-      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         type,
         sku,
@@ -153,6 +155,7 @@ async function create(req, res) {
         accountable_quantity || 0,
         non_accountable_quantity || 0,
         min_stock != null ? parseInt(min_stock) : 0,
+        track_serial ? 1 : 0,
       ],
     );
 
@@ -176,7 +179,7 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const { type, name, model, min_stock } = req.body;
+    const { type, name, model, min_stock, track_serial } = req.body;
 
     const product = await db.get(
       "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
@@ -188,15 +191,36 @@ async function update(req, res) {
         .json({ success: false, error: "Product not found" });
     }
 
+    // Protect: cannot turn off track_serial if APs exist
+    if (track_serial === false || track_serial === 0 || track_serial === "false" || track_serial === "0") {
+      if (product.track_serial === 1) {
+        const apCount = await db.get(
+          "SELECT COUNT(*) as cnt FROM product_units WHERE product_id = ?",
+          [id],
+        );
+        if (apCount.cnt > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `該商品仍有 ${apCount.cnt} 筆序號紀錄，請先全部刪除後再關閉序號追蹤`,
+          });
+        }
+      }
+    }
+
+    const newTrackSerial = track_serial != null
+      ? (track_serial === true || track_serial === 1 || track_serial === "true" || track_serial === "1" ? 1 : 0)
+      : product.track_serial;
+
     await db.run(
       `UPDATE products
-             SET type = ?, name = ?, model = ?, min_stock = ?
+             SET type = ?, name = ?, model = ?, min_stock = ?, track_serial = ?
              WHERE id = ?`,
       [
         type || product.type,
         name || product.name,
-        model || product.model,
+        model !== undefined ? model : product.model,
         min_stock != null ? parseInt(min_stock) : product.min_stock,
+        newTrackSerial,
         id,
       ],
     );
@@ -224,6 +248,18 @@ async function softDelete(req, res) {
       return res
         .status(404)
         .json({ success: false, error: "Product not found" });
+    }
+
+    // Protect: cannot delete product if any APs exist
+    const apCount = await db.get(
+      "SELECT COUNT(*) as cnt FROM product_units WHERE product_id = ?",
+      [id],
+    );
+    if (apCount.cnt > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `該商品仍有 ${apCount.cnt} 筆序號紀錄，請先全部刪除後再下架商品`,
+      });
     }
 
     await db.run("UPDATE products SET is_deleted = 1 WHERE id = ?", [id]);

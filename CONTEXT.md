@@ -17,8 +17,42 @@
 ### SKU
 商品的唯一識別碼，由使用者指定、跨系統穩定。內部 `id`（autoincrement）為技術主鍵，**對外溝通與匯入匯出一律用 SKU**。
 
+> ⚠️ **SKU ≠ serial_number**。SKU 是**型號層級**（10 台同型筆電共用同一個 SKU）；serial_number 是**個體層級**（每一台都不同，見 AP 條目）。一個 SKU 在 `products` 表只會有一筆；同一個 SKU 對應的 AP 在 `product_units` 表可有 0~N 筆，每筆 serial_number 各自唯一。
+
 ### Location（儲位）
 倉庫實體儲存位置（例如 `A-01`），以 `name` 為唯一識別。Product 與 Location 為多對多關係（一個商品可放多個儲位、一個儲位可放多個商品）。
+
+### AP（序號品） _Aid & Pwd_
+
+> **命名對照**：領域語言中統稱「**AP**」或「**序號品**」；資料表名為 `product_units`；REST API 前綴為 `/api/product-units`。文件、討論、註解一律使用「AP / 序號品」；schema 與 URL 維持 `product_units` / `product-units` 以與既有 `/api/products` 風格一致。
+
+對 `track_serial = 1` 的 Product，每一個實體個體即一個 AP（中文：**序號品**），由全域唯一的 `serial_number` 欄位識別。一個 Product 可有 0~N 個 AP。AP 有自己的生命週期狀態（`in_stock` ↔ `sold` 雙向自由流轉，支援出貨與退貨/誤標修正；轉成 `sold` 時自動填 `sold_at`、`sold_to`、`project_case`），與 Product 的 `accountable_quantity` 在**資料上獨立、語意上對應**——本系統不強制兩者數值一致，由 UI 提示漂移。
+
+> ⚠️ **「序號品」是實體名稱**（那一台具體的設備）；**「serial_number」是欄位**（識別該實體的字串編碼）。撰寫文件時兩者不可互換使用。
+
+僅當 Product 標記 `track_serial = 1` 時才產生 AP。耗材類 Product（`track_serial = 0`）只走數量制，不產生 AP。
+
+**AP 只對應 `accountable_quantity`**——「無帳」庫存（樣品、維修件）維持純數量制，不產生 AP。
+
+⚠️ **新增/刪除 AP 不會自動更動 Product 的 `accountable_quantity`**。AP 的數量對齊由使用者透過既有 Transaction 介面手動維護；UI 會在 `accountable_quantity ≠ COUNT(AP WHERE status='in_stock')` 時顯示黃色警示。
+
+AP 批次新增可同時用於兩種場景：
+- **進貨登記**：新到貨時登記序號，使用者**同時**做一筆入庫 Transaction 維持一致
+- **既有庫存回填**：對既有 SKU 開啟 `track_serial` 後盤點補登，**不應**伴隨 Transaction（屬資料校正，比照 CSV import 的定位）
+
+兩種場景在資料層無區別，由使用者依當下情境決定是否同時建立 Transaction。
+
+**出貨欄位規則**（status = `sold` 時）：
+- `project_case`（案子）— **必填**，後端強制驗證。系統設計假設「**出貨一定屬於某個案子**」，案子是 AP 出貨的主要歸屬單位
+- `sold_to`（客戶/收件人）— 選填，案子內部不一定需要指定收件人
+- `sold_at` — 由系統在 status 轉為 `sold` 的瞬間自動填入，不由使用者輸入
+- 當 status 從 `sold` 改回 `in_stock` 時，`project_case` / `sold_to` / `sold_at` 三欄**自動清空**，避免殘留資訊誤導
+
+**serial_number 規則**：
+- **全域唯一**（不同 Product 的 serial_number 也不會撞，UNIQUE 約束施加於整張 `product_units` 表）
+- **寫入前 trim 兩端空白並轉為大寫**（`sn-001` → `SN-001`），確保人工輸入的大小寫差異不會造成「視覺重複」
+- **必填、不允許暫缺**（沒有序號就不該建 AP）
+- **真刪後可重用**——AP 真刪（DELETE，無軟刪）後，UNIQUE 約束自動釋放，允許再次以同一 serial_number 建立新 AP（罕見場景：誤刪後找回）
 
 ### Tag（交易標籤）
 預定義的交易類別（例如「入庫」、「出庫」），用於標示一筆 Transaction 的性質。系統初始化時建立，使用者選擇而非自由輸入。

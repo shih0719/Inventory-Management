@@ -23,6 +23,7 @@ const batchesRoutes = require("./src/routes/batches");
 const locationsRoutes = require("./src/routes/locations");
 const systemRoutes = require("./src/routes/system");
 const webhooksRoutes = require("./src/routes/webhooks");
+const productUnitsRoutes = require("./src/routes/productUnits");
 
 
 // API Routes
@@ -34,6 +35,7 @@ app.use("/api/batches", batchesRoutes);
 app.use("/api/locations", locationsRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/webhooks", webhooksRoutes);
+app.use("/api/product-units", productUnitsRoutes);
 
 
 // Health check endpoint

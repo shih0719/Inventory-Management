@@ -400,6 +400,16 @@
                 當「有帳庫存」低於此值時，會觸發低庫存警報。設為 0 表示停用。
               </p>
             </div>
+            <div class="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="product-track-serial"
+                class="w-4 h-4 text-blue-600 rounded border-gray-300"
+              />
+              <label for="product-track-serial" class="text-sm font-medium text-gray-700">
+                逐台追蹤序號（高單價商品）
+              </label>
+            </div>
           </div>
           <div class="flex gap-3 mt-6">
             <button
@@ -1117,6 +1127,122 @@
                     class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">取消</button>
             <button type="submit"
                     class="flex-1 bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Product Units Modal -->
+    <div id="product-units-modal" class="modal" style="z-index:60">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 p-6 flex flex-col" style="max-height:90vh">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-800">序號管理</h3>
+            <p class="text-sm text-gray-500 mt-1" id="pu-modal-subtitle"></p>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button id="pu-export-btn" class="bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition text-sm">📤 匯出 CSV</button>
+            <button id="pu-modal-close" class="text-gray-500 hover:text-gray-700 text-2xl font-bold leading-none">&times;</button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <select id="pu-filter-status" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+            <option value="">全部狀態</option>
+            <option value="in_stock">in_stock</option>
+            <option value="sold">sold</option>
+          </select>
+          <input type="text" id="pu-filter-serial" placeholder="序號搜尋" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+          <input type="text" id="pu-filter-project-case" placeholder="案子搜尋" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+          <button id="pu-filter-btn" class="bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">篩選</button>
+          <button id="pu-filter-reset-btn" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 transition text-sm">重設</button>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-auto flex-1 mb-4">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 sticky top-0">
+              <tr>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">序號</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">狀態</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">案子</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">客戶</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">出貨時間</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">備註</th>
+                <th class="text-left px-3 py-2 text-gray-600 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody id="pu-table-body">
+              <tr><td colspan="7" class="text-center py-8 text-gray-400">載入中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div id="pu-pagination" class="flex justify-between items-center text-sm text-gray-500 mb-4">
+          <span id="pu-count-label"></span>
+          <div id="pu-pagination-buttons" class="flex gap-2"></div>
+        </div>
+
+        <!-- Single Add Form -->
+        <div class="border-t pt-4">
+          <h4 class="text-sm font-semibold text-gray-700 mb-2">單筆新增</h4>
+          <form id="pu-add-form" class="flex gap-2 flex-wrap">
+            <input type="text" id="pu-add-serial" placeholder="序號 *" required class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
+            <input type="text" id="pu-add-remarks" placeholder="備註（選填）" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
+            <button type="submit" class="bg-blue-500 text-white px-4 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">新增</button>
+          </form>
+        </div>
+
+        <!-- Bulk Add Form -->
+        <div class="border-t pt-4 mt-3">
+          <h4 class="text-sm font-semibold text-gray-700 mb-2">批次新增（每行一個序號）</h4>
+          <form id="pu-bulk-form">
+            <textarea id="pu-bulk-serials" rows="4" placeholder="SN-001&#10;SN-002&#10;SN-003" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
+            <button type="submit" class="bg-indigo-500 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-600 transition text-sm">批次新增</button>
+          </form>
+          <div id="pu-bulk-result" class="mt-2 text-sm hidden"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Product Unit Edit Modal -->
+    <div id="pu-edit-modal" class="modal" style="z-index:70">
+      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4">編輯序號品</h3>
+        <form id="pu-edit-form">
+          <input type="hidden" id="pu-edit-id" />
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">序號</label>
+              <input type="text" id="pu-edit-serial-display" disabled class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">狀態 *</label>
+              <select id="pu-edit-status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                <option value="in_stock">in_stock</option>
+                <option value="sold">sold</option>
+              </select>
+            </div>
+            <div id="pu-edit-sold-fields" class="space-y-3 hidden">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">案子 *</label>
+                <input type="text" id="pu-edit-project-case" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">客戶/收件人（選填）</label>
+                <input type="text" id="pu-edit-sold-to" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+              <input type="text" id="pu-edit-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+          <div class="flex gap-3 mt-5">
+            <button type="button" id="pu-edit-cancel" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition text-sm">取消</button>
+            <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">儲存</button>
           </div>
         </form>
       </div>

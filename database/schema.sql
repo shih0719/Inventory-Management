@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS products (
     accountable_quantity INTEGER NOT NULL DEFAULT 0,
     non_accountable_quantity INTEGER NOT NULL DEFAULT 0,
     min_stock INTEGER NOT NULL DEFAULT 0,
+    track_serial INTEGER NOT NULL DEFAULT 0,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -66,6 +67,32 @@ CREATE TABLE IF NOT EXISTS transactions (
     FOREIGN KEY (batch_id) REFERENCES batches(id),
     FOREIGN KEY (location_id) REFERENCES locations(id)
 );
+
+-- Product Units Table (Serial number tracking for high-value items)
+CREATE TABLE IF NOT EXISTS product_units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    serial_number TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'in_stock' CHECK(status IN ('in_stock', 'sold')),
+    project_case TEXT,
+    sold_to TEXT,
+    sold_at DATETIME,
+    remarks TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_units_product_id ON product_units(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_units_status ON product_units(status);
+CREATE INDEX IF NOT EXISTS idx_product_units_serial_number ON product_units(serial_number);
+
+CREATE TRIGGER IF NOT EXISTS update_product_units_timestamp
+AFTER UPDATE ON product_units
+FOR EACH ROW
+BEGIN
+    UPDATE product_units SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
 
 -- Indexes for performance optimization
 CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);

@@ -62,23 +62,34 @@ function initDatabase() {
           return;
         }
         const hasMinStock = columns.some((c) => c.name === "min_stock");
+        const hasTrackSerial = columns.some((c) => c.name === "track_serial");
+
         const ensureMinStock = hasMinStock
           ? Promise.resolve()
           : new Promise((res, rej) => {
               db.run(
                 "ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 0",
                 (e) => {
-                  if (e) {
-                    rej(e);
-                  } else {
-                    console.log("✅ Added min_stock column to products");
-                    res();
-                  }
+                  if (e) rej(e);
+                  else { console.log("✅ Added min_stock column to products"); res(); }
+                },
+              );
+            });
+
+        const ensureTrackSerial = hasTrackSerial
+          ? Promise.resolve()
+          : new Promise((res, rej) => {
+              db.run(
+                "ALTER TABLE products ADD COLUMN track_serial INTEGER NOT NULL DEFAULT 0",
+                (e) => {
+                  if (e) rej(e);
+                  else { console.log("✅ Added track_serial column to products"); res(); }
                 },
               );
             });
 
         ensureMinStock
+          .then(() => ensureTrackSerial)
           .then(() => loadSeeds())
           .catch((e) => {
             console.error("❌ Migration failed:", e.message);

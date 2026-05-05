@@ -209,10 +209,11 @@ function renderProductsTable() {
               product.model || "-"
             }</td>
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm">
+                <div class="text-sm flex items-center gap-1">
                     <span class="${accBadgeClass}" title="${
                       isLow ? `低於最低庫存閾值 ${product.min_stock}` : ""
                     }">${accLabel}</span>
+                    ${product.track_serial && product.accountable_quantity !== product.ap_in_stock_count ? `<button class="text-yellow-500 hover:text-yellow-700 text-base" title="數量與序號不一致，點擊查看" onclick="showApDiscrepancy(${product.id}, ${product.accountable_quantity}, ${product.ap_in_stock_count})">⚠️</button>` : ""}
                 </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">
@@ -223,20 +224,19 @@ function renderProductsTable() {
                 </div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                <div class="flex gap-2">
-                    <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})"
                             class="text-blue-600 hover:text-blue-800 font-medium">異動</button>
-                    <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')" 
+                    <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')"
                             class="text-teal-600 hover:text-teal-800 font-medium">📍 櫃位</button>
                     <button onclick="openHistoryModal(${product.id}, '${product.name}', '${product.sku}')"
-      product.name
-    }', '${product.sku}')" 
                             class="text-purple-600 hover:text-purple-800 font-medium">歷史</button>
-                    <button onclick="editProduct(${product.id})" 
+                    ${product.track_serial ? `<button onclick="openProductUnitsModal(${product.id}, '${product.sku}', '${product.name}')" class="text-orange-600 hover:text-orange-800 font-medium">序號</button>` : ""}
+                    <button onclick="editProduct(${product.id})"
                             class="text-green-600 hover:text-green-800 font-medium">編輯</button>
                     <button onclick="deleteProduct(${product.id}, '${
       product.name
-    }')" 
+    }')"
                             class="text-red-600 hover:text-red-800 font-medium">刪除</button>
                 </div>
             </td>
@@ -301,19 +301,18 @@ function renderProductsCards() {
                 </div>
             </div>
             <div class="flex gap-2 flex-wrap">
-                <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})" 
+                <button onclick="openTransactionModal(${product.id}, '${product.name}', ${product.accountable_quantity}, ${product.non_accountable_quantity})"
                         class="flex-1 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-600">異動</button>
-                <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')" 
+                <button onclick="openProductLocationsModal(${product.id}, '${product.sku}', '${product.name}')"
                         class="flex-1 bg-teal-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-600">📍 櫃位</button>
                 <button onclick="openHistoryModal(${product.id}, '${product.name}', '${product.sku}')"
-      product.name
-    }', '${product.sku}')" 
                         class="flex-1 bg-purple-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-600">歷史</button>
-                <button onclick="editProduct(${product.id})" 
+                ${product.track_serial ? `<button onclick="openProductUnitsModal(${product.id}, '${product.sku}', '${product.name}')" class="flex-1 bg-orange-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-orange-600">序號</button>` : ""}
+                <button onclick="editProduct(${product.id})"
                         class="flex-1 bg-green-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-600">編輯</button>
                 <button onclick="deleteProduct(${product.id}, '${
       product.name
-    }')" 
+    }')"
                         class="flex-1 bg-red-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-600">刪除</button>
             </div>
         `;
@@ -566,6 +565,9 @@ function setupEventListeners() {
 
   // Location QR Code
   document.getElementById("location-qrcode-modal-close")?.addEventListener("click", () => closeModal("location-qrcode-modal"));
+
+  // Product Units
+  setupProductUnitsListeners();
   document.getElementById("location-qrcode-modal-print")?.addEventListener("click", () => {
     const printWindow = window.open('', '_blank');
     const qrContent = document.getElementById("qrcode-container").innerHTML;
@@ -627,6 +629,7 @@ async function handleProductSubmit(e) {
       0,
     min_stock:
       parseInt(document.getElementById("product-min-stock").value) || 0,
+    track_serial: document.getElementById("product-track-serial").checked,
   };
 
   try {
@@ -677,6 +680,8 @@ async function editProduct(id) {
         product.non_accountable_quantity;
       document.getElementById("product-min-stock").value =
         product.min_stock || 0;
+      document.getElementById("product-track-serial").checked =
+        !!product.track_serial;
 
       openModal("product-modal");
     }
@@ -1960,5 +1965,282 @@ async function viewWebhookLogs(id, name) {
     console.error("Error loading webhook logs:", error);
     showNotification("載入失敗", "error");
   }
+}
+
+// ─── Product Units (AP / 序號品) ────────────────────────────────────────────
+
+let puCurrentProductId = null;
+let puCurrentPage = 1;
+let puCurrentFilters = {};
+
+function openProductUnitsModal(productId, sku, name) {
+  puCurrentProductId = productId;
+  puCurrentPage = 1;
+  puCurrentFilters = {};
+  document.getElementById("pu-modal-subtitle").textContent = `SKU: ${sku} — ${name}`;
+  document.getElementById("pu-filter-status").value = "";
+  document.getElementById("pu-filter-serial").value = "";
+  document.getElementById("pu-filter-project-case").value = "";
+  document.getElementById("pu-bulk-result").classList.add("hidden");
+  document.getElementById("pu-bulk-result").innerHTML = "";
+  document.getElementById("pu-bulk-serials").value = "";
+  document.getElementById("pu-add-serial").value = "";
+  document.getElementById("pu-add-remarks").value = "";
+  openModal("product-units-modal");
+  loadProductUnits();
+}
+
+async function loadProductUnits(page) {
+  if (page !== undefined) puCurrentPage = page;
+  const params = new URLSearchParams({
+    product_id: puCurrentProductId,
+    page: puCurrentPage,
+    limit: 15,
+  });
+  if (puCurrentFilters.status) params.set("status", puCurrentFilters.status);
+  if (puCurrentFilters.serial_number) params.set("serial_number", puCurrentFilters.serial_number);
+  if (puCurrentFilters.project_case) params.set("project_case", puCurrentFilters.project_case);
+
+  try {
+    const res = await fetch(`${API_BASE}/product-units?${params}`);
+    const result = await res.json();
+    if (result.success) {
+      renderProductUnitsTable(result.data);
+      renderPuPagination(result.pagination);
+    } else {
+      showNotification(result.error || "載入失敗", "error");
+    }
+  } catch (e) {
+    showNotification("載入序號失敗", "error");
+  }
+}
+
+function renderProductUnitsTable(units) {
+  const tbody = document.getElementById("pu-table-body");
+  if (units.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-gray-400">沒有序號紀錄</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = units.map((u) => `
+    <tr class="border-b hover:bg-gray-50">
+      <td class="px-3 py-2 font-mono text-xs">${u.serial_number}</td>
+      <td class="px-3 py-2">
+        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${u.status === "sold" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}">${u.status}</span>
+      </td>
+      <td class="px-3 py-2 text-xs">${u.project_case || "-"}</td>
+      <td class="px-3 py-2 text-xs">${u.sold_to || "-"}</td>
+      <td class="px-3 py-2 text-xs">${u.sold_at ? u.sold_at.slice(0, 16) : "-"}</td>
+      <td class="px-3 py-2 text-xs">${u.remarks || "-"}</td>
+      <td class="px-3 py-2">
+        <div class="flex gap-2">
+          <button onclick="openPuEditModal(${u.id})" class="text-blue-600 hover:text-blue-800 text-xs font-medium">編輯</button>
+          <button onclick="deletePu(${u.id}, '${u.serial_number}', '${u.status}', '${u.project_case || ""}')" class="text-red-600 hover:text-red-800 text-xs font-medium">刪除</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function renderPuPagination(pagination) {
+  const label = document.getElementById("pu-count-label");
+  const btns = document.getElementById("pu-pagination-buttons");
+  label.textContent = `共 ${pagination.total} 筆`;
+  btns.innerHTML = "";
+  if (pagination.totalPages <= 1) return;
+
+  const prev = document.createElement("button");
+  prev.textContent = "上一頁";
+  prev.disabled = pagination.page === 1;
+  prev.className = `px-2 py-1 rounded text-xs ${pagination.page === 1 ? "bg-gray-200 text-gray-400" : "bg-blue-500 text-white hover:bg-blue-600"}`;
+  prev.onclick = () => loadProductUnits(pagination.page - 1);
+  btns.appendChild(prev);
+
+  const info = document.createElement("span");
+  info.className = "px-2 text-xs text-gray-600";
+  info.textContent = `${pagination.page} / ${pagination.totalPages}`;
+  btns.appendChild(info);
+
+  const next = document.createElement("button");
+  next.textContent = "下一頁";
+  next.disabled = pagination.page === pagination.totalPages;
+  next.className = `px-2 py-1 rounded text-xs ${pagination.page === pagination.totalPages ? "bg-gray-200 text-gray-400" : "bg-blue-500 text-white hover:bg-blue-600"}`;
+  next.onclick = () => loadProductUnits(pagination.page + 1);
+  btns.appendChild(next);
+}
+
+async function deletePu(id, serial, status, projectCase) {
+  const msg = status === "sold"
+    ? `確定要刪除序號「${serial}」嗎？此 AP 已售出給「${projectCase}」，刪除後出貨紀錄將永久消失，無法復原。`
+    : `確定要刪除序號「${serial}」嗎？此操作不可復原。`;
+  if (!confirm(msg)) return;
+  try {
+    const res = await fetch(`${API_BASE}/product-units/${id}`, { method: "DELETE" });
+    const result = await res.json();
+    if (result.success) {
+      showNotification("已刪除", "success");
+      loadProductUnits();
+      loadProducts(currentPage);
+    } else {
+      showNotification(result.error || "刪除失敗", "error");
+    }
+  } catch (e) {
+    showNotification("刪除失敗", "error");
+  }
+}
+
+async function openPuEditModal(id) {
+  try {
+    const res = await fetch(`${API_BASE}/product-units/${id}`);
+    const result = await res.json();
+    if (!result.success) { showNotification("載入失敗", "error"); return; }
+    const unit = result.data;
+    document.getElementById("pu-edit-id").value = unit.id;
+    document.getElementById("pu-edit-serial-display").value = unit.serial_number;
+    document.getElementById("pu-edit-status").value = unit.status;
+    document.getElementById("pu-edit-project-case").value = unit.project_case || "";
+    document.getElementById("pu-edit-sold-to").value = unit.sold_to || "";
+    document.getElementById("pu-edit-remarks").value = unit.remarks || "";
+    togglePuSoldFields(unit.status === "sold");
+    openModal("pu-edit-modal");
+  } catch (e) {
+    showNotification("載入失敗", "error");
+  }
+}
+
+function togglePuSoldFields(show) {
+  const el = document.getElementById("pu-edit-sold-fields");
+  el.classList.toggle("hidden", !show);
+}
+
+function showApDiscrepancy(productId, accountableQty, apInStockCount) {
+  const diff = Math.abs(accountableQty - apInStockCount);
+  const msg = `有帳數量 = ${accountableQty}，序號 in_stock 數 = ${apInStockCount}，相差 ${diff} 筆\n\n是否跳到序號管理？`;
+  if (confirm(msg)) {
+    const product = products.find((p) => p.id === productId);
+    if (product) openProductUnitsModal(product.id, product.sku, product.name);
+  }
+}
+
+// Wire up ProductUnits event listeners (called from setupEventListeners)
+function setupProductUnitsListeners() {
+  document.getElementById("pu-modal-close").addEventListener("click", () => closeModal("product-units-modal"));
+
+  document.getElementById("pu-filter-btn").addEventListener("click", () => {
+    puCurrentFilters = {
+      status: document.getElementById("pu-filter-status").value,
+      serial_number: document.getElementById("pu-filter-serial").value,
+      project_case: document.getElementById("pu-filter-project-case").value,
+    };
+    loadProductUnits(1);
+  });
+
+  document.getElementById("pu-filter-reset-btn").addEventListener("click", () => {
+    puCurrentFilters = {};
+    document.getElementById("pu-filter-status").value = "";
+    document.getElementById("pu-filter-serial").value = "";
+    document.getElementById("pu-filter-project-case").value = "";
+    loadProductUnits(1);
+  });
+
+  document.getElementById("pu-add-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const serial = document.getElementById("pu-add-serial").value.trim();
+    const remarks = document.getElementById("pu-add-remarks").value.trim();
+    if (!serial) return;
+    try {
+      const res = await fetch(`${API_BASE}/product-units`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: puCurrentProductId, serial_number: serial, remarks }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        showNotification("序號新增成功", "success");
+        document.getElementById("pu-add-serial").value = "";
+        document.getElementById("pu-add-remarks").value = "";
+        loadProductUnits();
+        loadProducts(currentPage);
+      } else {
+        showNotification(result.error || "新增失敗", "error");
+      }
+    } catch (err) {
+      showNotification("新增失敗", "error");
+    }
+  });
+
+  document.getElementById("pu-bulk-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const raw = document.getElementById("pu-bulk-serials").value;
+    const serial_numbers = raw.split("\n").map((s) => s.trim()).filter((s) => s);
+    if (serial_numbers.length === 0) return;
+    try {
+      const res = await fetch(`${API_BASE}/product-units/bulk`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product_id: puCurrentProductId, serial_numbers }),
+      });
+      const result = await res.json();
+      const resultDiv = document.getElementById("pu-bulk-result");
+      resultDiv.classList.remove("hidden");
+      let html = `<p class="font-medium ${result.inserted > 0 ? "text-green-700" : "text-red-700"}">成功 ${result.inserted} 筆，失敗 ${result.failed} 筆</p>`;
+      if (result.errors && result.errors.length > 0) {
+        html += `<ul class="list-disc list-inside mt-1 text-red-600">`;
+        result.errors.forEach((err) => {
+          html += `<li>[#${err.index + 1}] ${err.serial_number || "(空)"} — ${err.reason}</li>`;
+        });
+        html += `</ul>`;
+      }
+      resultDiv.innerHTML = html;
+      if (result.inserted > 0) {
+        document.getElementById("pu-bulk-serials").value = "";
+        loadProductUnits();
+        loadProducts(currentPage);
+      }
+    } catch (err) {
+      showNotification("批次新增失敗", "error");
+    }
+  });
+
+  document.getElementById("pu-export-btn").addEventListener("click", () => {
+    const params = new URLSearchParams({ product_id: puCurrentProductId });
+    if (puCurrentFilters.status) params.set("status", puCurrentFilters.status);
+    if (puCurrentFilters.serial_number) params.set("serial_number", puCurrentFilters.serial_number);
+    if (puCurrentFilters.project_case) params.set("project_case", puCurrentFilters.project_case);
+    window.location.href = `${API_BASE}/product-units/export?${params}`;
+  });
+
+  document.getElementById("pu-edit-status").addEventListener("change", (e) => {
+    togglePuSoldFields(e.target.value === "sold");
+  });
+
+  document.getElementById("pu-edit-cancel").addEventListener("click", () => closeModal("pu-edit-modal"));
+
+  document.getElementById("pu-edit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = document.getElementById("pu-edit-id").value;
+    const status = document.getElementById("pu-edit-status").value;
+    const project_case = document.getElementById("pu-edit-project-case").value.trim();
+    const sold_to = document.getElementById("pu-edit-sold-to").value.trim();
+    const remarks = document.getElementById("pu-edit-remarks").value.trim();
+
+    try {
+      const res = await fetch(`${API_BASE}/product-units/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, project_case, sold_to, remarks }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        showNotification("更新成功", "success");
+        closeModal("pu-edit-modal");
+        loadProductUnits();
+        loadProducts(currentPage);
+      } else {
+        showNotification(result.error || "更新失敗", "error");
+      }
+    } catch (err) {
+      showNotification("更新失敗", "error");
+    }
+  });
 }
 
