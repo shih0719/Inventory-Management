@@ -6,6 +6,7 @@ router.get("/export", c.exportCSV);
 router.get("/", c.getAll);
 router.get("/:id", c.getById);
 router.post("/bulk", c.bulkCreate);
+router.post("/bulk-sell", c.bulkSell);
 router.post("/", c.create);
 router.put("/:id", c.update);
 router.delete("/:id", c.remove);

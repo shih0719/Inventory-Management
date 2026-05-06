@@ -134,9 +134,102 @@ async function bulkCreate(req, res) {
       return res.status(400).json({ success: false, inserted: 0, failed: errors.length, errors });
     }
 
+    if (inserted > 0) {
+      const inboundTag = await db.get("SELECT id FROM tags WHERE name = 'INBOUND'");
+      if (inboundTag) {
+        await db.run(
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
+          [product_id, inboundTag.id, inserted, "系統自動"],
+        );
+        await db.run(
+          "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
+          [inserted, product_id],
+        );
+      }
+    }
+
     res.status(201).json({ success: true, inserted, failed: errors.length, errors });
   } catch (error) {
     console.error("Error bulk creating product units:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// POST /api/product-units/bulk-sell
+async function bulkSell(req, res) {
+  try {
+    const { serial_numbers, project_case, sold_to, remarks } = req.body;
+
+    if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
+      return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
+    }
+    if (!project_case || !project_case.trim()) {
+      return res.status(400).json({ success: false, error: "project_case 為必填" });
+    }
+
+    const errors = [];
+    const seenInBatch = new Set();
+    const validUnits = [];
+
+    for (const raw of serial_numbers) {
+      if (!raw || !raw.trim()) {
+        errors.push({ serial_number: raw || "", reason: "序號不可為空" });
+        continue;
+      }
+      const sn = normalizeSerial(raw);
+      if (seenInBatch.has(sn)) {
+        errors.push({ serial_number: sn, reason: "批次內序號重複" });
+        continue;
+      }
+      seenInBatch.add(sn);
+
+      const unit = await db.get("SELECT * FROM product_units WHERE serial_number = ?", [sn]);
+      if (!unit) {
+        errors.push({ serial_number: sn, reason: "序號不存在" });
+      } else if (unit.status !== "in_stock") {
+        errors.push({ serial_number: sn, reason: "已出庫" });
+      } else {
+        validUnits.push(unit);
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    // All-or-nothing: all valid, proceed
+    const soldAt = new Date().toISOString();
+    for (const unit of validUnits) {
+      await db.run(
+        "UPDATE product_units SET status = 'sold', project_case = ?, sold_to = ?, sold_at = ?, remarks = CASE WHEN ? IS NOT NULL THEN ? ELSE remarks END WHERE id = ?",
+        [project_case.trim(), sold_to || null, soldAt, remarks || null, remarks || null, unit.id],
+      );
+    }
+
+    // Group by product_id and create OUTBOUND transactions
+    const outboundTag = await db.get("SELECT id FROM tags WHERE name = 'OUTBOUND'");
+    let transactionsCreated = 0;
+    if (outboundTag) {
+      const grouped = {};
+      for (const unit of validUnits) {
+        grouped[unit.product_id] = (grouped[unit.product_id] || 0) + 1;
+      }
+      for (const [productId, count] of Object.entries(grouped)) {
+        await db.run(
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
+          [productId, outboundTag.id, -count, "系統自動"],
+        );
+        await db.run(
+          "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
+          [count, productId],
+        );
+        transactionsCreated++;
+      }
+    }
+
+    res.json({ success: true, sold: validUnits.length, transactions_created: transactionsCreated });
+  } catch (error) {
+    console.error("Error bulk selling product units:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -263,4 +356,4 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { getAll, getById, create, bulkCreate, update, remove, exportCSV };
+module.exports = { getAll, getById, create, bulkCreate, bulkSell, update, remove, exportCSV };

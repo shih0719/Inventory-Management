@@ -1973,6 +1973,14 @@ let puCurrentProductId = null;
 let puCurrentPage = 1;
 let puCurrentFilters = {};
 
+function switchBulkTab(tab) {
+  const isInbound = tab === "inbound";
+  document.getElementById("pu-bulk-panel-inbound").classList.toggle("hidden", !isInbound);
+  document.getElementById("pu-bulk-panel-outbound").classList.toggle("hidden", isInbound);
+  document.getElementById("pu-tab-inbound").className = `px-4 py-1.5 rounded-lg text-sm font-medium ${isInbound ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`;
+  document.getElementById("pu-tab-outbound").className = `px-4 py-1.5 rounded-lg text-sm font-medium ${!isInbound ? "bg-red-500 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`;
+}
+
 function openProductUnitsModal(productId, sku, name) {
   puCurrentProductId = productId;
   puCurrentPage = 1;
@@ -1984,8 +1992,15 @@ function openProductUnitsModal(productId, sku, name) {
   document.getElementById("pu-bulk-result").classList.add("hidden");
   document.getElementById("pu-bulk-result").innerHTML = "";
   document.getElementById("pu-bulk-serials").value = "";
+  document.getElementById("pu-bulk-sell-result").classList.add("hidden");
+  document.getElementById("pu-bulk-sell-result").innerHTML = "";
+  document.getElementById("pu-bulk-sell-serials").value = "";
+  document.getElementById("pu-bulk-sell-project-case").value = "";
+  document.getElementById("pu-bulk-sell-sold-to").value = "";
+  document.getElementById("pu-bulk-sell-remarks").value = "";
   document.getElementById("pu-add-serial").value = "";
   document.getElementById("pu-add-remarks").value = "";
+  switchBulkTab("inbound");
   openModal("product-units-modal");
   loadProductUnits();
 }
@@ -2198,6 +2213,54 @@ function setupProductUnitsListeners() {
       }
     } catch (err) {
       showNotification("批次新增失敗", "error");
+    }
+  });
+
+  document.getElementById("pu-bulk-sell-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const raw = document.getElementById("pu-bulk-sell-serials").value;
+    const serial_numbers = raw.split("\n").map((s) => s.trim()).filter((s) => s);
+    const project_case = document.getElementById("pu-bulk-sell-project-case").value.trim();
+    const sold_to = document.getElementById("pu-bulk-sell-sold-to").value.trim();
+    const remarks = document.getElementById("pu-bulk-sell-remarks").value.trim();
+
+    if (serial_numbers.length === 0) return;
+    if (!project_case) {
+      showNotification("請填寫案子（project_case）", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/product-units/bulk-sell`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serial_numbers, project_case, sold_to: sold_to || undefined, remarks: remarks || undefined }),
+      });
+      const result = await res.json();
+      const resultDiv = document.getElementById("pu-bulk-sell-result");
+      resultDiv.classList.remove("hidden");
+
+      if (result.success) {
+        resultDiv.innerHTML = `<p class="font-medium text-green-700">成功出庫 ${result.sold} 筆，建立 ${result.transactions_created} 筆 Transaction</p>`;
+        document.getElementById("pu-bulk-sell-serials").value = "";
+        document.getElementById("pu-bulk-sell-project-case").value = "";
+        document.getElementById("pu-bulk-sell-sold-to").value = "";
+        document.getElementById("pu-bulk-sell-remarks").value = "";
+        loadProductUnits();
+        loadProducts(currentPage);
+      } else {
+        let html = `<p class="font-medium text-red-700">出庫失敗</p>`;
+        if (result.errors && result.errors.length > 0) {
+          html += `<ul class="list-disc list-inside mt-1 text-red-600">`;
+          result.errors.forEach((err) => {
+            html += `<li>${err.serial_number || "(空)"} — ${err.reason}</li>`;
+          });
+          html += `</ul>`;
+        }
+        resultDiv.innerHTML = html;
+      }
+    } catch (err) {
+      showNotification("批次出庫失敗", "error");
     }
   });
 
