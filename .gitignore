@@ -8,6 +8,9 @@ node_modules/
 *.db
 *.sqlite
 *.sqlite3
+database/*.db
+database/*.db-shm
+database/*.db-wal
 
 
 # Uploads
@@ -27,3 +30,4 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
