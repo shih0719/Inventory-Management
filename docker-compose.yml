@@ -9,7 +9,8 @@ services:
       - ./src:/app/src
       - ./public:/app/public
       - ./server.js:/app/server.js
-      - ./package*.json:/app/package*.json
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
       - ./.env:/app/.env
       # 排除 node_modules 以防平台不相容
       - /app/node_modules
