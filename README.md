@@ -58,6 +58,7 @@ database/
   schema.sql                     # 完整 DDL
   seeds.sql                      # 初始 tags 種子資料
   inventory.db                   # 主資料庫（自動建立）
+  backups/                       # 自動備份目錄（每小時一次，保留 7 天）
 public/
   index.html                     # 前端單頁，所有 modal 定義於此
   js/app.js                      # 前端業務邏輯
@@ -80,6 +81,9 @@ public/
 | `POST /api/csv/import` | CSV 批量匯入商品 |
 | `GET /api/csv/export` | CSV 匯出庫存快照 |
 | `GET /api/health` | 健康檢查 |
+| `GET /api/updates/status` | 取得版本更新狀態 |
+| `POST /api/updates/check` | 手動檢查版本更新 |
+| `POST /api/updates/apply` | 執行應用更新 |
 
 ## 資料模型
 
@@ -170,8 +174,56 @@ SKU-002,無線滑鼠,配件,Logitech MX Master,50,30,20
 - `MinStock` 欄位缺漏時，更新既有商品保留原值，新商品預設 0
 - 編碼：**Big5**（ANSI），Excel 開繁中不亂碼
 
+## 版本管理與更新
+
+系統使用語義化版本（Semantic Versioning）管理版本，版本號在 `package.json` 中定義。
+
+### 版本檢查與更新
+
+- **訪問地址**：`http://localhost:3030/updates.html`（或點擊首頁「⚙️ 系統設定」）
+- **版本對比**：自動檢查 GitHub 遠端最新版本，使用 `package.json` 的 version 字段比較
+- **檢查方式**：手動按鈕觸發（無自動檢查），點擊「🔍 檢查更新」即可
+- **一鍵更新**：發現新版本後點擊「📥 應用更新」自動完成 git pull + 重啟
+
+```bash
+# 更新流程
+git fetch origin --quiet          # 獲取遠端最新代碼
+git reset --hard origin/main      # 強制同步遠端版本
+npm install --production          # 安裝新依賴
+process.exit(0)                   # Docker 自動重啟
+```
+
+### 自動備份
+
+系統會自動定期備份 SQLite 資料庫，確保更新安全。
+
+- **備份位置**：`./database/backups/`
+- **備份頻率**：每小時自動執行一次
+- **保留策略**：保留最近 7 天的備份，舊備份自動刪除
+- **備份方式**：使用 SQLite 的 `.backup` 命令確保一致性
+- **備份文件名**：`inventory.backup_YYYYMMDD_HHMMSS.db`
+
+### 手動恢復備份
+
+如需回到某個時間點的數據：
+
+```bash
+# 停止應用
+docker-compose down
+
+# 備份當前數據庫（可選）
+cp database/inventory.db database/inventory.db.broken
+
+# 恢復舊備份
+cp database/backups/inventory.backup_20260514_150000.db database/inventory.db
+
+# 重新啟動應用
+docker-compose up -d
+```
+
 ## 安全
 
 - 參數化查詢，防止 SQL Injection
 - 單用戶設計，無身份驗證機制
 - 軟刪除保留異動歷史，避免資料消失
+- 定期自動備份數據庫，確保數據安全
