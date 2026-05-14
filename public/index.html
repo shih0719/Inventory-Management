@@ -1,1290 +1,1028 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>庫房管理系統 | Inventory Management System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-    <style>
-      @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap");
 
-      body {
-        font-family: "Noto Sans TC", sans-serif;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>庫房管理系統 | Inventory Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap");
 
-      .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 50;
+    body {
+      font-family: "Noto Sans TC", sans-serif;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      border-radius: 9999px;
+    }
+
+    .table-mobile-card {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      .table-desktop {
         display: none;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0, 0, 0, 0.5);
-      }
-
-      .modal.active {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .badge {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        font-weight: 500;
-        font-size: 0.875rem;
-        border-radius: 9999px;
       }
 
       .table-mobile-card {
-        display: none;
+        display: block;
       }
+    }
+  </style>
+</head>
 
-      @media (max-width: 768px) {
-        .table-desktop {
-          display: none;
-        }
-        .table-mobile-card {
-          display: block;
-        }
-      }
-    </style>
-  </head>
-  <body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-blue-500 shadow-md">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between items-center h-16">
-          <div class="flex items-center">
-            <h1 class="text-white text-2xl font-bold">📦 庫房管理系統</h1>
+<body class="bg-gray-50">
+  <!-- Navigation -->
+  <nav class="bg-blue-500 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <div class="flex items-center">
+          <h1 class="text-white text-2xl font-bold">📦 庫房管理系統</h1>
+        </div>
+        <div class="flex gap-3">
+          <button id="csv-template-btn"
+            class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition font-medium shadow">
+            📋 下載範本
+          </button>
+          <label for="csv-import-input"
+            class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition cursor-pointer font-medium shadow">
+            📥 匯入 CSV
+          </label>
+          <input type="file" id="csv-import-input" accept=".csv" class="hidden" />
+          <button id="csv-export-btn"
+            class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition font-medium shadow">
+            📤 匯出 CSV
+          </button>
+          <button id="check-update-btn"
+            class="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition font-medium shadow">
+            🔄 檢查更新
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Locations Management Section -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🏠 櫃位管理</h2>
+
+      <div class="flex flex-col lg:flex-row gap-6 mb-4">
+        <!-- Quick Search / Scan Form -->
+        <form id="location-scan-form" class="flex-1 p-4 bg-teal-50 rounded-lg border border-teal-200">
+          <h3 class="font-bold text-teal-800 mb-2">🔍 快速掃描 / 查詢櫃位</h3>
+          <div class="flex gap-2">
+            <input type="text" id="scan-location-input" required placeholder="掃描條碼或輸入櫃位名稱..."
+              class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500" autocomplete="off" />
+            <button type="button" id="open-camera-btn"
+              class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition"
+              title="使用相機掃描">📷</button>
+            <button type="submit"
+              class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium">查詢</button>
           </div>
-          <div class="flex gap-3">
-            <button
-              id="csv-template-btn"
-              class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition font-medium shadow"
-            >
-              📋 下載範本
-            </button>
-            <label
-              for="csv-import-input"
-              class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition cursor-pointer font-medium shadow"
-            >
-              📥 匯入 CSV
+        </form>
+
+        <!-- Create Location Form -->
+        <form id="location-create-form" class="flex-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 class="font-bold text-gray-800 mb-2">➕ 新增櫃位</h3>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="new-location-name" required placeholder="名稱 / 標籤"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+            <input type="text" id="new-location-desc" placeholder="描述 (選填)"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
+            <button type="submit"
+              class="sm:w-auto w-full bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition font-medium whitespace-nowrap">新增</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="overflow-x-auto border rounded-lg">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">櫃位名稱</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">描述</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">建立時間</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody id="locations-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Locations will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🔍 篩選條件</h2>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">產品編碼 (SKU)</label>
+          <input type="text" id="filter-sku" placeholder="搜尋 SKU..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">產品名稱</label>
+          <input type="text" id="filter-name" placeholder="搜尋名稱..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">型號</label>
+          <input type="text" id="filter-model" placeholder="搜尋型號..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">標籤</label>
+          <select id="filter-tag"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <option value="">全部標籤</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2 flex-wrap md:col-span-full xl:col-span-1">
+          <button id="add-product-btn"
+            class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition font-medium shadow-md text-sm whitespace-nowrap">
+            ➕ 新增產品
+          </button>
+          <button id="batch-transaction-btn"
+            class="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium shadow-md text-sm whitespace-nowrap">
+            📦 批次異動
+          </button>
+          <button id="view-batches-btn"
+            class="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium shadow-md text-sm whitespace-nowrap">
+            📋 批次查詢
+          </button>
+          <button id="view-all-transactions-btn"
+            class="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition font-medium shadow-md text-sm whitespace-nowrap">
+            📜 異動查詢
+          </button>
+          <button id="view-webhooks-btn"
+            class="flex-1 bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition font-medium shadow-md text-sm whitespace-nowrap">
+            🔔 Webhooks
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products Table (Desktop) -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden table-desktop">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-blue-500">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                SKU
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                名稱
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                類型
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                型號
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                有帳庫存
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                無帳庫存
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                操作
+              </th>
+            </tr>
+          </thead>
+          <tbody id="products-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Products will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Products Cards (Mobile) -->
+    <div id="products-cards" class="table-mobile-card space-y-4">
+      <!-- Product cards will be inserted here -->
+    </div>
+
+    <!-- Pagination -->
+    <div id="pagination-container" class="bg-white rounded-lg shadow-md p-4 mt-6">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-sm text-gray-600">
+          共
+          <span id="total-products" class="font-semibold text-blue-600">0</span>
+          筆產品
+        </div>
+        <div id="pagination-buttons" class="flex gap-2">
+          <!-- Pagination buttons will be inserted here -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add/Edit Product Modal -->
+  <div id="product-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-xl font-bold text-gray-800 mb-4" id="product-modal-title">
+        新增產品
+      </h3>
+      <form id="product-form">
+        <input type="hidden" id="product-id" />
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">產品編碼 (SKU) *</label>
+            <input type="text" id="product-sku" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">名稱 *</label>
+            <input type="text" id="product-name" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">類型 *</label>
+            <input type="text" id="product-type" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">型號</label>
+            <input type="text" id="product-model"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">有帳初始庫存</label>
+            <input type="number" id="product-accountable-qty" value="0" min="0"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">無帳初始庫存</label>
+            <input type="number" id="product-non-accountable-qty" value="0" min="0"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">最低庫存閾值 (Min Stock)</label>
+            <input type="number" id="product-min-stock" value="0" min="0"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <p class="text-xs text-gray-500 mt-1">
+              當「有帳庫存」低於此值時，會觸發低庫存警報。設為 0 表示停用。
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <input type="checkbox" id="product-track-serial" class="w-4 h-4 text-blue-600 rounded border-gray-300" />
+            <label for="product-track-serial" class="text-sm font-medium text-gray-700">
+              逐台追蹤序號（高單價商品）
             </label>
-            <input
-              type="file"
-              id="csv-import-input"
-              accept=".csv"
-              class="hidden"
-            />
-            <button
-              id="csv-export-btn"
-              class="bg-white text-blue-500 px-4 py-2 rounded-lg hover:bg-blue-50 transition font-medium shadow"
-            >
-              📤 匯出 CSV
-            </button>
-            <button
-              id="check-update-btn"
-              class="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition font-medium shadow"
-            >
-              🔄 檢查更新
-            </button>
           </div>
         </div>
-      </div>
-    </nav>
+        <div class="flex gap-3 mt-6">
+          <button type="button" id="product-modal-cancel"
+            class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+            儲存
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Locations Management Section -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">🏠 櫃位管理</h2>
-        
-        <div class="flex flex-col lg:flex-row gap-6 mb-4">
-          <!-- Quick Search / Scan Form -->
-          <form id="location-scan-form" class="flex-1 p-4 bg-teal-50 rounded-lg border border-teal-200">
-            <h3 class="font-bold text-teal-800 mb-2">🔍 快速掃描 / 查詢櫃位</h3>
-            <div class="flex gap-2">
-              <input type="text" id="scan-location-input" required placeholder="掃描條碼或輸入櫃位名稱..." class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500" autocomplete="off" />
-              <button type="button" id="open-camera-btn" class="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-300 transition" title="使用相機掃描">📷</button>
-              <button type="submit" class="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-medium">查詢</button>
+  <!-- Transaction Modal -->
+  <div id="transaction-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">庫存異動</h3>
+      <form id="transaction-form">
+        <input type="hidden" id="transaction-product-id" />
+        <div class="mb-4 p-4 bg-blue-50 rounded-lg">
+          <p class="text-sm text-gray-600">
+            產品：<span id="transaction-product-name" class="font-medium text-gray-800"></span>
+          </p>
+          <p class="text-sm text-gray-600 mt-1">
+            有帳庫存：<span id="transaction-accountable-qty" class="font-semibold text-green-600"></span>
+          </p>
+          <p class="text-sm text-gray-600 mt-1">
+            無帳庫存：<span id="transaction-non-accountable-qty" class="font-semibold text-gray-600"></span>
+          </p>
+        </div>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">異動類型 *</label>
+            <select id="transaction-quantity-type" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="accountable">有帳</option>
+              <option value="non_accountable">無帳</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">櫃位 (選填)</label>
+            <select id="transaction-location"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">選擇櫃位...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">出入庫類型 *</label>
+            <div class="flex gap-3">
+              <label class="flex items-center gap-2">
+                <input type="radio" name="transaction-type" value="inbound" checked class="w-4 h-4" />
+                <span class="text-sm">入庫 (正數)</span>
+              </label>
+              <label class="flex items-center gap-2">
+                <input type="radio" name="transaction-type" value="outbound" class="w-4 h-4" />
+                <span class="text-sm">出庫 (負數)</span>
+              </label>
             </div>
-          </form>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">數量 *</label>
+            <input type="number" id="transaction-quantity" required placeholder="請輸入數量" min="1"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">說明</label>
+            <textarea id="transaction-remarks" rows="3" placeholder="備註資訊..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button type="button" id="transaction-modal-cancel"
+            class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">
+            確認異動
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-          <!-- Create Location Form -->
-          <form id="location-create-form" class="flex-1 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 class="font-bold text-gray-800 mb-2">➕ 新增櫃位</h3>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <input type="text" id="new-location-name" required placeholder="名稱 / 標籤" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
-              <input type="text" id="new-location-desc" placeholder="描述 (選填)" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500" />
-              <button type="submit" class="sm:w-auto w-full bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition font-medium whitespace-nowrap">新增</button>
+  <!-- History Modal -->
+  <div id="history-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">交易歷史記錄</h3>
+      <div class="mb-4 p-4 bg-blue-50 rounded-lg">
+        <p class="text-sm text-gray-600">
+          產品：<span id="history-product-name" class="font-medium text-gray-800"></span>
+        </p>
+        <p class="text-sm text-gray-600">
+          SKU：<span id="history-product-sku" class="font-medium text-gray-800"></span>
+        </p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                時間
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                標籤
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                變動量
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                批次編號
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                說明
+              </th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- History records will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+      <div class="flex justify-end mt-6">
+        <button id="history-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Transaction Modal -->
+  <div id="batch-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📦 批次異動</h3>
+      <form id="batch-form">
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">標籤 *</label>
+            <select id="batch-tag" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">選擇標籤...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">櫃位 (選填)</label>
+            <select id="batch-location"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">無</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">說明</label>
+            <textarea id="batch-description" rows="2" placeholder="此批次的整體說明..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+          </div>
+
+          <div class="border-t pt-4">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="font-medium text-gray-800">產品列表</h4>
+              <button type="button" id="add-batch-item-btn"
+                class="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 text-sm">
+                ➕ 新增產品
+              </button>
             </div>
-          </form>
+            <div id="batch-items-container" class="space-y-3">
+              <!-- Batch items will be added here -->
+            </div>
+          </div>
         </div>
 
-        <div class="overflow-x-auto border rounded-lg">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">櫃位名稱</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">描述</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">建立時間</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
-              </tr>
-            </thead>
-            <tbody id="locations-table-body" class="bg-white divide-y divide-gray-200">
-              <!-- Locations will be inserted here -->
-            </tbody>
-          </table>
+        <div class="flex gap-3 mt-6">
+          <button type="button" id="batch-modal-cancel"
+            class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">
+            取消
+          </button>
+          <button type="submit"
+            class="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition">
+            確認批次異動
+          </button>
         </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Batches List Modal -->
+  <div id="batches-list-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📋 批次交易查詢</h3>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                批次編號
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                說明
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                產品數量
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                入庫總數
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                出庫總數
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                時間
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                操作
+              </th>
+            </tr>
+          </thead>
+          <tbody id="batches-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Batches will be inserted here -->
+          </tbody>
+        </table>
       </div>
 
-      <!-- Filters Section -->
-      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">🔍 篩選條件</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="flex justify-end mt-6">
+        <button id="batches-list-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Details Modal -->
+  <div id="batch-details-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">批次詳情</h3>
+
+      <div class="mb-4 p-4 bg-purple-50 rounded-lg">
+        <p class="text-sm text-gray-600">
+          批次編號：<span id="batch-detail-number" class="font-medium text-gray-800"></span>
+        </p>
+        <p class="text-sm text-gray-600">
+          說明：<span id="batch-detail-description" class="font-medium text-gray-800"></span>
+        </p>
+        <p class="text-sm text-gray-600">
+          時間：<span id="batch-detail-time" class="font-medium text-gray-800"></span>
+        </p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                SKU
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                產品名稱
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                標籤
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                變動量
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                說明
+              </th>
+            </tr>
+          </thead>
+          <tbody id="batch-detail-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Batch detail records will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end mt-6">
+        <button id="batch-details-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Transactions Modal -->
+  <div id="all-transactions-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📜 所有異動記錄</h3>
+
+      <!-- Filters -->
+      <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
-              >產品編碼 (SKU)</label
-            >
-            <input
-              type="text"
-              id="filter-sku"
-              placeholder="搜尋 SKU..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <label class="block text-sm font-medium text-gray-700 mb-1">產品SKU</label>
+            <input type="text" id="all-trans-filter-sku" placeholder="搜尋 SKU..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
-              >產品名稱</label
-            >
-            <input
-              type="text"
-              id="filter-name"
-              placeholder="搜尋名稱..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
-              >型號</label
-            >
-            <input
-              type="text"
-              id="filter-model"
-              placeholder="搜尋型號..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2"
-              >標籤</label
-            >
-            <select
-              id="filter-tag"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
+            <label class="block text-sm font-medium text-gray-700 mb-1">標籤</label>
+            <select id="all-trans-filter-tag"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm">
               <option value="">全部標籤</option>
             </select>
           </div>
-          <div class="flex items-end gap-2 flex-wrap md:col-span-full xl:col-span-1">
-            <button
-              id="add-product-btn"
-              class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition font-medium shadow-md text-sm whitespace-nowrap"
-            >
-              ➕ 新增產品
-            </button>
-            <button
-              id="batch-transaction-btn"
-              class="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium shadow-md text-sm whitespace-nowrap"
-            >
-              📦 批次異動
-            </button>
-            <button
-              id="view-batches-btn"
-              class="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium shadow-md text-sm whitespace-nowrap"
-            >
-              📋 批次查詢
-            </button>
-            <button
-              id="view-all-transactions-btn"
-              class="flex-1 bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition font-medium shadow-md text-sm whitespace-nowrap"
-            >
-              📜 異動查詢
-            </button>
-            <button
-              id="view-webhooks-btn"
-              class="flex-1 bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition font-medium shadow-md text-sm whitespace-nowrap"
-            >
-              🔔 Webhooks
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">數量類型</label>
+            <select id="all-trans-filter-type"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm">
+              <option value="">全部</option>
+              <option value="in">入庫（正數）</option>
+              <option value="out">出庫（負數）</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="all-trans-search-btn"
+              class="w-full bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition text-sm font-medium">
+              🔍 搜尋
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Products Table (Desktop) -->
-      <div class="bg-white rounded-lg shadow-md overflow-hidden table-desktop">
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-blue-500">
-              <tr>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  SKU
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  名稱
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  類型
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  型號
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  有帳庫存
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  無帳庫存
-                </th>
-                <th
-                  class="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider"
-                >
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id="products-table-body"
-              class="bg-white divide-y divide-gray-200"
-            >
-              <!-- Products will be inserted here -->
-            </tbody>
-          </table>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                時間
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                SKU
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                產品名稱
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                標籤
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                變動量
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                批次編號
+              </th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                說明
+              </th>
+            </tr>
+          </thead>
+          <tbody id="all-transactions-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- All transaction records will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-between items-center mt-6">
+        <div class="text-sm text-gray-600">
+          共
+          <span id="all-trans-total" class="font-semibold text-orange-600">0</span>
+          筆記錄
+        </div>
+        <button id="all-transactions-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <!-- Product Locations Assignment Modal -->
+  <div id="product-locations-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📍 產品所在櫃位管理</h3>
+
+      <div class="mb-4 p-4 bg-teal-50 rounded-lg">
+        <p class="text-sm text-gray-600">產品：<span id="pl-modal-product-name" class="font-medium text-gray-800"></span>
+        </p>
+        <p class="text-sm text-gray-600">SKU：<span id="pl-modal-product-sku" class="font-medium text-gray-800"></span>
+        </p>
+      </div>
+
+      <form id="assign-location-form" class="mb-6 flex gap-3">
+        <input type="hidden" id="pl-modal-product-id" />
+        <select id="pl-modal-location-select" required
+          class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500">
+          <option value="">選擇欲綁定的櫃位...</option>
+        </select>
+        <button type="submit"
+          class="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 font-medium">綁定</button>
+      </form>
+
+      <h4 class="font-medium text-gray-800 mb-2">已綁定的櫃位</h4>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">櫃位名稱</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody id="pl-modal-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Assigned locations will be inserted here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end mt-6">
+        <button id="product-locations-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Content Modal -->
+  <div id="location-content-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📦 櫃位內容</h3>
+
+      <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+        <p class="text-sm text-gray-600">櫃位：<span id="lc-modal-location-name" class="font-bold text-teal-600"></span>
+        </p>
+        <p class="text-sm text-gray-600">描述：<span id="lc-modal-location-desc" class="text-gray-800"></span></p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">SKU</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">產品名稱</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">類型</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">型號</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
+            </tr>
+          </thead>
+          <tbody id="lc-modal-table-body" class="bg-white divide-y divide-gray-200">
+            <!-- Products in location will go here -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end mt-6">
+        <button id="location-content-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Scan Modal -->
+  <div id="camera-scan-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 text-center">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">📷 掃描 QR Code / 條碼</h3>
+      <div id="reader" class="w-full overflow-hidden rounded-lg mb-4"></div>
+      <div class="flex justify-end">
+        <button id="camera-scan-modal-close"
+          class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">取消 / 關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location QR Code Modal -->
+  <div id="location-qrcode-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6 text-center">
+      <h3 class="text-xl font-bold text-gray-800 mb-2">🏷️ 櫃位標籤</h3>
+      <p class="text-sm text-gray-600 mb-4">櫃位名稱：<span id="qr-modal-location-name"
+          class="font-bold text-teal-600"></span></p>
+      <div id="qrcode-container" class="flex justify-center mb-6 p-4 bg-white border rounded-lg shadow-inner"></div>
+      <p class="text-xs text-gray-400 mb-6">手機掃描上圖可直接進入此櫃位內容</p>
+      <div class="flex gap-3">
+        <button id="location-qrcode-modal-print"
+          class="flex-1 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition font-medium">列印標籤</button>
+        <button id="location-qrcode-modal-close"
+          class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Webhooks List Modal -->
+  <div id="webhooks-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-gray-800">🔔 Webhook 訂閱管理</h3>
+        <button id="webhooks-modal-close" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+      </div>
+      <p class="text-sm text-gray-600 mb-4">
+        當系統發生指定事件時（如庫存變動、批次建立、低庫存），會 POST JSON 至訂閱的 URL。
+        支援的事件：<code class="bg-gray-100 px-1 rounded">inventory.changed</code>、
+        <code class="bg-gray-100 px-1 rounded">batch.created</code>、
+        <code class="bg-gray-100 px-1 rounded">inventory.low</code>
+      </p>
+      <div class="mb-4">
+        <button id="webhook-add-btn"
+          class="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition font-medium">
+          ➕ 新增訂閱
+        </button>
+      </div>
+      <div id="webhooks-list" class="space-y-3">
+        <!-- populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Webhook Form Modal -->
+  <div id="webhook-form-modal" class="modal">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+      <h3 class="text-xl font-bold text-gray-800 mb-4" id="webhook-form-title">新增 Webhook</h3>
+      <form id="webhook-form">
+        <input type="hidden" id="webhook-id" />
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">名稱 *</label>
+            <input type="text" id="webhook-name" required
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">URL *</label>
+            <input type="url" id="webhook-url" required placeholder="http://192.168.1.50:5678/webhook/..."
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">訂閱事件</label>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="checkbox" class="webhook-event" value="inventory.changed" checked />
+                <span class="ml-2 text-sm">inventory.changed（單筆庫存異動）</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" class="webhook-event" value="batch.created" checked />
+                <span class="ml-2 text-sm">batch.created（批次建立）</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" class="webhook-event" value="inventory.low" checked />
+                <span class="ml-2 text-sm">inventory.low（低於最低庫存）</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="flex items-center">
+              <input type="checkbox" id="webhook-is-active" checked />
+              <span class="ml-2 text-sm">啟用</span>
+            </label>
+          </div>
+        </div>
+        <div class="flex gap-3 mt-6">
+          <button type="button" id="webhook-form-cancel"
+            class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">取消</button>
+          <button type="submit"
+            class="flex-1 bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Product Units Modal -->
+  <div id="product-units-modal" class="modal" style="z-index:60">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 p-6 flex flex-col" style="height:90vh">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-xl font-bold text-gray-800">序號管理</h3>
+          <p class="text-sm text-gray-500 mt-1" id="pu-modal-subtitle"></p>
+        </div>
+        <div class="flex gap-2 items-center">
+          <button id="pu-export-btn"
+            class="bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition text-sm">📤 匯出
+            CSV</button>
+          <button id="pu-modal-close"
+            class="text-gray-500 hover:text-gray-700 text-2xl font-bold leading-none">&times;</button>
         </div>
       </div>
 
-      <!-- Products Cards (Mobile) -->
-      <div id="products-cards" class="table-mobile-card space-y-4">
-        <!-- Product cards will be inserted here -->
+      <!-- Filters -->
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <select id="pu-filter-status"
+          class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+          <option value="">全部狀態</option>
+          <option value="in_stock">in_stock</option>
+          <option value="sold">sold</option>
+        </select>
+        <input type="text" id="pu-filter-serial" placeholder="序號搜尋"
+          class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+        <input type="text" id="pu-filter-project-case" placeholder="案子搜尋"
+          class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+        <button id="pu-filter-btn"
+          class="bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">篩選</button>
+        <button id="pu-filter-reset-btn"
+          class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 transition text-sm">重設</button>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-auto flex-1 mb-4">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 sticky top-0">
+            <tr>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">序號</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">狀態</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">案子</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">客戶</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">出貨時間</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">備註</th>
+              <th class="text-left px-3 py-2 text-gray-600 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody id="pu-table-body">
+            <tr>
+              <td colspan="7" class="text-center py-8 text-gray-400">載入中...</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Pagination -->
-      <div
-        id="pagination-container"
-        class="bg-white rounded-lg shadow-md p-4 mt-6"
-      >
-        <div
-          class="flex flex-col md:flex-row justify-between items-center gap-4"
-        >
-          <div class="text-sm text-gray-600">
-            共
-            <span id="total-products" class="font-semibold text-blue-600"
-              >0</span
-            >
-            筆產品
-          </div>
-          <div id="pagination-buttons" class="flex gap-2">
-            <!-- Pagination buttons will be inserted here -->
-          </div>
-        </div>
+      <div id="pu-pagination" class="flex justify-between items-center text-sm text-gray-500 mb-4">
+        <span id="pu-count-label"></span>
+        <div id="pu-pagination-buttons" class="flex gap-2"></div>
       </div>
-    </main>
 
-    <!-- Add/Edit Product Modal -->
-    <div id="product-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3
-          class="text-xl font-bold text-gray-800 mb-4"
-          id="product-modal-title"
-        >
-          新增產品
-        </h3>
-        <form id="product-form">
-          <input type="hidden" id="product-id" />
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >產品編碼 (SKU) *</label
-              >
-              <input
-                type="text"
-                id="product-sku"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >名稱 *</label
-              >
-              <input
-                type="text"
-                id="product-name"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >類型 *</label
-              >
-              <input
-                type="text"
-                id="product-type"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >型號</label
-              >
-              <input
-                type="text"
-                id="product-model"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >有帳初始庫存</label
-              >
-              <input
-                type="number"
-                id="product-accountable-qty"
-                value="0"
-                min="0"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >無帳初始庫存</label
-              >
-              <input
-                type="number"
-                id="product-non-accountable-qty"
-                value="0"
-                min="0"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >最低庫存閾值 (Min Stock)</label
-              >
-              <input
-                type="number"
-                id="product-min-stock"
-                value="0"
-                min="0"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-              <p class="text-xs text-gray-500 mt-1">
-                當「有帳庫存」低於此值時，會觸發低庫存警報。設為 0 表示停用。
-              </p>
-            </div>
-            <div class="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="product-track-serial"
-                class="w-4 h-4 text-blue-600 rounded border-gray-300"
-              />
-              <label for="product-track-serial" class="text-sm font-medium text-gray-700">
-                逐台追蹤序號（高單價商品）
-              </label>
-            </div>
-          </div>
-          <div class="flex gap-3 mt-6">
-            <button
-              type="button"
-              id="product-modal-cancel"
-              class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
-            >
-              儲存
-            </button>
-          </div>
+      <!-- Single Add Form -->
+      <div class="border-t pt-4">
+        <h4 class="text-sm font-semibold text-gray-700 mb-2">單筆新增</h4>
+        <form id="pu-add-form" class="flex gap-2 flex-wrap">
+          <input type="text" id="pu-add-serial" placeholder="序號 *" required
+            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
+          <input type="text" id="pu-add-remarks" placeholder="備註（選填）"
+            class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
+          <button type="submit"
+            class="bg-blue-500 text-white px-4 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">新增</button>
         </form>
       </div>
-    </div>
 
-    <!-- Transaction Modal -->
-    <div id="transaction-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">庫存異動</h3>
-        <form id="transaction-form">
-          <input type="hidden" id="transaction-product-id" />
-          <div class="mb-4 p-4 bg-blue-50 rounded-lg">
-            <p class="text-sm text-gray-600">
-              產品：<span
-                id="transaction-product-name"
-                class="font-medium text-gray-800"
-              ></span>
-            </p>
-            <p class="text-sm text-gray-600 mt-1">
-              有帳庫存：<span
-                id="transaction-accountable-qty"
-                class="font-semibold text-green-600"
-              ></span>
-            </p>
-            <p class="text-sm text-gray-600 mt-1">
-              無帳庫存：<span
-                id="transaction-non-accountable-qty"
-                class="font-semibold text-gray-600"
-              ></span>
-            </p>
-          </div>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >異動類型 *</label
-              >
-              <select
-                id="transaction-quantity-type"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="accountable">有帳</option>
-                <option value="non_accountable">無帳</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >櫃位 (選填)</label
-              >
-              <select
-                id="transaction-location"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">選擇櫃位...</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >出入庫類型 *</label
-              >
-              <div class="flex gap-3">
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="transaction-type"
-                    value="inbound"
-                    checked
-                    class="w-4 h-4"
-                  />
-                  <span class="text-sm">入庫 (正數)</span>
-                </label>
-                <label class="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="transaction-type"
-                    value="outbound"
-                    class="w-4 h-4"
-                  />
-                  <span class="text-sm">出庫 (正數)</span>
-                </label>
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >數量 *</label
-              >
-              <input
-                type="number"
-                id="transaction-quantity"
-                required
-                placeholder="請輸入數量（無需負號）"
-                min="1"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-              <p class="text-xs text-gray-500 mt-1">
-                只需輸入正數，系統自動根據出入庫類型處理
-              </p>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >說明</label
-              >
-              <textarea
-                id="transaction-remarks"
-                rows="3"
-                placeholder="備註資訊..."
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              ></textarea>
-            </div>
-          </div>
-          <div class="flex gap-3 mt-6">
-            <button
-              type="button"
-              id="transaction-modal-cancel"
-              class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
-            >
-              確認異動
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- History Modal -->
-    <div id="history-modal" class="modal">
-      <div
-        class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
-      >
-        <h3 class="text-xl font-bold text-gray-800 mb-4">交易歷史記錄</h3>
-        <div class="mb-4 p-4 bg-blue-50 rounded-lg">
-          <p class="text-sm text-gray-600">
-            產品：<span
-              id="history-product-name"
-              class="font-medium text-gray-800"
-            ></span>
-          </p>
-          <p class="text-sm text-gray-600">
-            SKU：<span
-              id="history-product-sku"
-              class="font-medium text-gray-800"
-            ></span>
-          </p>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  時間
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  標籤
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  變動量
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  批次編號
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  說明
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id="history-table-body"
-              class="bg-white divide-y divide-gray-200"
-            >
-              <!-- History records will be inserted here -->
-            </tbody>
-          </table>
-        </div>
-        <div class="flex justify-end mt-6">
-          <button
-            id="history-modal-close"
-            class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Batch Transaction Modal -->
-    <div id="batch-modal" class="modal">
-      <div
-        class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
-      >
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📦 批次異動</h3>
-        <form id="batch-form">
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >標籤 *</label
-              >
-              <select
-                id="batch-tag"
-                required
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">選擇標籤...</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >櫃位 (選填)</label
-              >
-              <select
-                id="batch-location"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">無</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2"
-                >說明</label
-              >
-              <textarea
-                id="batch-description"
-                rows="2"
-                placeholder="此批次的整體說明..."
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              ></textarea>
-            </div>
-
-            <div class="border-t pt-4">
-              <div class="flex justify-between items-center mb-3">
-                <h4 class="font-medium text-gray-800">產品列表</h4>
-                <button
-                  type="button"
-                  id="add-batch-item-btn"
-                  class="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 text-sm"
-                >
-                  ➕ 新增產品
-                </button>
-              </div>
-              <div id="batch-items-container" class="space-y-3">
-                <!-- Batch items will be added here -->
-              </div>
-            </div>
-          </div>
-
-          <div class="flex gap-3 mt-6">
-            <button
-              type="button"
-              id="batch-modal-cancel"
-              class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
-            >
-              取消
-            </button>
-            <button
-              type="submit"
-              class="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition"
-            >
-              確認批次異動
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Batches List Modal -->
-    <div id="batches-list-modal" class="modal">
-      <div
-        class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
-      >
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📋 批次交易查詢</h3>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  批次編號
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  說明
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  產品數量
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  入庫總數
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  出庫總數
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  時間
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id="batches-table-body"
-              class="bg-white divide-y divide-gray-200"
-            >
-              <!-- Batches will be inserted here -->
-            </tbody>
-          </table>
+      <!-- Bulk Forms (tab-switched) -->
+      <div class="border-t pt-4 mt-3">
+        <div class="flex gap-2 mb-3">
+          <button id="pu-tab-inbound" onclick="switchBulkTab('inbound')"
+            class="px-4 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white">批次入庫</button>
+          <button id="pu-tab-outbound" onclick="switchBulkTab('outbound')"
+            class="px-4 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">批次出庫</button>
         </div>
 
-        <div class="flex justify-end mt-6">
-          <button
-            id="batches-list-modal-close"
-            class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Batch Details Modal -->
-    <div id="batch-details-modal" class="modal">
-      <div
-        class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
-      >
-        <h3 class="text-xl font-bold text-gray-800 mb-4">批次詳情</h3>
-
-        <div class="mb-4 p-4 bg-purple-50 rounded-lg">
-          <p class="text-sm text-gray-600">
-            批次編號：<span
-              id="batch-detail-number"
-              class="font-medium text-gray-800"
-            ></span>
-          </p>
-          <p class="text-sm text-gray-600">
-            說明：<span
-              id="batch-detail-description"
-              class="font-medium text-gray-800"
-            ></span>
-          </p>
-          <p class="text-sm text-gray-600">
-            時間：<span
-              id="batch-detail-time"
-              class="font-medium text-gray-800"
-            ></span>
-          </p>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  SKU
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  產品名稱
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  標籤
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  變動量
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  說明
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id="batch-detail-table-body"
-              class="bg-white divide-y divide-gray-200"
-            >
-              <!-- Batch detail records will be inserted here -->
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex justify-end mt-6">
-          <button
-            id="batch-details-modal-close"
-            class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- All Transactions Modal -->
-    <div id="all-transactions-modal" class="modal">
-      <div
-        class="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto"
-      >
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📜 所有異動記錄</h3>
-
-        <!-- Filters -->
-        <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >產品SKU</label
-              >
-              <input
-                type="text"
-                id="all-trans-filter-sku"
-                placeholder="搜尋 SKU..."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >標籤</label
-              >
-              <select
-                id="all-trans-filter-tag"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
-              >
-                <option value="">全部標籤</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1"
-                >數量類型</label
-              >
-              <select
-                id="all-trans-filter-type"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-sm"
-              >
-                <option value="">全部</option>
-                <option value="in">入庫（正數）</option>
-                <option value="out">出庫（負數）</option>
-              </select>
-            </div>
-            <div class="flex items-end">
-              <button
-                id="all-trans-search-btn"
-                class="w-full bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition text-sm font-medium"
-              >
-                🔍 搜尋
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  時間
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  SKU
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  產品名稱
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  標籤
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  變動量
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  批次編號
-                </th>
-                <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase"
-                >
-                  說明
-                </th>
-              </tr>
-            </thead>
-            <tbody
-              id="all-transactions-table-body"
-              class="bg-white divide-y divide-gray-200"
-            >
-              <!-- All transaction records will be inserted here -->
-            </tbody>
-          </table>
-        </div>
-
-        <div class="flex justify-between items-center mt-6">
-          <div class="text-sm text-gray-600">
-            共
-            <span id="all-trans-total" class="font-semibold text-orange-600"
-              >0</span
-            >
-            筆記錄
-          </div>
-          <button
-            id="all-transactions-modal-close"
-            class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-          >
-            關閉
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <script src="/js/app.js"></script>
-    <!-- Product Locations Assignment Modal -->
-    <div id="product-locations-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📍 產品所在櫃位管理</h3>
-        
-        <div class="mb-4 p-4 bg-teal-50 rounded-lg">
-          <p class="text-sm text-gray-600">產品：<span id="pl-modal-product-name" class="font-medium text-gray-800"></span></p>
-          <p class="text-sm text-gray-600">SKU：<span id="pl-modal-product-sku" class="font-medium text-gray-800"></span></p>
-        </div>
-
-        <form id="assign-location-form" class="mb-6 flex gap-3">
-          <input type="hidden" id="pl-modal-product-id" />
-          <select id="pl-modal-location-select" required class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500">
-            <option value="">選擇欲綁定的櫃位...</option>
-          </select>
-          <button type="submit" class="bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 font-medium">綁定</button>
-        </form>
-
-        <h4 class="font-medium text-gray-800 mb-2">已綁定的櫃位</h4>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">櫃位名稱</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
-              </tr>
-            </thead>
-            <tbody id="pl-modal-table-body" class="bg-white divide-y divide-gray-200">
-              <!-- Assigned locations will be inserted here -->
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="flex justify-end mt-6">
-          <button id="product-locations-modal-close" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">完成</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Location Content Modal -->
-    <div id="location-content-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📦 櫃位內容</h3>
-        
-        <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-600">櫃位：<span id="lc-modal-location-name" class="font-bold text-teal-600"></span></p>
-          <p class="text-sm text-gray-600">描述：<span id="lc-modal-location-desc" class="text-gray-800"></span></p>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">SKU</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">產品名稱</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">類型</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">型號</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">操作</th>
-              </tr>
-            </thead>
-            <tbody id="lc-modal-table-body" class="bg-white divide-y divide-gray-200">
-              <!-- Products in location will go here -->
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="flex justify-end mt-6">
-          <button id="location-content-modal-close" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">關閉</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Camera Scan Modal -->
-    <div id="camera-scan-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6 text-center">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">📷 掃描 QR Code / 條碼</h3>
-        <div id="reader" class="w-full overflow-hidden rounded-lg mb-4"></div>
-        <div class="flex justify-end">
-          <button id="camera-scan-modal-close" class="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 transition">取消 / 關閉</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Location QR Code Modal -->
-    <div id="location-qrcode-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6 text-center">
-        <h3 class="text-xl font-bold text-gray-800 mb-2">🏷️ 櫃位標籤</h3>
-        <p class="text-sm text-gray-600 mb-4">櫃位名稱：<span id="qr-modal-location-name" class="font-bold text-teal-600"></span></p>
-        <div id="qrcode-container" class="flex justify-center mb-6 p-4 bg-white border rounded-lg shadow-inner"></div>
-        <p class="text-xs text-gray-400 mb-6">手機掃描上圖可直接進入此櫃位內容</p>
-        <div class="flex gap-3">
-          <button id="location-qrcode-modal-print" class="flex-1 bg-teal-500 text-white px-4 py-2 rounded-lg hover:bg-teal-600 transition font-medium">列印標籤</button>
-          <button id="location-qrcode-modal-close" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">關閉</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Webhooks List Modal -->
-    <div id="webhooks-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-bold text-gray-800">🔔 Webhook 訂閱管理</h3>
-          <button id="webhooks-modal-close" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-        </div>
-        <p class="text-sm text-gray-600 mb-4">
-          當系統發生指定事件時（如庫存變動、批次建立、低庫存），會 POST JSON 至訂閱的 URL。
-          支援的事件：<code class="bg-gray-100 px-1 rounded">inventory.changed</code>、
-          <code class="bg-gray-100 px-1 rounded">batch.created</code>、
-          <code class="bg-gray-100 px-1 rounded">inventory.low</code>
-        </p>
-        <div class="mb-4">
-          <button id="webhook-add-btn" class="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition font-medium">
-            ➕ 新增訂閱
-          </button>
-        </div>
-        <div id="webhooks-list" class="space-y-3">
-          <!-- populated by JS -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Webhook Form Modal -->
-    <div id="webhook-form-modal" class="modal">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4" id="webhook-form-title">新增 Webhook</h3>
-        <form id="webhook-form">
-          <input type="hidden" id="webhook-id" />
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">名稱 *</label>
-              <input type="text" id="webhook-name" required
-                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">URL *</label>
-              <input type="url" id="webhook-url" required placeholder="http://192.168.1.50:5678/webhook/..."
-                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">訂閱事件</label>
-              <div class="space-y-2">
-                <label class="flex items-center">
-                  <input type="checkbox" class="webhook-event" value="inventory.changed" checked />
-                  <span class="ml-2 text-sm">inventory.changed（單筆庫存異動）</span>
-                </label>
-                <label class="flex items-center">
-                  <input type="checkbox" class="webhook-event" value="batch.created" checked />
-                  <span class="ml-2 text-sm">batch.created（批次建立）</span>
-                </label>
-                <label class="flex items-center">
-                  <input type="checkbox" class="webhook-event" value="inventory.low" checked />
-                  <span class="ml-2 text-sm">inventory.low（低於最低庫存）</span>
-                </label>
-              </div>
-            </div>
-            <div>
-              <label class="flex items-center">
-                <input type="checkbox" id="webhook-is-active" checked />
-                <span class="ml-2 text-sm">啟用</span>
-              </label>
-            </div>
-          </div>
-          <div class="flex gap-3 mt-6">
-            <button type="button" id="webhook-form-cancel"
-                    class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">取消</button>
+        <!-- Bulk Add Panel -->
+        <div id="pu-bulk-panel-inbound">
+          <p class="text-xs text-gray-500 mb-2">每行一個序號</p>
+          <form id="pu-bulk-form">
+            <textarea id="pu-bulk-serials" rows="4" placeholder="SN-001&#10;SN-002&#10;SN-003"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
             <button type="submit"
-                    class="flex-1 bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 transition">儲存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Product Units Modal -->
-    <div id="product-units-modal" class="modal" style="z-index:60">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 p-6 flex flex-col" style="height:90vh">
-        <div class="flex justify-between items-center mb-4">
-          <div>
-            <h3 class="text-xl font-bold text-gray-800">序號管理</h3>
-            <p class="text-sm text-gray-500 mt-1" id="pu-modal-subtitle"></p>
-          </div>
-          <div class="flex gap-2 items-center">
-            <button id="pu-export-btn" class="bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition text-sm">📤 匯出 CSV</button>
-            <button id="pu-modal-close" class="text-gray-500 hover:text-gray-700 text-2xl font-bold leading-none">&times;</button>
-          </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="flex gap-2 mb-4 flex-wrap">
-          <select id="pu-filter-status" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-            <option value="">全部狀態</option>
-            <option value="in_stock">in_stock</option>
-            <option value="sold">sold</option>
-          </select>
-          <input type="text" id="pu-filter-serial" placeholder="序號搜尋" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
-          <input type="text" id="pu-filter-project-case" placeholder="案子搜尋" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
-          <button id="pu-filter-btn" class="bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">篩選</button>
-          <button id="pu-filter-reset-btn" class="bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 transition text-sm">重設</button>
-        </div>
-
-        <!-- Table -->
-        <div class="overflow-auto flex-1 mb-4">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50 sticky top-0">
-              <tr>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">序號</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">狀態</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">案子</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">客戶</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">出貨時間</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">備註</th>
-                <th class="text-left px-3 py-2 text-gray-600 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody id="pu-table-body">
-              <tr><td colspan="7" class="text-center py-8 text-gray-400">載入中...</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div id="pu-pagination" class="flex justify-between items-center text-sm text-gray-500 mb-4">
-          <span id="pu-count-label"></span>
-          <div id="pu-pagination-buttons" class="flex gap-2"></div>
-        </div>
-
-        <!-- Single Add Form -->
-        <div class="border-t pt-4">
-          <h4 class="text-sm font-semibold text-gray-700 mb-2">單筆新增</h4>
-          <form id="pu-add-form" class="flex gap-2 flex-wrap">
-            <input type="text" id="pu-add-serial" placeholder="序號 *" required class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
-            <input type="text" id="pu-add-remarks" placeholder="備註（選填）" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-blue-500" />
-            <button type="submit" class="bg-blue-500 text-white px-4 py-1.5 rounded-lg hover:bg-blue-600 transition text-sm">新增</button>
+              class="bg-indigo-500 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-600 transition text-sm">批次入庫</button>
           </form>
+          <div id="pu-bulk-result" class="mt-2 text-sm hidden"></div>
         </div>
 
-        <!-- Bulk Forms (tab-switched) -->
-        <div class="border-t pt-4 mt-3">
-          <div class="flex gap-2 mb-3">
-            <button id="pu-tab-inbound" onclick="switchBulkTab('inbound')" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-indigo-500 text-white">批次入庫</button>
-            <button id="pu-tab-outbound" onclick="switchBulkTab('outbound')" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200">批次出庫</button>
-          </div>
-
-          <!-- Bulk Add Panel -->
-          <div id="pu-bulk-panel-inbound">
-            <p class="text-xs text-gray-500 mb-2">每行一個序號</p>
-            <form id="pu-bulk-form">
-              <textarea id="pu-bulk-serials" rows="4" placeholder="SN-001&#10;SN-002&#10;SN-003" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 mb-2"></textarea>
-              <button type="submit" class="bg-indigo-500 text-white px-4 py-1.5 rounded-lg hover:bg-indigo-600 transition text-sm">批次入庫</button>
-            </form>
-            <div id="pu-bulk-result" class="mt-2 text-sm hidden"></div>
-          </div>
-
-          <!-- Bulk Sell Panel -->
-          <div id="pu-bulk-panel-outbound" class="hidden">
-            <p class="text-xs text-gray-500 mb-2">每行一個序號</p>
-            <form id="pu-bulk-sell-form">
-              <textarea id="pu-bulk-sell-serials" rows="4" placeholder="SN-001&#10;SN-002&#10;SN-003" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-red-500 mb-2"></textarea>
-              <div class="flex gap-2 flex-wrap mb-2">
-                <input type="text" id="pu-bulk-sell-project-case" placeholder="案子 *" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-red-500" />
-                <input type="text" id="pu-bulk-sell-sold-to" placeholder="客戶/收件人（選填）" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-red-500" />
-              </div>
-              <input type="text" id="pu-bulk-sell-remarks" placeholder="備註（選填）" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 mb-2" />
-              <button type="submit" class="bg-red-500 text-white px-4 py-1.5 rounded-lg hover:bg-red-600 transition text-sm">批次出庫</button>
-            </form>
-            <div id="pu-bulk-sell-result" class="mt-2 text-sm hidden"></div>
-          </div>
+        <!-- Bulk Sell Panel -->
+        <div id="pu-bulk-panel-outbound" class="hidden">
+          <p class="text-xs text-gray-500 mb-2">每行一個序號</p>
+          <form id="pu-bulk-sell-form">
+            <textarea id="pu-bulk-sell-serials" rows="4" placeholder="SN-001&#10;SN-002&#10;SN-003"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-red-500 mb-2"></textarea>
+            <div class="flex gap-2 flex-wrap mb-2">
+              <input type="text" id="pu-bulk-sell-project-case" placeholder="案子 *"
+                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-red-500" />
+              <input type="text" id="pu-bulk-sell-sold-to" placeholder="客戶/收件人（選填）"
+                class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm flex-1 min-w-32 focus:ring-2 focus:ring-red-500" />
+            </div>
+            <input type="text" id="pu-bulk-sell-remarks" placeholder="備註（選填）"
+              class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 mb-2" />
+            <button type="submit"
+              class="bg-red-500 text-white px-4 py-1.5 rounded-lg hover:bg-red-600 transition text-sm">批次出庫</button>
+          </form>
+          <div id="pu-bulk-sell-result" class="mt-2 text-sm hidden"></div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Product Unit Edit Modal -->
-    <div id="pu-edit-modal" class="modal" style="z-index:70">
-      <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6">
-        <h3 class="text-lg font-bold text-gray-800 mb-4">編輯序號品</h3>
-        <form id="pu-edit-form">
-          <input type="hidden" id="pu-edit-id" />
-          <div class="space-y-3">
+  <!-- Product Unit Edit Modal -->
+  <div id="pu-edit-modal" class="modal" style="z-index:70">
+    <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6">
+      <h3 class="text-lg font-bold text-gray-800 mb-4">編輯序號品</h3>
+      <form id="pu-edit-form">
+        <input type="hidden" id="pu-edit-id" />
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">序號</label>
+            <input type="text" id="pu-edit-serial-display" disabled
+              class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">狀態 *</label>
+            <select id="pu-edit-status"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+              <option value="in_stock">in_stock</option>
+              <option value="sold">sold</option>
+            </select>
+          </div>
+          <div id="pu-edit-sold-fields" class="space-y-3 hidden">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">序號</label>
-              <input type="text" id="pu-edit-serial-display" disabled class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">案子 *</label>
+              <input type="text" id="pu-edit-project-case"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">狀態 *</label>
-              <select id="pu-edit-status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
-                <option value="in_stock">in_stock</option>
-                <option value="sold">sold</option>
-              </select>
-            </div>
-            <div id="pu-edit-sold-fields" class="space-y-3 hidden">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">案子 *</label>
-                <input type="text" id="pu-edit-project-case" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">客戶/收件人（選填）</label>
-                <input type="text" id="pu-edit-sold-to" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
-              </div>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
-              <input type="text" id="pu-edit-remarks" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">客戶/收件人（選填）</label>
+              <input type="text" id="pu-edit-sold-to"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          <div class="flex gap-3 mt-5">
-            <button type="button" id="pu-edit-cancel" class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition text-sm">取消</button>
-            <button type="submit" class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">儲存</button>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+            <input type="text" id="pu-edit-remarks"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
           </div>
-        </form>
-      </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button type="button" id="pu-edit-cancel"
+            class="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition text-sm">取消</button>
+          <button type="submit"
+            class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">儲存</button>
+        </div>
+      </form>
     </div>
+  </div>
 
-  </body>
+</body>
+
 </html>
