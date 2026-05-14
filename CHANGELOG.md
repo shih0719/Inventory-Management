@@ -2,6 +2,25 @@
 
 本檔案遵循 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 格式，版本遵循 [Semantic Versioning](https://semver.org/lang/zh_TW/)。
 
+## [1.1.1] - 2026-05-14
+
+### 新增功能
+- 集成 Winston 日誌系統，支援結構化日誌記錄
+- 自動日誌輪轉，保留 10 個文件，每個 10MB
+
+### 技術改進
+- 日誌存儲在 `logs/app.log`（全部）和 `logs/error.log`（僅錯誤）
+- 為所有日誌添加服務標籤（`[UPDATE]`, `[BACKUP]`, `[SERVER]`, `[SYSTEM]`）
+- 替換所有 `console.log/console.error` 為結構化日誌
+
+### 受影響文件
+- `src/config/logger.js` - 新增日誌配置
+- `src/services/backupService.js` - 更新為使用日誌系統
+- `src/services/updateService.js` - 更新為使用日誌系統
+- `src/controllers/systemController.js` - 更新為使用日誌系統
+- `server.js` - 更新為使用日誌系統
+- `docs/LOGGING.md` - 新增日誌文檔
+
 ## [1.1.0] - 2026-05-14
 
 ### 新增功能
