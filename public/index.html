@@ -495,17 +495,44 @@
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2"
-                >數量變動 *</label
+                >出入庫類型 *</label
+              >
+              <div class="flex gap-3">
+                <label class="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="transaction-type"
+                    value="inbound"
+                    checked
+                    class="w-4 h-4"
+                  />
+                  <span class="text-sm">入庫 (正數)</span>
+                </label>
+                <label class="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="transaction-type"
+                    value="outbound"
+                    class="w-4 h-4"
+                  />
+                  <span class="text-sm">出庫 (正數)</span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >數量 *</label
               >
               <input
                 type="number"
                 id="transaction-quantity"
                 required
-                placeholder="正數為入庫，負數為出庫"
+                placeholder="請輸入數量（無需負號）"
+                min="1"
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
               <p class="text-xs text-gray-500 mt-1">
-                提示：入庫使用正數（如 +10），出庫使用負數（如 -5）
+                只需輸入正數，系統自動根據出入庫類型處理
               </p>
             </div>
             <div>

@@ -1,5 +1,6 @@
 const db = require("../config/database");
 const iconv = require("iconv-lite");
+const quantityStateService = require("../services/quantityStateService");
 
 function normalizeSerial(sn) {
   return sn.trim().toUpperCase();
@@ -137,14 +138,22 @@ async function bulkCreate(req, res) {
     if (inserted > 0) {
       const inboundTag = await db.get("SELECT id FROM tags WHERE name = 'INBOUND'");
       if (inboundTag) {
-        await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
-          [product_id, inboundTag.id, inserted, "系統自動"],
+        // Validate quantity change using QuantityState module
+        const validation = quantityStateService.validate(
+          product.accountable_quantity,
+          inserted,
+          { quantityType: 'accountable' }
         );
-        await db.run(
-          "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
-          [inserted, product_id],
-        );
+        if (validation.ok) {
+          await db.run(
+            "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
+            [product_id, inboundTag.id, inserted, "系統自動"],
+          );
+          await db.run(
+            "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
+            [inserted, product_id],
+          );
+        }
       }
     }
 
@@ -215,15 +224,26 @@ async function bulkSell(req, res) {
         grouped[unit.product_id] = (grouped[unit.product_id] || 0) + 1;
       }
       for (const [productId, count] of Object.entries(grouped)) {
-        await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
-          [productId, outboundTag.id, -count, "系統自動"],
-        );
-        await db.run(
-          "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
-          [count, productId],
-        );
-        transactionsCreated++;
+        const productForValidation = await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [productId]);
+        if (productForValidation) {
+          // Validate outbound using QuantityState module
+          const validation = quantityStateService.validate(
+            productForValidation.accountable_quantity,
+            -count,
+            { quantityType: 'accountable' }
+          );
+          if (validation.ok) {
+            await db.run(
+              "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
+              [productId, outboundTag.id, -count, "系統自動"],
+            );
+            await db.run(
+              "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
+              [count, productId],
+            );
+            transactionsCreated++;
+          }
+        }
       }
     }
 

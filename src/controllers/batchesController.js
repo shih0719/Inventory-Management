@@ -1,5 +1,6 @@
 const db = require("../config/database");
 const webhookService = require("../services/webhookService");
+const quantityStateService = require("../services/quantityStateService");
 
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
@@ -53,16 +54,17 @@ async function createBatch(req, res) {
           ? product.accountable_quantity
           : product.non_accountable_quantity;
 
-      const newQuantity = currentQuantity + parseInt(quantity_change);
+      // Validate using QuantityState module
+      const validation = quantityStateService.validate(currentQuantity, quantity_change, {
+        quantityType: quantity_type,
+      });
 
-      if (newQuantity < 0) {
-        validationErrors.push(
-          `${index} (${product.name}): 庫存不足，` +
-          `現有 ${quantity_type === "accountable" ? "有帳" : "無帳"} 數量 ${currentQuantity}，` +
-          `請求異動 ${quantity_change}`
-        );
+      if (!validation.ok) {
+        validationErrors.push(`${index} (${product.name}): ${validation.reason}`);
         continue;
       }
+
+      const newQuantity = validation.newQuantity;
 
       validatedItems.push({
         product_id,

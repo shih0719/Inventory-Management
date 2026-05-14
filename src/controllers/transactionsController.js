@@ -1,5 +1,6 @@
 const db = require("../config/database");
 const webhookService = require("../services/webhookService");
+const quantityStateService = require("../services/quantityStateService");
 
 // Create new transaction and update product quantity
 async function create(req, res) {
@@ -49,17 +50,19 @@ async function create(req, res) {
         ? product.accountable_quantity
         : product.non_accountable_quantity;
 
-    // Calculate new quantity
-    const newQuantity = currentQuantity + parseInt(quantity_change);
+    // Validate quantity change using QuantityState module
+    const validation = quantityStateService.validate(currentQuantity, quantity_change, {
+      quantityType: quantity_type,
+    });
 
-    if (newQuantity < 0) {
+    if (!validation.ok) {
       return res.status(400).json({
         success: false,
-        error: `Insufficient ${
-          quantity_type === "accountable" ? "有帳" : "無帳"
-        } quantity in stock`,
+        error: validation.reason,
       });
     }
+
+    const newQuantity = validation.newQuantity;
 
     // Start transaction
     await db.run("BEGIN TRANSACTION");

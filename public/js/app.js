@@ -741,15 +741,18 @@ function openTransactionModal(
 async function handleTransactionSubmit(e) {
   e.preventDefault();
 
+  // Get transaction type and convert to signed quantity_change
+  const transactionType = document.querySelector('input[name="transaction-type"]:checked').value;
+  const quantityInput = parseInt(document.getElementById("transaction-quantity").value);
+  const quantity_change = transactionType === "outbound" ? -quantityInput : quantityInput;
+
   const data = {
     product_id: parseInt(
       document.getElementById("transaction-product-id").value,
     ),
     tag_id: parseInt(document.getElementById("transaction-tag").value),
     location_id: parseInt(document.getElementById("transaction-location").value) || null,
-    quantity_change: parseInt(
-      document.getElementById("transaction-quantity").value,
-    ),
+    quantity_change: quantity_change,
     quantity_type: document.getElementById("transaction-quantity-type").value,
     remarks: document.getElementById("transaction-remarks").value,
   };
