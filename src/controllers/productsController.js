@@ -66,7 +66,7 @@ async function getAll(req, res) {
       countSql += " AND p.min_stock > 0 AND p.accountable_quantity < p.min_stock";
     }
 
-    sql += " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+    sql += " ORDER BY CASE WHEN p.min_stock > 0 AND p.accountable_quantity < p.min_stock THEN 0 ELSE 1 END ASC, p.created_at DESC LIMIT ? OFFSET ?";
     params.push(parseInt(limit), offset);
 
     const totalResult = await db.get(countSql, countParams);

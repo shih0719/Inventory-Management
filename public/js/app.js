@@ -137,12 +137,14 @@ async function loadProducts(page = 1) {
     const name = document.getElementById("filter-name").value;
     const model = document.getElementById("filter-model").value;
     const tag = document.getElementById("filter-tag").value;
+    const lowStock = document.getElementById("filter-low-stock").checked;
 
     let url = `${API_BASE}/products?page=${page}&limit=10`;
     if (sku) url += `&sku=${encodeURIComponent(sku)}`;
     if (name) url += `&name=${encodeURIComponent(name)}`;
     if (model) url += `&model=${encodeURIComponent(model)}`;
     if (tag) url += `&tag=${tag}`;
+    if (lowStock) url += `&low_stock=true`;
 
     const response = await fetch(url);
     const result = await response.json();
@@ -438,6 +440,10 @@ function setupEventListeners() {
   );
   document
     .getElementById("filter-tag")
+    .addEventListener("change", () => loadProducts(1));
+
+  document
+    .getElementById("filter-low-stock")
     .addEventListener("change", () => loadProducts(1));
 
   // Add product button
