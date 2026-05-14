@@ -22,4 +22,4 @@ RUN chmod +x /app/backup-db.sh
 EXPOSE 3030
 
 # 啟動應用程式與備份守護程序
-CMD bash -c "npm start & ./backup-db.sh"
+CMD sh -c "npm start & ./backup-db.sh"
