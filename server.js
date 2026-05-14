@@ -93,7 +93,7 @@ app.use((req, res) => {
 // Initialize database and start server
 initDatabase()
   .then(() => {
-    // 啟動備份守護程序
+    // 启动备份守护程序
     startBackupDaemon();
 
     app.listen(PORT, () => {

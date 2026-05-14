@@ -23,19 +23,33 @@
 
 ## 快速啟動
 
+### 開發模式
+
 ```bash
 npm install
-npm run dev       # 開發模式（nodemon）
-npm start         # 生產模式
+npm run dev       # 使用 nodemon 自動重載
 ```
 
-瀏覽器開啟：`http://localhost:3000`（PORT 可在 `.env` 覆寫）
-
-### Docker
+### 生產部署（PM2）
 
 ```bash
-docker-compose up -d
+# 全局安裝 PM2（第一次）
+npm install -g pm2
+
+# 安裝依賴
+npm install --production
+
+# 啟動應用
+npm run pm2:start
+
+# 查看應用狀態
+pm2 status
+
+# 查看日誌
+pm2 logs
 ```
+
+瀏覽器開啟：`http://localhost:3030`（PORT 可在 `.env` 覆寫）
 
 ## 專案結構
 
@@ -191,18 +205,18 @@ SKU-002,無線滑鼠,配件,Logitech MX Master,50,30,20
 git fetch origin --quiet          # 獲取遠端最新代碼
 git reset --hard origin/main      # 強制同步遠端版本
 npm install --production          # 安裝新依賴
-process.exit(0)                   # Docker 自動重啟
+process.exit(0)                   # PM2 自動重啟
 ```
 
 ### 自動備份
 
-系統會自動定期備份 SQLite 資料庫，確保更新安全。
+系統會自動定期備份 SQLite 資料庫，確保數據安全。
 
 - **備份位置**：`./database/backups/`
 - **備份頻率**：每小時自動執行一次
 - **保留策略**：保留最近 7 天的備份，舊備份自動刪除
-- **備份方式**：使用 SQLite 的 `.backup` 命令確保一致性
-- **備份文件名**：`inventory.backup_YYYYMMDD_HHMMSS.db`
+- **備份方式**：文件複製（Windows 兼容）
+- **備份文件名**：`inventory.backup_YYYYMMDDTHHmmss.db`
 
 ### 手動恢復備份
 
@@ -210,7 +224,7 @@ process.exit(0)                   # Docker 自動重啟
 
 ```bash
 # 停止應用
-docker-compose down
+npm run pm2:stop
 
 # 備份當前數據庫（可選）
 cp database/inventory.db database/inventory.db.broken
@@ -219,7 +233,7 @@ cp database/inventory.db database/inventory.db.broken
 cp database/backups/inventory.backup_20260514_150000.db database/inventory.db
 
 # 重新啟動應用
-docker-compose up -d
+npm run pm2:restart
 ```
 
 ## 安全

@@ -2,7 +2,8 @@ const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
 
-const logsDir = path.join(__dirname, '../../logs');
+// 使用環境變數指定日誌目錄，默認為 ./logs
+const logsDir = path.join(__dirname, '../../', process.env.LOG_DIR || 'logs');
 
 // 確保 logs 目錄存在
 if (!fs.existsSync(logsDir)) {

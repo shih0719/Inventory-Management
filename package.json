@@ -1,6 +1,6 @@
 {
   "name": "inventory-management-system",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "Modern Inventory Management System with SQLite",
   "keywords": [
     "inventory",
@@ -13,7 +13,11 @@
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all",
+    "pm2:delete": "pm2 delete all"
   },
   "dependencies": {
     "cors": "^2.8.5",

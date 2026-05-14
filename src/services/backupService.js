@@ -1,45 +1,41 @@
-// 數據庫自動備份服務
-const { exec } = require('child_process');
-const { promisify } = require('util');
+// 数据库自动备份服务（Windows 兼容版）
 const fs = require('fs');
 const path = require('path');
 const logger = require('../config/logger');
 
-const execAsync = promisify(exec);
-
 const BACKUP_DIR = path.join(__dirname, '../../database/backups');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../database/inventory.db');
 const RETENTION_DAYS = 7;
-const BACKUP_INTERVAL = 3600000; // 1 小時（毫秒）
+const BACKUP_INTERVAL = 3600000; // 1 小时（毫秒）
 
 function ensureBackupDir() {
   if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    logger.info('備份目錄已建立', { service: 'BACKUP' });
+    logger.info('备份目录已建立', { service: 'BACKUP' });
   }
 }
 
 async function performBackup() {
   try {
     if (!fs.existsSync(DB_PATH)) {
-      logger.warn('資料庫未找到，跳過備份', { service: 'BACKUP' });
+      logger.warn('数据库未找到，跳过备份', { service: 'BACKUP' });
       return;
     }
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
+    const timestamp = new Date().toISOString().replace(/[:-]/g, '').slice(0, 15);
     const backupFile = path.join(BACKUP_DIR, `inventory.backup_${timestamp}.db`);
 
-    // 使用 sqlite3 進行備份
-    await execAsync(`sqlite3 "${DB_PATH}" ".backup '${backupFile}'"`);
+    // 使用文件复制备份（Windows 兼容）
+    fs.copyFileSync(DB_PATH, backupFile);
 
     const stats = fs.statSync(backupFile);
     const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-    logger.info(`備份成功: ${path.basename(backupFile)} (${sizeMB}MB)`, { service: 'BACKUP' });
+    logger.info(`备份成功: ${path.basename(backupFile)} (${sizeMB}MB)`, { service: 'BACKUP' });
 
-    // 清理舊備份
+    // 清理旧备份
     cleanOldBackups();
   } catch (error) {
-    logger.error(`備份失敗: ${error.message}`, { service: 'BACKUP' });
+    logger.error(`备份失败: ${error.message}`, { service: 'BACKUP' });
   }
 }
 
@@ -56,30 +52,30 @@ function cleanOldBackups() {
 
         if (ageInDays > RETENTION_DAYS) {
           fs.unlinkSync(filePath);
-          logger.info(`刪除舊備份: ${file}`, { service: 'BACKUP' });
+          logger.info(`删除旧备份: ${file}`, { service: 'BACKUP' });
         }
       }
     });
 
     const backupCount = files.filter(f => f.startsWith('inventory.backup_') && f.endsWith('.db')).length;
-    logger.info(`當前備份數: ${backupCount} 個`, { service: 'BACKUP' });
+    logger.info(`当前备份数: ${backupCount} 个`, { service: 'BACKUP' });
   } catch (error) {
-    logger.error(`清理舊備份失敗: ${error.message}`, { service: 'BACKUP' });
+    logger.error(`清理旧备份失败: ${error.message}`, { service: 'BACKUP' });
   }
 }
 
 function startBackupDaemon() {
   ensureBackupDir();
 
-  // 啟動時立即執行一次備份
+  // 启动时立即执行一次备份
   performBackup();
 
-  // 設置定期備份
+  // 设置定期备份
   setInterval(() => {
     performBackup();
   }, BACKUP_INTERVAL);
 
-  logger.info(`定期備份已啟動（每小時執行一次，保留 ${RETENTION_DAYS} 天）`, { service: 'BACKUP' });
+  logger.info(`定期备份已启动（每小时执行一次，保留 ${RETENTION_DAYS} 天）`, { service: 'BACKUP' });
 }
 
 module.exports = {
