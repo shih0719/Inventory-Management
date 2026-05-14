@@ -1,6 +1,7 @@
 const { exec } = require("child_process");
 const util = require("util");
 const execPromise = util.promisify(exec);
+const logger = require("../config/logger");
 
 /**
  * 檢查更新
@@ -28,7 +29,7 @@ async function checkUpdate(req, res) {
       },
     });
   } catch (error) {
-    console.error("Check update error:", error);
+    logger.error(`Check update error: ${error.message}`, { service: 'SYSTEM' });
     res.status(500).json({
       success: false,
       error: "無法檢查更新，請確認 Git 環境與遠端連線",
@@ -56,12 +57,12 @@ async function applyUpdate(req, res) {
 
     // 3. 延遲退出進程，讓 Docker Compose (restart: always) 重新啟動容器
     setTimeout(() => {
-      console.log("Applying update: Restarting system...");
-      process.exit(1); 
+      logger.info("Applying update: Restarting system...", { service: 'SYSTEM' });
+      process.exit(1);
     }, 3000);
 
   } catch (error) {
-    console.error("Apply update error:", error);
+    logger.error(`Apply update error: ${error.message}`, { service: 'SYSTEM' });
     res.status(500).json({
       success: false,
       error: "更新失敗，可能存在代碼衝突",

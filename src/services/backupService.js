@@ -3,6 +3,7 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../config/logger');
 
 const execAsync = promisify(exec);
 
@@ -14,14 +15,14 @@ const BACKUP_INTERVAL = 3600000; // 1 小時（毫秒）
 function ensureBackupDir() {
   if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
-    console.log('[BACKUP] 備份目錄已建立');
+    logger.info('備份目錄已建立', { service: 'BACKUP' });
   }
 }
 
 async function performBackup() {
   try {
     if (!fs.existsSync(DB_PATH)) {
-      console.log('[BACKUP] ⚠️ 資料庫未找到，跳過備份');
+      logger.warn('資料庫未找到，跳過備份', { service: 'BACKUP' });
       return;
     }
 
@@ -33,12 +34,12 @@ async function performBackup() {
 
     const stats = fs.statSync(backupFile);
     const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
-    console.log(`[BACKUP] ✓ 備份成功: ${path.basename(backupFile)} (${sizeMB}MB)`);
+    logger.info(`備份成功: ${path.basename(backupFile)} (${sizeMB}MB)`, { service: 'BACKUP' });
 
     // 清理舊備份
     cleanOldBackups();
   } catch (error) {
-    console.error('[BACKUP] ✗ 備份失敗:', error.message);
+    logger.error(`備份失敗: ${error.message}`, { service: 'BACKUP' });
   }
 }
 
@@ -55,15 +56,15 @@ function cleanOldBackups() {
 
         if (ageInDays > RETENTION_DAYS) {
           fs.unlinkSync(filePath);
-          console.log(`[BACKUP] 🗑️ 刪除舊備份: ${file}`);
+          logger.info(`刪除舊備份: ${file}`, { service: 'BACKUP' });
         }
       }
     });
 
     const backupCount = files.filter(f => f.startsWith('inventory.backup_') && f.endsWith('.db')).length;
-    console.log(`[BACKUP] 當前備份數: ${backupCount} 個`);
+    logger.info(`當前備份數: ${backupCount} 個`, { service: 'BACKUP' });
   } catch (error) {
-    console.error('[BACKUP] 清理舊備份失敗:', error.message);
+    logger.error(`清理舊備份失敗: ${error.message}`, { service: 'BACKUP' });
   }
 }
 
@@ -78,7 +79,7 @@ function startBackupDaemon() {
     performBackup();
   }, BACKUP_INTERVAL);
 
-  console.log(`[BACKUP] 定期備份已啟動（每小時執行一次，保留 ${RETENTION_DAYS} 天）`);
+  logger.info(`定期備份已啟動（每小時執行一次，保留 ${RETENTION_DAYS} 天）`, { service: 'BACKUP' });
 }
 
 module.exports = {

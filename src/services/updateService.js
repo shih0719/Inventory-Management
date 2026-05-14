@@ -3,6 +3,7 @@ const { exec } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs');
 const path = require('path');
+const logger = require('../config/logger');
 
 const execAsync = promisify(exec);
 
@@ -22,15 +23,15 @@ class UpdateService {
     try {
       const packagePath = path.join(__dirname, '../../package.json');
       if (!fs.existsSync(packagePath)) {
-        console.error('[UPDATE] package.json not found at:', packagePath);
+        logger.error(`package.json not found at: ${packagePath}`, { service: 'UPDATE' });
         return '0.0.0';
       }
       const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
       const version = packageJson.version;
-      console.log('[UPDATE] Local version loaded:', version);
+      logger.info(`Local version loaded: ${version}`, { service: 'UPDATE' });
       return version;
     } catch (error) {
-      console.error('[UPDATE] Error reading version:', error.message);
+      logger.error(`Error reading version: ${error.message}`, { service: 'UPDATE' });
       return '0.0.0';
     }
   }
@@ -83,15 +84,15 @@ class UpdateService {
       };
 
       if (hasUpdates) {
-        console.log(`[UPDATE] 發現新版本：${this.currentVersion} → ${remoteVersion}`);
+        logger.info(`發現新版本：${this.currentVersion} → ${remoteVersion}`, { service: 'UPDATE' });
       } else {
-        console.log(`[UPDATE] 已是最新版本：${this.currentVersion}`);
+        logger.info(`已是最新版本：${this.currentVersion}`, { service: 'UPDATE' });
       }
 
       return this.updateStatus;
     } catch (error) {
       this.updateStatus.error = error.message;
-      console.error('[UPDATE] 版本檢查失敗:', error.message);
+      logger.error(`版本檢查失敗: ${error.message}`, { service: 'UPDATE' });
       return this.updateStatus;
     }
   }
@@ -106,17 +107,29 @@ class UpdateService {
       this.updateStatus.isUpdating = true;
       this.updateStatus.error = null;
 
-      console.log('[UPDATE] 開始更新流程...');
+      logger.info('開始更新流程...', { service: 'UPDATE' });
 
-      // 第一步：git pull
-      console.log(`[UPDATE] 將版本從 ${this.currentVersion} 更新至 ${this.updateStatus.remoteVersion}...`);
+      // 第一步：停止 Docker 容器（解除文件鎖定）
+      logger.info('停止 Docker 容器以解除文件鎖定...', { service: 'UPDATE' });
+      try {
+        await execAsync('docker-compose down 2>&1');
+        logger.info('Docker 容器已停止', { service: 'UPDATE' });
+      } catch (err) {
+        logger.warn(`Docker 容器停止失敗，將繼續執行: ${err.message}`, { service: 'UPDATE' });
+      }
+
+      // 等待一秒確保容器完全停止
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 第二步：git pull
+      logger.info(`將版本從 ${this.currentVersion} 更新至 ${this.updateStatus.remoteVersion}...`, { service: 'UPDATE' });
       await execAsync('git fetch origin --quiet && git reset --hard origin/main');
 
-      // 第二步：安裝依賴（如有變更）
-      console.log('[UPDATE] 安裝依賴...');
+      // 第三步：安裝依賴（如有變更）
+      logger.info('安裝依賴...', { service: 'UPDATE' });
       await execAsync('npm install --production');
 
-      // 第三步：重新讀取版本
+      // 第四步：重新讀取版本
       this.currentVersion = this.readLocalVersion();
 
       this.updateStatus = {
@@ -129,14 +142,14 @@ class UpdateService {
         updateSuccess: true
       };
 
-      console.log(`[UPDATE] 更新完成，當前版本：${this.currentVersion}，應用將重啟...`);
+      logger.info(`更新完成，當前版本：${this.currentVersion}，應用將重啟...`, { service: 'UPDATE' });
 
-      // 第四步：重啟應用（Docker 會自動重啟，本地需要手動）
+      // 第五步：重啟應用（Docker 會自動重啟，本地需要手動）
       process.exit(0);
 
       return { success: true, message: '更新完成，應用重啟中...' };
     } catch (error) {
-      console.error('[UPDATE] 更新失敗:', error.message);
+      logger.error(`更新失敗: ${error.message}`, { service: 'UPDATE' });
       this.updateStatus.isUpdating = false;
       this.updateStatus.error = error.message;
       throw error;
@@ -155,16 +168,16 @@ class UpdateService {
   // 如需重新啟用自動檢查，可呼叫此方法
   startPeriodicCheck(intervalMinutes = 60) {
     this.checkRemoteVersion().catch(err => {
-      console.error('[UPDATE] 初始版本檢查失敗:', err.message);
+      logger.error(`初始版本檢查失敗: ${err.message}`, { service: 'UPDATE' });
     });
 
     setInterval(() => {
       this.checkRemoteVersion().catch(err => {
-        console.error('[UPDATE] 版本檢查失敗:', err.message);
+        logger.error(`版本檢查失敗: ${err.message}`, { service: 'UPDATE' });
       });
     }, intervalMinutes * 60 * 1000);
 
-    console.log(`[UPDATE] 版本檢查已啟動（每 ${intervalMinutes} 分鐘檢查一次）`);
+    logger.info(`版本檢查已啟動（每 ${intervalMinutes} 分鐘檢查一次）`, { service: 'UPDATE' });
   }
 }
 
