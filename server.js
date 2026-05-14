@@ -29,6 +29,9 @@ const updatesRoutes = require("./src/routes/updates");
 // Import update service
 const updateService = require("./src/services/updateService");
 
+// Import backup service
+const { startBackupDaemon } = require("./src/services/backupService");
+
 // API Routes
 app.use("/api/products", productsRoutes);
 app.use("/api/transactions", transactionsRoutes);
@@ -89,6 +92,9 @@ app.use((req, res) => {
 // Initialize database and start server
 initDatabase()
   .then(() => {
+    // 啟動備份守護程序
+    startBackupDaemon();
+
     app.listen(PORT, () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);
       console.log(`📊 API endpoints: http://localhost:${PORT}/api`);

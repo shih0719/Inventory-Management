@@ -14,12 +14,8 @@ RUN npm install
 # 複製其餘程式碼 (排除 .dockerignore 中的內容)
 COPY . .
 
-# 複製備份腳本並設定執行權限
-COPY backup-db.sh /app/backup-db.sh
-RUN chmod +x /app/backup-db.sh
-
 # 曝露 API 埠號 (對應 .env 中的 PORT=3030)
 EXPOSE 3030
 
-# 啟動應用程式與備份守護程序
-CMD sh -c "npm start & ./backup-db.sh"
+# 啟動應用程式
+CMD npm start

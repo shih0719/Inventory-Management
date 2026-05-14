@@ -1,6 +1,6 @@
 {
   "name": "inventory-management-system",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Modern Inventory Management System with SQLite",
   "keywords": [
     "inventory",
