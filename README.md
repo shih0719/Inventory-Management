@@ -9,9 +9,10 @@
 - **批次異動**：一次操作多商品，部分失敗仍 COMMIT 已成功項目
 - **序號品（AP）管理**：對高單價商品逐台追蹤序號、出貨對象、案子；支援批次入庫與批次出庫，自動建立 Transaction 並同步更新庫存數量
 - **儲位管理**：商品與儲位多對多關聯
-- **低庫存預警**：有帳數量跌破 `min_stock` 時 edge-triggered 推送 Webhook
+- **低庫存預警**：有帳數量跌破 `min_stock` 時 edge-triggered 推送 Webhook；列表自動排序將低庫存品集中在首頁
 - **Webhook 訂閱**：支援 `inventory.changed` / `batch.created` / `inventory.low` 三種事件，Fire-and-forget + 3 次指數退避 retry
 - **差異警示**：`accountable_quantity ≠ AP in_stock 數` 時 UI 顯示黃色警示，點擊查看差異明細
+- **低庫存篩選**：提供「只顯示低庫存」勾選框，快速查看需補貨的商品
 
 ## 技術棧
 
