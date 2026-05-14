@@ -11,6 +11,7 @@ node_modules/
 database/*.db
 database/*.db-shm
 database/*.db-wal
+database/backups/
 
 
 # Uploads

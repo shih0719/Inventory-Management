@@ -24,7 +24,10 @@ const locationsRoutes = require("./src/routes/locations");
 const systemRoutes = require("./src/routes/system");
 const webhooksRoutes = require("./src/routes/webhooks");
 const productUnitsRoutes = require("./src/routes/productUnits");
+const updatesRoutes = require("./src/routes/updates");
 
+// Import update service
+const updateService = require("./src/services/updateService");
 
 // API Routes
 app.use("/api/products", productsRoutes);
@@ -36,6 +39,7 @@ app.use("/api/locations", locationsRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/product-units", productUnitsRoutes);
+app.use("/api/updates", updatesRoutes);
 
 
 // Health check endpoint
@@ -85,6 +89,9 @@ app.use((req, res) => {
 // Initialize database and start server
 initDatabase()
   .then(() => {
+    // 啟動版本檢查服務
+    updateService.startPeriodicCheck(60); // 每 60 分鐘檢查一次
+
     app.listen(PORT, () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);
       console.log(`📊 API endpoints: http://localhost:${PORT}/api`);
