@@ -144,14 +144,13 @@ class UpdateService {
     };
   }
 
-  // 定期檢查更新（應在應用啟動時調用）
+  // 注意：版本檢查現在只在用戶手動請求時進行，不自動檢查
+  // 如需重新啟用自動檢查，可呼叫此方法
   startPeriodicCheck(intervalMinutes = 60) {
-    // 啟動時立即檢查一次
     this.checkRemoteVersion().catch(err => {
       console.error('[UPDATE] 初始版本檢查失敗:', err.message);
     });
 
-    // 之後定期檢查
     setInterval(() => {
       this.checkRemoteVersion().catch(err => {
         console.error('[UPDATE] 版本檢查失敗:', err.message);

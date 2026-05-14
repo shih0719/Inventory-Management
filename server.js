@@ -89,13 +89,11 @@ app.use((req, res) => {
 // Initialize database and start server
 initDatabase()
   .then(() => {
-    // 啟動版本檢查服務
-    updateService.startPeriodicCheck(60); // 每 60 分鐘檢查一次
-
     app.listen(PORT, () => {
       console.log(`\n🚀 Server running on http://localhost:${PORT}`);
       console.log(`📊 API endpoints: http://localhost:${PORT}/api`);
       console.log(`🌐 Frontend: http://localhost:${PORT}\n`);
+      console.log(`🔄 Version check: Manual only (visit /updates.html)\n`);
     });
   })
   .catch((err) => {
