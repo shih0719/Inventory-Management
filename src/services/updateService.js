@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 class UpdateService {
   constructor() {
-    this.currentVersion = this.readVersion();
+    this.currentVersion = this.readLocalVersion();
     this.updateStatus = {
       available: false,
       remoteVersion: null,
@@ -18,43 +18,73 @@ class UpdateService {
     };
   }
 
-  readVersion() {
+  readLocalVersion() {
     try {
       const packagePath = path.join(__dirname, '../../package.json');
       const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
       return packageJson.version;
     } catch {
-      return '1.0.0';
+      return '0.0.0';
     }
   }
 
-  // 檢查遠端版本（從 GitHub 或本地 git）
+  async readRemoteVersion() {
+    try {
+      // 獲取遠端 package.json（使用 git show）
+      const { stdout } = await execAsync('git show origin/main:package.json');
+      const remotePackage = JSON.parse(stdout);
+      return remotePackage.version;
+    } catch (error) {
+      throw new Error('無法讀取遠端版本：' + error.message);
+    }
+  }
+
+  compareVersions(local, remote) {
+    const localParts = local.split('.').map(Number);
+    const remoteParts = remote.split('.').map(Number);
+
+    for (let i = 0; i < Math.max(localParts.length, remoteParts.length); i++) {
+      const l = localParts[i] || 0;
+      const r = remoteParts[i] || 0;
+
+      if (l < r) return -1; // local < remote (有新版本)
+      if (l > r) return 1;  // local > remote (本地版本較新)
+    }
+    return 0; // 版本相同
+  }
+
+  // 檢查遠端版本
   async checkRemoteVersion() {
     try {
-      // 方式 1：使用 git 標籤（如果有）
-      // 方式 2：直接讀取遠端 package.json
+      // 先 fetch 最新信息
+      await execAsync('git fetch origin --quiet 2>&1');
 
-      const { stdout } = await execAsync('git fetch origin --quiet 2>&1 && git rev-parse origin/main');
+      // 讀取遠端版本
+      const remoteVersion = await this.readRemoteVersion();
 
-      // 檢查是否有新提交
-      const { stdout: localHash } = await execAsync('git rev-parse HEAD');
-      const localCommit = localHash.trim();
-      const remoteCommit = stdout.trim();
-
-      const hasUpdates = localCommit !== remoteCommit;
+      // 比較版本
+      const comparison = this.compareVersions(this.currentVersion, remoteVersion);
+      const hasUpdates = comparison < 0;
 
       this.updateStatus = {
         available: hasUpdates,
-        localCommit,
-        remoteCommit,
+        remoteVersion,
+        currentVersion: this.currentVersion,
         lastCheckTime: new Date(),
         isUpdating: false,
         error: null
       };
 
+      if (hasUpdates) {
+        console.log(`[UPDATE] 發現新版本：${this.currentVersion} → ${remoteVersion}`);
+      } else {
+        console.log(`[UPDATE] 已是最新版本：${this.currentVersion}`);
+      }
+
       return this.updateStatus;
     } catch (error) {
       this.updateStatus.error = error.message;
+      console.error('[UPDATE] 版本檢查失敗:', error.message);
       return this.updateStatus;
     }
   }
@@ -69,32 +99,32 @@ class UpdateService {
       this.updateStatus.isUpdating = true;
       this.updateStatus.error = null;
 
-      // 第一步：備份當前狀態
       console.log('[UPDATE] 開始更新流程...');
 
-      // 第二步：git pull
-      console.log('[UPDATE] 下載新版本代碼...');
+      // 第一步：git pull
+      console.log(`[UPDATE] 將版本從 ${this.currentVersion} 更新至 ${this.updateStatus.remoteVersion}...`);
       await execAsync('git fetch origin --quiet && git reset --hard origin/main');
 
-      // 第三步：安裝依賴（如有變更）
+      // 第二步：安裝依賴（如有變更）
       console.log('[UPDATE] 安裝依賴...');
       await execAsync('npm install --production');
 
-      // 第四步：重新讀取版本
-      this.currentVersion = this.readVersion();
+      // 第三步：重新讀取版本
+      this.currentVersion = this.readLocalVersion();
 
       this.updateStatus = {
         available: false,
         remoteVersion: null,
+        currentVersion: this.currentVersion,
         lastCheckTime: new Date(),
         isUpdating: false,
         error: null,
         updateSuccess: true
       };
 
-      console.log('[UPDATE] 更新完成，應用將重啟...');
+      console.log(`[UPDATE] 更新完成，當前版本：${this.currentVersion}，應用將重啟...`);
 
-      // 第五步：重啟應用（Docker 會自動重啟，本地需要手動）
+      // 第四步：重啟應用（Docker 會自動重啟，本地需要手動）
       process.exit(0);
 
       return { success: true, message: '更新完成，應用重啟中...' };

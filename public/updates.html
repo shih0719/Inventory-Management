@@ -230,11 +230,11 @@
     <div class="status-card">
       <div class="status-item">
         <span class="status-label">當前版本</span>
-        <span class="status-value" id="currentVersion">-</span>
+        <span class="status-value" id="currentVersion">v-</span>
       </div>
       <div class="status-item">
         <span class="status-label">遠端版本</span>
-        <span class="status-value" id="remoteVersion">-</span>
+        <span class="status-value" id="remoteVersion">v-</span>
       </div>
       <div class="status-item">
         <span class="status-label">最後檢查</span>
@@ -356,13 +356,15 @@
     }
 
     function renderStatus(data) {
-      document.getElementById('currentVersion').textContent = data.currentVersion;
-      document.getElementById('remoteVersion').textContent = data.remoteCommit?.substring(0, 7) || '-';
+      document.getElementById('currentVersion').textContent = 'v' + data.currentVersion;
+      document.getElementById('remoteVersion').textContent = data.remoteVersion ? 'v' + data.remoteVersion : '-';
       document.getElementById('lastCheck').textContent = data.lastCheckTime
         ? new Date(data.lastCheckTime).toLocaleString('zh-TW')
         : '-';
 
-      const statusText = data.isUpdating ? '🔄 更新中' : (data.available ? '✨ 有新版本' : '✓ 已是最新');
+      const statusText = data.isUpdating
+        ? '🔄 更新中'
+        : (data.available ? `✨ 有新版本 (v${data.remoteVersion})` : '✓ 已是最新');
       document.getElementById('updateStatus').textContent = statusText;
 
       const updateBtn = document.getElementById('updateBtn');
