@@ -7,6 +7,11 @@ const router = express.Router();
 router.get('/status', (req, res) => {
   try {
     const status = updateService.getStatus();
+    // 確保版本號存在且有效
+    if (!status.currentVersion || status.currentVersion === 'undefined') {
+      console.warn('[UPDATE] Invalid version detected, reloading...');
+      status.currentVersion = updateService.readLocalVersion();
+    }
     res.json(status);
   } catch (error) {
     res.status(500).json({ error: error.message });

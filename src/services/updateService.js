@@ -21,9 +21,16 @@ class UpdateService {
   readLocalVersion() {
     try {
       const packagePath = path.join(__dirname, '../../package.json');
+      if (!fs.existsSync(packagePath)) {
+        console.error('[UPDATE] package.json not found at:', packagePath);
+        return '0.0.0';
+      }
       const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-      return packageJson.version;
-    } catch {
+      const version = packageJson.version;
+      console.log('[UPDATE] Local version loaded:', version);
+      return version;
+    } catch (error) {
+      console.error('[UPDATE] Error reading version:', error.message);
       return '0.0.0';
     }
   }
