@@ -103,29 +103,30 @@ function populateLocationSelectors() {
 // Populate tag selector dropdowns
 function populateTagSelectors() {
   const filterTag = document.getElementById("filter-tag");
-  const transactionTag = document.getElementById("transaction-tag");
   const batchTag = document.getElementById("batch-tag");
 
   // Clear existing options (except first one)
-  filterTag.innerHTML = '<option value="">全部標籤</option>';
-  transactionTag.innerHTML = '<option value="">選擇標籤...</option>';
-  batchTag.innerHTML = '<option value="">選擇標籤...</option>';
+  if (filterTag) {
+    filterTag.innerHTML = '<option value="">全部標籤</option>';
+  }
+  if (batchTag) {
+    batchTag.innerHTML = '<option value="">選擇標籤...</option>';
+  }
 
   tags.forEach((tag) => {
-    const filterOption = document.createElement("option");
-    filterOption.value = tag.id;
-    filterOption.textContent = tag.display_name;
-    filterTag.appendChild(filterOption);
+    if (filterTag) {
+      const filterOption = document.createElement("option");
+      filterOption.value = tag.id;
+      filterOption.textContent = tag.display_name;
+      filterTag.appendChild(filterOption);
+    }
 
-    const transactionOption = document.createElement("option");
-    transactionOption.value = tag.id;
-    transactionOption.textContent = tag.display_name;
-    transactionTag.appendChild(transactionOption);
-
-    const batchOption = document.createElement("option");
-    batchOption.value = tag.id;
-    batchOption.textContent = tag.display_name;
-    batchTag.appendChild(batchOption);
+    if (batchTag) {
+      const batchOption = document.createElement("option");
+      batchOption.value = tag.id;
+      batchOption.textContent = tag.display_name;
+      batchTag.appendChild(batchOption);
+    }
   });
 }
 
@@ -746,11 +747,26 @@ async function handleTransactionSubmit(e) {
   const quantityInput = parseInt(document.getElementById("transaction-quantity").value);
   const quantity_change = transactionType === "outbound" ? -quantityInput : quantityInput;
 
+  // Auto-select tag based on transaction type
+  let tag_id;
+  if (transactionType === "inbound") {
+    const inboundTag = tags.find(t => t.name === "INBOUND");
+    tag_id = inboundTag ? inboundTag.id : null;
+  } else {
+    const outboundTag = tags.find(t => t.name === "OUTBOUND");
+    tag_id = outboundTag ? outboundTag.id : null;
+  }
+
+  if (!tag_id) {
+    showNotification("找不到對應的標籤，請檢查系統設定", "error");
+    return;
+  }
+
   const data = {
     product_id: parseInt(
       document.getElementById("transaction-product-id").value,
     ),
-    tag_id: parseInt(document.getElementById("transaction-tag").value),
+    tag_id: tag_id,
     location_id: parseInt(document.getElementById("transaction-location").value) || null,
     quantity_change: quantity_change,
     quantity_type: document.getElementById("transaction-quantity-type").value,
