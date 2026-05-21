@@ -1,0 +1,52 @@
+/* Tailwind CSS 導入 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定義全局樣式 */
+:root {
+  font-family: "Noto Sans TC", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* 模態框基本樣式 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  display: none;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Badge 樣式 */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 9999px;
+}
+
+/* 響應式表格和卡片 */
+.table-mobile-card {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .table-desktop {
+    display: none;
+  }
+
+  .table-mobile-card {
+    display: block;
+  }
+}

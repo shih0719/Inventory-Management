@@ -120,6 +120,45 @@ Product 的 `is_deleted = 1`，記錄保留但從預設查詢中濾除。
 
 ---
 
+---
+
+## 前端架構
+
+### 狀態管理
+採用**中央狀態 + Mutations 規範**（見 ADR 0002）：
+- `state.js` — 單一全局狀態對象
+- `mutations.js` — 所有狀態修改必須通過此處函數
+- 設計參照 Vuex，便於未來框架遷移
+
+### 模塊化組織
+業務邏輯按**領域**分為 8 個獨立模塊，對應 CONTEXT.md 的核心概念：
+- `modules/products.js`、`modules/locations.js` 等
+- 各模塊導出 API 函數，內部透過 mutations 修改狀態
+- 無模塊間的直接依賴（解耦）
+
+### HTML 與 UI 層
+HTML 片段存放於 `templates/` 目錄，按邏輯區域組織：
+- `templates/sections/` — 主功能區塊（如產品列表、儲位管理）
+- `templates/modals/` — 模態框（產品編輯、異動等）
+- 主 `index.html` 只保留頂層容器
+
+此結構為**框架遷移預留**——未來換 Vue/React 時，`.html` 檔直接變成 `.vue` / `.jsx` 組件。
+
+### 工具鏈
+- **Vite** — 現代化打包器，零配置開發環境
+- **Tailwind + PostCSS** — 本地編譯 CSS，生產構建時體積優化
+- 部署：`npm run build` 生成靜態資源
+
+### 框架遷移路徑
+現在的架構已與 Vue 3 + Pinia / React + Zustand 相容。當遷移時：
+1. `src/modules/` 和 `src/state/` **完全不改**（業務邏輯層保持）
+2. `templates/` 改寫為框架組件（`.vue` / `.jsx`）
+3. UI 交互升級為框架提供的響應式特性
+
+見 ADR 0002 了解詳細決策。
+
+---
+
 ## 暫未納入範圍
 
 以下業務概念目前不在系統範圍內，未來若需擴充再評估是否新增 Tag 或專屬欄位：盤點、調撥、報廢。
