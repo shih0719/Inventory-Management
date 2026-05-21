@@ -1,7 +1,8 @@
 const http = require('http');
 
-// 配置：在此處修改預設的伺服器 IP
-const DEFAULT_HOST = '192.168.23.16';
+// 從環境變數讀取，預設 localhost
+const DEFAULT_HOST = process.env.INVENTORY_API_HOST || 'localhost';
+const DEFAULT_PORT = parseInt(process.env.INVENTORY_API_PORT || '3000', 10);
 
 /**
  * 簡易的 HTTP 請求封裝，用於查詢庫存 API
@@ -15,7 +16,7 @@ async function fetchInventory(params = {}) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: host,
-            port: 3000,
+            port: DEFAULT_PORT,
             path: url,
             method: 'GET'
         };
