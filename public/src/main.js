@@ -1,6 +1,7 @@
 // 應用入口
 import { state } from './state.js';
 import { mutations } from './mutations.js';
+import { i18n } from './i18n.js';
 import './styles/main.css';
 
 // 導入所有業務模塊
@@ -32,6 +33,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('✅ 應用初始化開始');
 
   try {
+    // 0. 初始化國際化（必須首先執行）
+    await i18n.init();
+    setupLanguageSwitcher();
+
     // 1. 初始化 UI（全局監聽器、表單驗證等）
     utilsModule.initializeUI();
 
@@ -154,4 +159,33 @@ function setupEventListeners() {
   }
 
   console.log('✓ All event listeners bound');
+}
+
+function setupLanguageSwitcher() {
+  const langToggle = document.getElementById('lang-toggle');
+  const langMenu = document.getElementById('lang-menu');
+
+  if (!langToggle || !langMenu) return;
+
+  // 切換菜單顯示/隱藏
+  langToggle.addEventListener('click', () => {
+    langMenu.classList.toggle('hidden');
+  });
+
+  // 語言選擇
+  langMenu.querySelectorAll('button[data-lang]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lang = btn.getAttribute('data-lang');
+      i18n.setLanguage(lang);
+    });
+  });
+
+  // 點擊外部關閉菜單
+  document.addEventListener('click', (e) => {
+    if (!langToggle.contains(e.target) && !langMenu.contains(e.target)) {
+      langMenu.classList.add('hidden');
+    }
+  });
+
+  console.log('✓ Language switcher bound');
 }

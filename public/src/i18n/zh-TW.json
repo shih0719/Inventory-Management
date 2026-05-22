@@ -1,0 +1,83 @@
+{
+  "nav": {
+    "title": "庫房管理系統",
+    "products": "📋 產品列表",
+    "locations": "🏠 櫃位管理",
+    "batches": "📦 批次查詢",
+    "webhooks": "🔔 Webhooks",
+    "downloadTemplate": "📋 下載範本",
+    "importCSV": "📥 匯入 CSV",
+    "exportCSV": "📤 匯出 CSV",
+    "settings": "⚙️ 系統設定"
+  },
+  "filters": {
+    "title": "🔍 篩選條件",
+    "sku": "產品編碼 (SKU)",
+    "name": "產品名稱",
+    "model": "型號",
+    "tag": "標籤",
+    "lowStock": "⚠️ 只顯示低庫存",
+    "addProduct": "➕ 新增產品",
+    "batchTransaction": "📦 批次異動",
+    "viewBatches": "📋 批次查詢",
+    "viewTransactions": "📜 異動查詢"
+  },
+  "products": {
+    "title": "產品列表",
+    "sku": "SKU",
+    "name": "名稱",
+    "type": "類型",
+    "model": "型號",
+    "accountable": "有帳庫存",
+    "nonAccountable": "無帳庫存",
+    "actions": "操作",
+    "edit": "編輯",
+    "delete": "刪除",
+    "total": "筆產品",
+    "noProducts": "未找到產品",
+    "addTitle": "新增產品",
+    "editTitle": "編輯產品",
+    "save": "儲存",
+    "cancel": "取消",
+    "deleteConfirm": "確認刪除產品",
+    "deleteSuccess": "產品已刪除",
+    "saveSucess": "產品已保存",
+    "saveError": "無法保存產品",
+    "deleteError": "無法刪除產品"
+  },
+  "transaction": {
+    "title": "庫存異動",
+    "product": "產品",
+    "accountableQty": "有帳庫存",
+    "nonAccountableQty": "無帳庫存",
+    "type": "異動類型",
+    "accountable": "有帳",
+    "nonAccountable": "無帳",
+    "direction": "出入庫類型",
+    "inbound": "入庫 (正數)",
+    "outbound": "出庫 (負數)",
+    "quantity": "數量",
+    "remarks": "說明",
+    "submit": "確認異動",
+    "success": "異動已記錄",
+    "error": "無法記錄異動"
+  },
+  "batch": {
+    "title": "批次異動",
+    "tag": "標籤",
+    "description": "說明",
+    "productList": "產品列表",
+    "addProduct": "➕ 新增產品",
+    "success": "批次已建立",
+    "error": "無法建立批次"
+  },
+  "common": {
+    "confirm": "確認",
+    "cancel": "取消",
+    "close": "關閉",
+    "search": "搜尋",
+    "loading": "載入中...",
+    "error": "錯誤",
+    "success": "成功"
+  }
+}
