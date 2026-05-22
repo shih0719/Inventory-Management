@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { mutations } from '../mutations.js';
+import { openModal } from './utils.js';
 
 export async function loadLocations() {
   mutations.SET_LOADING('locations', true);
@@ -31,40 +32,25 @@ export function populateLocationSelectors() {
 }
 
 export function renderLocationsTable() {
-  const container = document.getElementById('locations-table-container');
-  if (!container) return;
+  const tbody = document.getElementById('locations-table-body');
+  if (!tbody) return;
 
   const items = state.locations.items;
-  if (items.length === 0) {
-    container.innerHTML = '<p class="p-4 text-center text-gray-500">No locations found</p>';
-    return;
-  }
-
   const rows = items.map(location => `
-    <tr class="border-b hover:bg-gray-50">
-      <td class="px-4 py-2">${location.name}</td>
-      <td class="px-4 py-2">${location.description || '-'}</td>
-      <td class="px-4 py-2 space-x-2">
-        <button class="px-2 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                onclick="__modules.locations.openLocationContentModal('${location.id}')">View</button>
-        <button class="px-2 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
-                onclick="__modules.locations.openQRCodeModal('${location.id}')">QR Code</button>
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-3">${location.name || '-'}</td>
+      <td class="px-6 py-3">${location.description || '-'}</td>
+      <td class="px-6 py-3">${location.createdAt ? new Date(location.createdAt).toLocaleDateString() : '-'}</td>
+      <td class="px-6 py-3 space-x-2">
+        <button class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition"
+                onclick="__modules.locations.openLocationContentModal('${location.name}')">View</button>
+        <button class="px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600 transition"
+                onclick="__modules.locations.openQRCodeModal('${location.name}')">QR Code</button>
       </td>
     </tr>
   `).join('');
 
-  container.innerHTML = `
-    <table class="w-full border-collapse border">
-      <thead class="bg-gray-100">
-        <tr>
-          <th class="px-4 py-2 text-left">Name</th>
-          <th class="px-4 py-2 text-left">Description</th>
-          <th class="px-4 py-2 text-left">Actions</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
+  tbody.innerHTML = rows || '<tr><td colspan="4" class="px-6 py-3 text-center text-gray-500">No locations found</td></tr>';
 }
 
 export async function handleLocationCreate(e) {
@@ -84,70 +70,72 @@ export async function handleLocationCreate(e) {
     mutations.SHOW_NOTIFICATION('Location created successfully', 'success');
     form.reset();
     await loadLocations();
+    renderLocationsTable();
   } catch (error) {
     console.error('Error creating location:', error);
     mutations.SHOW_NOTIFICATION('Failed to create location', 'error');
   }
 }
 
-export async function openLocationContentModal(locationId) {
-  mutations.OPEN_MODAL('locationContentModal');
+export async function openLocationContentModal(locationName) {
+  openModal('location-content-modal');
 
   try {
-    const response = await fetch(`/api/locations/${locationId}/contents`);
-    const contents = await response.json();
+    const response = await fetch(`/api/locations/${locationName}/content`);
+    if (!response.ok) throw new Error('Failed to load location contents');
 
-    const container = document.getElementById('location-contents-container');
-    if (!container) return;
+    const data = await response.json();
+    const contents = data.data?.products || [];
+
+    const tbody = document.getElementById('lc-modal-table-body');
+    if (!tbody) return;
+
+    const locationNameEl = document.getElementById('lc-modal-location-name');
+    const locationDescEl = document.getElementById('lc-modal-location-desc');
+
+    if (locationNameEl && data.data?.location) {
+      locationNameEl.textContent = data.data.location.name;
+    }
+    if (locationDescEl && data.data?.location) {
+      locationDescEl.textContent = data.data.location.description || '-';
+    }
 
     const rows = contents.map(item => `
-      <tr class="border-b">
-        <td class="px-4 py-2">${item.sku}</td>
-        <td class="px-4 py-2">${item.productName}</td>
-        <td class="px-4 py-2 text-right">${item.quantity}</td>
-        <td class="px-4 py-2">
-          <button class="px-2 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-                  onclick="__modules.locations.unassignLocation('${item.locationName}', '${item.productId}', '${item.sku}')">Remove</button>
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3">${item.sku || '-'}</td>
+        <td class="px-4 py-3">${item.name || item.productName || '-'}</td>
+        <td class="px-4 py-3">${item.type || '-'}</td>
+        <td class="px-4 py-3">${item.model || '-'}</td>
+        <td class="px-4 py-3">
+          <button class="px-2 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition"
+                  onclick="__modules.locations.unassignLocation('${locationName}', '${item.id}')">Remove</button>
         </td>
       </tr>
     `).join('');
 
-    container.innerHTML = `
-      <table class="w-full border-collapse border">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="px-4 py-2 text-left">SKU</th>
-            <th class="px-4 py-2 text-left">Product</th>
-            <th class="px-4 py-2 text-right">Quantity</th>
-            <th class="px-4 py-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+    tbody.innerHTML = rows || '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500">No products in this location</td></tr>';
   } catch (error) {
     console.error('Error loading location contents:', error);
     mutations.SHOW_NOTIFICATION('Failed to load location contents', 'error');
   }
 }
 
-export async function unassignLocation(locationName, productId, sku) {
-  if (!confirm(`Unassign product from ${locationName}?`)) return;
+export async function unassignLocation(locationName, productId) {
+  if (!confirm(`Remove this product from location?`)) return;
 
   try {
-    const response = await fetch('/api/location-assignments', {
+    const response = await fetch(`/api/locations/${locationName}/products/${productId}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locationName, productId })
+      headers: { 'Content-Type': 'application/json' }
     });
 
-    if (!response.ok) throw new Error('Failed to unassign location');
+    if (!response.ok) throw new Error('Failed to unassign product');
 
-    mutations.SHOW_NOTIFICATION('Product unassigned successfully', 'success');
-    await openLocationContentModal(productId);
+    mutations.SHOW_NOTIFICATION('Product removed successfully', 'success');
+    await openLocationContentModal(locationName);
   } catch (error) {
-    console.error('Error unassigning location:', error);
-    mutations.SHOW_NOTIFICATION('Failed to unassign location', 'error');
+    console.error('Error removing product:', error);
+    mutations.SHOW_NOTIFICATION('Failed to remove product', 'error');
   }
 }
 
@@ -174,7 +162,24 @@ export async function openProductLocationsModal(productId, sku, name) {
   }
 }
 
-export function openQRCodeModal(locationId) {
-  mutations.OPEN_MODAL('locationQrcodeModal');
-  // Generate or fetch QR code for location
+export function openQRCodeModal(locationName) {
+  openModal('location-qrcode-modal');
+
+  const qrNameEl = document.getElementById('qr-modal-location-name');
+  if (qrNameEl) {
+    qrNameEl.textContent = locationName;
+  }
+
+  const qrcodeContainer = document.getElementById('qrcode-container');
+  if (qrcodeContainer) {
+    qrcodeContainer.innerHTML = '';
+    new QRCode(qrcodeContainer, {
+      text: `${window.location.origin}/locations.html?search=${encodeURIComponent(locationName)}`,
+      width: 200,
+      height: 200,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
 }

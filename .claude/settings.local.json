@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-Process | Where-Object {$_.ProcessName -match \"node|npm\"} | Select-Object ProcessName, Id, @{Name='CmdLine'; Expression={$_.CommandLine -join ' '}})",
+      "Bash(curl -s http://localhost:5173/products.html)",
+      "Bash(pkill -f \"npm run dev\")",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5173/batches.html)"
+    ]
+  }
+}

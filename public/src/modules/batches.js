@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { mutations } from '../mutations.js';
+import { openModal, closeModal } from './utils.js';
 
 export function openBatchModal() {
   mutations.SET_CURRENT_BATCH(null);
@@ -9,87 +10,93 @@ export function openBatchModal() {
   const container = document.getElementById('batch-items-container');
   if (container) container.innerHTML = '';
 
-  mutations.OPEN_MODAL('batchModal');
+  openModal('batch-modal');
 }
 
 export function addBatchItem() {
-  if (!state.batches.currentBatch) {
-    state.batches.currentBatch = {
-      items: [],
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  const itemIndex = state.batches.currentBatch.items.length;
-  const batchItemForm = document.getElementById('batch-item-form');
-  if (!batchItemForm) return;
-
-  const container = document.getElementById('batch-items-container');
-  if (!container) return;
-
-  const itemHTML = `
-    <div class="border p-3 rounded mb-3 batch-item" data-index="${itemIndex}">
-      <div class="flex justify-between items-center mb-2">
-        <span class="font-bold">Item ${itemIndex + 1}</span>
-        <button type="button" class="text-red-500 hover:text-red-700"
-                onclick="__modules.batches.removeBatchItem(${itemIndex})">Remove</button>
-      </div>
-      <input type="hidden" name="batch_item_id" value="${itemIndex}">
-      <div class="grid grid-cols-2 gap-2">
-        <input type="text" name="item_sku" placeholder="SKU" class="px-2 py-1 border rounded">
-        <input type="text" name="item_product_name" placeholder="Product Name" class="px-2 py-1 border rounded">
-        <input type="number" name="item_accountable" placeholder="Accountable" class="px-2 py-1 border rounded">
-        <input type="number" name="item_non_accountable" placeholder="Non-Accountable" class="px-2 py-1 border rounded">
-      </div>
-    </div>
-  `;
-
-  container.insertAdjacentHTML('beforeend', itemHTML);
+  openModal('batch-product-search-modal');
 }
 
 export async function searchBatchProducts(query) {
-  if (!query || query.length < 2) return;
+  if (!query) {
+    document.getElementById('batch-product-search-results').innerHTML = '<p class="text-center text-gray-500 py-8">輸入關鍵字搜尋產品</p>';
+    return;
+  }
 
   try {
-    const response = await fetch(`/api/products/search?q=${encodeURIComponent(query)}`);
-    const results = await response.json();
+    const response = await fetch(`/api/products?sku=${encodeURIComponent(query)}&name=${encodeURIComponent(query)}&page=1`);
+    const data = await response.json();
 
-    const container = document.getElementById('batch-search-results');
+    const items = Array.isArray(data) ? data : (data.data || data.items || []);
+    const container = document.getElementById('batch-product-search-results');
+
     if (!container) return;
 
-    const html = results.map(product => `
-      <div class="border p-2 rounded cursor-pointer hover:bg-blue-50"
-           onclick="__modules.batches.selectBatchProduct('${product.id}', '${product.name}', ${product.accountable}, ${product.nonAccountable}, '${product.sku}')">
-        <div class="font-bold">${product.sku} - ${product.name}</div>
-        <div class="text-sm text-gray-600">A: ${product.accountable}, NA: ${product.nonAccountable}</div>
+    if (items.length === 0) {
+      container.innerHTML = '<p class="text-center text-gray-500 py-8">無搜尋結果</p>';
+      return;
+    }
+
+    const html = items.map(product => `
+      <div class="border p-3 rounded cursor-pointer hover:bg-blue-50 transition"
+           onclick="__modules.batches.selectBatchProductItem('${product.id}', '${product.sku}', '${product.name}', ${product.accountable || 0}, ${product.nonAccountable || 0})">
+        <div class="font-bold text-sm">${product.sku} - ${product.name}</div>
+        <div class="text-xs text-gray-600 mt-1">
+          <span title="有帳庫存：已核對並記錄的庫存">有帳: ${product.accountable || 0}</span> |
+          <span title="無帳庫存：未核對或臨時庫存">無帳: ${product.nonAccountable || 0}</span>
+        </div>
       </div>
     `).join('');
 
-    container.innerHTML = html || '<p class="text-gray-500">No results found</p>';
+    container.innerHTML = html;
   } catch (error) {
     console.error('Error searching batch products:', error);
   }
 }
 
-export function selectBatchProduct(id, name, accountable, nonAccountable, sku, itemIndex) {
-  if (!state.batches.currentBatch) return;
+export function selectBatchProductItem(id, sku, name, accountable, nonAccountable) {
+  const container = document.getElementById('batch-items-container');
+  if (!container) return;
 
-  const itemInputs = document.querySelectorAll('.batch-item input');
-  if (itemIndex !== undefined && itemIndex < itemInputs.length) {
-    const itemForm = document.querySelector(`.batch-item[data-index="${itemIndex}"]`);
-    if (itemForm) {
-      itemForm.querySelector('[name="item_sku"]').value = sku;
-      itemForm.querySelector('[name="item_product_name"]').value = name;
-    }
-  }
+  const itemIndex = container.querySelectorAll('.batch-item').length;
 
-  const searchResults = document.getElementById('batch-search-results');
-  if (searchResults) searchResults.innerHTML = '';
+  const itemHTML = `
+    <div class="border p-3 rounded mb-3 batch-item bg-blue-50" data-index="${itemIndex}">
+      <div class="flex justify-between items-center mb-2">
+        <span class="font-bold">Item ${itemIndex + 1}</span>
+        <button type="button" class="text-red-500 hover:text-red-700 text-sm"
+                onclick="__modules.batches.removeBatchItem(${itemIndex})">移除</button>
+      </div>
+      <input type="hidden" name="product_id" value="${id}">
+      <input type="hidden" name="quantity_type" value="accountable">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+        <div>
+          <label class="text-xs text-gray-600 font-medium">SKU</label>
+          <input type="text" name="item_sku" value="${sku}" class="w-full px-2 py-1 border rounded text-sm bg-white" readonly>
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 font-medium">產品名稱</label>
+          <input type="text" name="item_product_name" value="${name}" class="w-full px-2 py-1 border rounded text-sm bg-white" readonly>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div>
+          <label class="text-xs text-gray-600 font-medium" title="已核對並記錄的庫存">有帳庫存變化 📋</label>
+          <input type="number" name="quantity_change" class="w-full px-2 py-1 border rounded text-sm" value="0">
+        </div>
+        <div>
+          <label class="text-xs text-gray-600 font-medium" title="未核對或臨時庫存">無帳庫存 ⚠️</label>
+          <input type="number" name="item_non_accountable" class="w-full px-2 py-1 border rounded text-sm" value="${nonAccountable}" min="0">
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.insertAdjacentHTML('beforeend', itemHTML);
+  closeModal('batch-product-search-modal');
 }
 
 export function removeBatchItem(index) {
-  if (!state.batches.currentBatch) return;
-
   const itemElement = document.querySelector(`.batch-item[data-index="${index}"]`);
   if (itemElement) itemElement.remove();
 }
@@ -104,19 +111,19 @@ export async function handleBatchSubmit(e) {
     const items = [];
     document.querySelectorAll('.batch-item').forEach((element, idx) => {
       items.push({
-        sku: element.querySelector('[name="item_sku"]').value,
-        productName: element.querySelector('[name="item_product_name"]').value,
-        accountable: parseInt(element.querySelector('[name="item_accountable"]').value || 0),
-        nonAccountable: parseInt(element.querySelector('[name="item_non_accountable"]').value || 0)
+        product_id: element.querySelector('[name="product_id"]').value,
+        quantity_change: parseInt(element.querySelector('[name="quantity_change"]').value || 0),
+        quantity_type: element.querySelector('[name="quantity_type"]').value
       });
     });
 
     const payload = {
-      batchNumber: form.elements['batchNumber'].value,
-      tag: form.elements['tag'].value,
-      remarks: form.elements['remarks'].value,
+      tag_id: 'default',
+      description: document.getElementById('batch-description')?.value || '',
       items
     };
+
+    console.log('Submitting batch:', JSON.stringify(payload, null, 2));
 
     const response = await fetch('/api/batches', {
       method: 'POST',
@@ -124,22 +131,28 @@ export async function handleBatchSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) throw new Error('Failed to create batch');
+    const responseData = await response.json();
+    console.log('Response:', responseData);
+
+    if (!response.ok) {
+      const errorMsg = responseData.message || responseData.error || 'Failed to create batch';
+      throw new Error(errorMsg);
+    }
 
     mutations.SHOW_NOTIFICATION('Batch created successfully', 'success');
-    mutations.CLOSE_MODAL('batchModal');
+    closeModal('batch-modal');
     form.reset();
     await loadBatchesList();
   } catch (error) {
     console.error('Error submitting batch:', error);
-    mutations.SHOW_NOTIFICATION('Failed to create batch', 'error');
+    mutations.SHOW_NOTIFICATION(error.message || 'Failed to create batch', 'error');
   } finally {
     mutations.SET_LOADING('transactions', false);
   }
 }
 
 export async function openBatchesListModal() {
-  mutations.OPEN_MODAL('batchesListModal');
+  openModal('batches-list-modal');
   await loadBatchesList();
 }
 
@@ -158,40 +171,34 @@ export async function loadBatchesList() {
 }
 
 export function renderBatchesList(batches) {
-  const container = document.getElementById('batches-list-container');
+  const container = document.getElementById('batches-table-body');
   if (!container) return;
+
+  if (!batches || batches.length === 0) {
+    container.innerHTML = `<tr><td colspan="7" class="px-4 py-4 text-center text-gray-500">沒有批次資料</td></tr>`;
+    return;
+  }
 
   const rows = batches.map(batch => `
     <tr class="border-b hover:bg-gray-50">
-      <td class="px-4 py-2">${batch.batchNumber}</td>
-      <td class="px-4 py-2">${batch.tag || '-'}</td>
-      <td class="px-4 py-2">${batch.items ? batch.items.length : 0}</td>
-      <td class="px-4 py-2 text-sm text-gray-600">${new Date(batch.createdAt).toLocaleDateString()}</td>
-      <td class="px-4 py-2">
+      <td class="px-4 py-3 text-sm">${batch.name || batch.batchNumber || '-'}</td>
+      <td class="px-4 py-3 text-sm">${batch.description || '-'}</td>
+      <td class="px-4 py-3 text-sm text-center">${batch.items ? batch.items.length : batch.transaction_count || 0}</td>
+      <td class="px-4 py-3 text-sm text-center">0</td>
+      <td class="px-4 py-3 text-sm text-center">0</td>
+      <td class="px-4 py-3 text-sm">${batch.created_at ? new Date(batch.created_at).toLocaleString('zh-TW') : '-'}</td>
+      <td class="px-4 py-3 text-sm">
         <button class="px-2 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                onclick="__modules.batches.viewBatchDetails('${batch.id}')">View</button>
+                onclick="__modules.batches.viewBatchDetails('${batch.id}')">查看詳情</button>
       </td>
     </tr>
   `).join('');
 
-  container.innerHTML = `
-    <table class="w-full border-collapse border">
-      <thead class="bg-gray-100">
-        <tr>
-          <th class="px-4 py-2 text-left">Batch Number</th>
-          <th class="px-4 py-2 text-left">Tag</th>
-          <th class="px-4 py-2 text-center">Items</th>
-          <th class="px-4 py-2 text-left">Created</th>
-          <th class="px-4 py-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-  `;
+  container.innerHTML = rows;
 }
 
 export async function viewBatchDetails(batchId) {
-  mutations.OPEN_MODAL('batchDetailsModal');
+  openModal('batch-details-modal');
 
   try {
     const response = await fetch(`/api/batches/${batchId}`);

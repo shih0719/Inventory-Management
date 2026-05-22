@@ -10,8 +10,8 @@ export const state = {
       sku: '',
       name: '',
       model: '',
-      tag: '',
-      lowStock: false
+      lowStock: false,
+      sortBy: ''
     }
   },
 

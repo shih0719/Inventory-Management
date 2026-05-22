@@ -40,20 +40,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 1. 初始化 UI（全局監聽器、表單驗證等）
     utilsModule.initializeUI();
 
-    // 2. 加載標籤
-    const tagsResponse = await fetch('/api/tags');
-    const tagsData = await tagsResponse.json();
-    const tags = Array.isArray(tagsData) ? tagsData : (tagsData.data || tagsData.tags || []);
-    mutations.SET_TAGS(tags);
-    console.log('✓ Tags loaded');
-
     // 3. 加載儲位
     await locationsModule.loadLocations();
+    locationsModule.renderLocationsTable();
     console.log('✓ Locations loaded');
 
     // 4. 加載產品
     await productsModule.loadProducts();
     productsModule.renderProducts();
+    productsModule.renderPagination();
     console.log('✓ Products loaded');
 
     // 5. 加載所有異動
@@ -84,26 +79,75 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-  // 產品模組
-  const productSearchBtn = document.getElementById('product-search-btn');
-  if (productSearchBtn) {
-    productSearchBtn.addEventListener('click', () => {
-      productsModule.applyProductFilters();
-    });
-  }
+  // 根據當前頁面判斷要綁定的事件
+  const currentPath = window.location.pathname;
+  const isProductsPage = currentPath.includes('products.html') || currentPath === '/';
+  const isBatchesPage = currentPath.includes('batches.html');
+  const isWebhooksPage = currentPath.includes('webhooks.html');
+  const isLocationsPage = currentPath.includes('locations.html');
 
-  const productSkuInput = document.getElementById('product-sku-filter');
-  if (productSkuInput) {
-    productSkuInput.addEventListener('input', utilsModule.debounce(() => {
-      mutations.SET_PRODUCTS_FILTERS({ sku: productSkuInput.value });
-    }, 300));
-  }
+  // ===== 產品頁面事件 =====
+  if (isProductsPage) {
+    const productSearchBtn = document.getElementById('product-search-btn');
+    if (productSearchBtn) {
+      productSearchBtn.addEventListener('click', () => {
+        productsModule.applyProductFilters();
+      });
+    }
 
-  const productNameInput = document.getElementById('product-name-filter');
-  if (productNameInput) {
-    productNameInput.addEventListener('input', utilsModule.debounce(() => {
-      mutations.SET_PRODUCTS_FILTERS({ name: productNameInput.value });
-    }, 300));
+    const filterSkuInput = document.getElementById('filter-sku');
+    if (filterSkuInput) {
+      filterSkuInput.addEventListener('input', utilsModule.debounce(() => {
+        mutations.SET_PRODUCTS_FILTERS({ sku: filterSkuInput.value });
+      }, 300));
+    }
+
+    const filterNameInput = document.getElementById('filter-name');
+    if (filterNameInput) {
+      filterNameInput.addEventListener('input', utilsModule.debounce(() => {
+        mutations.SET_PRODUCTS_FILTERS({ name: filterNameInput.value });
+      }, 300));
+    }
+
+    const filterModelInput = document.getElementById('filter-model');
+    if (filterModelInput) {
+      filterModelInput.addEventListener('input', utilsModule.debounce(() => {
+        mutations.SET_PRODUCTS_FILTERS({ model: filterModelInput.value });
+      }, 300));
+    }
+
+    const filterLowStockCheckbox = document.getElementById('filter-low-stock');
+    if (filterLowStockCheckbox) {
+      filterLowStockCheckbox.addEventListener('change', () => {
+        mutations.SET_PRODUCTS_FILTERS({ lowStock: filterLowStockCheckbox.checked });
+      });
+    }
+
+    const sortBySelect = document.getElementById('sort-by');
+    if (sortBySelect) {
+      sortBySelect.addEventListener('change', () => {
+        mutations.SET_PRODUCTS_FILTERS({ sortBy: sortBySelect.value });
+        productsModule.applyProductFilters();
+      });
+    }
+
+    const addProductBtn = document.getElementById('add-product-btn');
+    if (addProductBtn) {
+      addProductBtn.addEventListener('click', () => {
+        const form = document.getElementById('product-form');
+        if (form) form.reset();
+        const titleEl = document.getElementById('product-modal-title');
+        if (titleEl) titleEl.textContent = '新增產品';
+        utilsModule.openModal('product-modal');
+      });
+    }
+
+    const batchTransactionBtn = document.getElementById('batch-transaction-btn');
+    if (batchTransactionBtn) {
+      batchTransactionBtn.addEventListener('click', () => {
+        utilsModule.openModal('batch-modal');
+      });
+    }
   }
 
   // CSV 導入導出
@@ -123,39 +167,129 @@ function setupEventListeners() {
   }
 
   // 產品表單
-  const productForm = document.getElementById('productForm');
+  const productForm = document.getElementById('product-form');
   if (productForm) {
     productForm.addEventListener('submit', (e) => productsModule.handleProductSubmit(e));
   }
 
+  // 產品模態框取消按鈕
+  const productModalCancel = document.getElementById('product-modal-cancel');
+  if (productModalCancel) {
+    productModalCancel.addEventListener('click', () => utilsModule.closeModal('product-modal'));
+  }
+
   // 異動表單
-  const transactionForm = document.getElementById('transactionForm');
+  const transactionForm = document.getElementById('transaction-form');
   if (transactionForm) {
     transactionForm.addEventListener('submit', (e) => transactionsModule.handleTransactionSubmit(e));
   }
 
-  // 批次表單
-  const batchForm = document.getElementById('batchForm');
-  if (batchForm) {
-    batchForm.addEventListener('submit', (e) => batchesModule.handleBatchSubmit(e));
+  // ===== 批次頁面事件 =====
+  if (isBatchesPage) {
+    const batchForm = document.getElementById('batch-form');
+    if (batchForm) {
+      batchForm.addEventListener('submit', (e) => batchesModule.handleBatchSubmit(e));
+    }
+
+    const batchModalCancel = document.getElementById('batch-modal-cancel');
+    if (batchModalCancel) {
+      batchModalCancel.addEventListener('click', () => utilsModule.closeModal('batch-modal'));
+    }
+
+    const addBatchItemBtn = document.getElementById('add-batch-item-btn');
+    if (addBatchItemBtn) {
+      addBatchItemBtn.addEventListener('click', () => batchesModule.addBatchItem());
+    }
+
+    const batchProductSearchInput = document.getElementById('batch-product-search-input');
+    if (batchProductSearchInput) {
+      batchProductSearchInput.addEventListener('input', utilsModule.debounce(() => {
+        batchesModule.searchBatchProducts(batchProductSearchInput.value);
+      }, 300));
+    }
+
+    const batchProductSearchCancel = document.getElementById('batch-product-search-cancel');
+    if (batchProductSearchCancel) {
+      batchProductSearchCancel.addEventListener('click', () => utilsModule.closeModal('batch-product-search-modal'));
+    }
   }
 
-  // Webhook 表單
-  const webhookForm = document.getElementById('webhookForm');
-  if (webhookForm) {
-    webhookForm.addEventListener('submit', (e) => webhooksModule.handleWebhookSubmit(e));
+  // ===== Webhook 頁面事件 =====
+  if (isWebhooksPage) {
+    const webhookAddBtn = document.getElementById('webhook-add-btn');
+    if (webhookAddBtn) {
+      webhookAddBtn.addEventListener('click', () => webhooksModule.openWebhookFormModal());
+    }
+
+    const webhookForm = document.getElementById('webhook-form');
+    if (webhookForm) {
+      webhookForm.addEventListener('submit', (e) => webhooksModule.handleWebhookSubmit(e));
+    }
+
+    const webhookFormCancel = document.getElementById('webhook-form-cancel');
+    if (webhookFormCancel) {
+      webhookFormCancel.addEventListener('click', () => utilsModule.closeModal('webhook-form-modal'));
+    }
   }
 
-  // 序號品表單
-  const productUnitForm = document.getElementById('productUnitForm');
-  if (productUnitForm) {
-    productUnitForm.addEventListener('submit', (e) => productUnitsModule.handleProductUnitSubmit(e));
+  // ===== 儲位頁面事件 =====
+  if (isLocationsPage) {
+    const locationCreateForm = document.getElementById('location-create-form');
+    if (locationCreateForm) {
+      locationCreateForm.addEventListener('submit', (e) => locationsModule.handleLocationCreate(e));
+    }
+
+    const locationScanForm = document.getElementById('location-scan-form');
+    if (locationScanForm) {
+      locationScanForm.addEventListener('submit', (e) => e.preventDefault());
+    }
+
+    const openCameraBtn = document.getElementById('open-camera-btn');
+    if (openCameraBtn) {
+      openCameraBtn.addEventListener('click', () => utilsModule.openModal('camera-scan-modal'));
+    }
   }
 
-  // 儲位建立表單
-  const locationForm = document.getElementById('locationForm');
-  if (locationForm) {
-    locationForm.addEventListener('submit', (e) => locationsModule.handleLocationCreate(e));
+  // 所有模態框關閉按鈕（通用處理）
+  document.querySelectorAll('[id$="-modal-close"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const modalId = e.target.id.replace('-close', '');
+      utilsModule.closeModal(modalId);
+    });
+  });
+
+  // 批次詳情拖拉分隔線
+  const splitter = document.getElementById('batch-splitter');
+  const infoPanel = document.getElementById('batch-info-panel');
+  if (splitter && infoPanel) {
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      const delta = e.clientY - startY;
+      const newHeight = Math.max(80, startHeight + delta);
+      infoPanel.style.height = newHeight + 'px';
+    };
+
+    const handleMouseUp = () => {
+      isResizing = false;
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    splitter.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = infoPanel.offsetHeight;
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    });
   }
 
   console.log('✓ All event listeners bound');

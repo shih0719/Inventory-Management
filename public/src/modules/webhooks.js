@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { mutations } from '../mutations.js';
+import { openModal, closeModal } from './utils.js';
 
 export async function loadWebhooks() {
   try {
@@ -19,27 +20,28 @@ export async function loadWebhooks() {
 }
 
 export function openWebhooksModal() {
-  mutations.OPEN_MODAL('webhooksModal');
+  openModal('webhooks-modal');
   loadWebhooks();
 }
 
 export function openWebhookFormModal(webhookId) {
-  mutations.OPEN_MODAL('webhookFormModal');
+  openModal('webhook-form-modal');
 
   if (webhookId) {
     const webhook = state.webhooks.items.find(w => w.id === webhookId);
     if (webhook) {
-      const form = document.getElementById('webhookForm');
-      if (form) {
-        form.elements['url'].value = webhook.url;
-        form.elements['event'].value = webhook.event;
-        form.elements['enabled'].checked = webhook.enabled;
-        form.elements['webhookId'].value = webhookId;
-      }
+      document.getElementById('webhook-id').value = webhook.id;
+      document.getElementById('webhook-name').value = webhook.name || '';
+      document.getElementById('webhook-url').value = webhook.url || '';
+      document.getElementById('webhook-is-active').checked = webhook.is_active || false;
+
+      // 设置选中的事件
+      document.querySelectorAll('.webhook-event').forEach(checkbox => {
+        checkbox.checked = webhook.events && webhook.events.includes(checkbox.value);
+      });
     }
   } else {
-    const form = document.getElementById('webhookForm');
-    if (form) form.reset();
+    document.getElementById('webhook-form').reset();
   }
 }
 
@@ -47,14 +49,23 @@ export async function handleWebhookSubmit(e) {
   e.preventDefault();
   const form = e.target;
   const formData = new FormData(form);
-  const webhookId = formData.get('webhookId');
+  const webhookId = formData.get('id');
 
   try {
+    // 收集选中的事件
+    const events = [];
+    document.querySelectorAll('.webhook-event:checked').forEach(checkbox => {
+      events.push(checkbox.value);
+    });
+
     const payload = {
+      name: formData.get('name'),
       url: formData.get('url'),
-      event: formData.get('event'),
-      enabled: formData.get('enabled') === 'on'
+      events: events,
+      is_active: document.getElementById('webhook-is-active').checked ? 1 : 0
     };
+
+    console.log('Webhook payload:', payload);
 
     const response = await fetch(
       webhookId ? `/api/webhooks/${webhookId}` : '/api/webhooks',
@@ -75,8 +86,9 @@ export async function handleWebhookSubmit(e) {
     }
 
     mutations.SHOW_NOTIFICATION('Webhook saved successfully', 'success');
-    mutations.CLOSE_MODAL('webhookFormModal');
+    closeModal('webhook-form-modal');
     form.reset();
+    await loadWebhooks();
     renderWebhooksList();
   } catch (error) {
     console.error('Error submitting webhook:', error);
@@ -85,36 +97,44 @@ export async function handleWebhookSubmit(e) {
 }
 
 export async function deleteWebhook(webhookId) {
-  if (!confirm('Delete this webhook?')) return;
+  if (!confirm('確定要刪除此 Webhook 訂閱嗎？')) return;
 
   try {
     const response = await fetch(`/api/webhooks/${webhookId}`, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete webhook');
 
-    mutations.REMOVE_WEBHOOK(webhookId);
-    mutations.SHOW_NOTIFICATION('Webhook deleted successfully', 'success');
+    mutations.SHOW_NOTIFICATION('Webhook 已刪除', 'success');
+    await loadWebhooks();
     renderWebhooksList();
   } catch (error) {
     console.error('Error deleting webhook:', error);
-    mutations.SHOW_NOTIFICATION('Failed to delete webhook', 'error');
+    mutations.SHOW_NOTIFICATION('刪除失敗', 'error');
   }
 }
 
-export async function viewWebhookLogs(webhookId) {
+export async function testWebhookPush(webhookId) {
   try {
-    const response = await fetch(`/api/webhooks/${webhookId}/logs`);
-    const logs = await response.json();
+    const response = await fetch(`/api/webhooks/${webhookId}/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-    mutations.SET_WEBHOOK_LOGS(logs);
-    renderWebhookLogs();
+    const data = await response.json();
+
+    if (response.ok) {
+      mutations.SHOW_NOTIFICATION('測試推送已發送，請檢查接收端', 'success');
+    } else {
+      const errorMsg = data.message || data.error || '測試推送失敗';
+      mutations.SHOW_NOTIFICATION(errorMsg, 'error');
+    }
   } catch (error) {
-    console.error('Error loading webhook logs:', error);
-    mutations.SHOW_NOTIFICATION('Failed to load webhook logs', 'error');
+    console.error('Error testing webhook:', error);
+    mutations.SHOW_NOTIFICATION('測試推送失敗', 'error');
   }
 }
 
 export function renderWebhooksList() {
-  const container = document.getElementById('webhooks-list-container');
+  const container = document.getElementById('webhooks-list');
   if (!container) return;
 
   const items = state.webhooks.items;
@@ -123,34 +143,40 @@ export function renderWebhooksList() {
     return;
   }
 
-  const rows = items.map(webhook => `
+  const rows = items.map(webhook => {
+    const eventsList = Array.isArray(webhook.events) ? webhook.events.join(', ') : webhook.event || '-';
+    const isActive = webhook.is_active || webhook.enabled;
+    return `
     <tr class="border-b hover:bg-gray-50">
-      <td class="px-4 py-2">${webhook.url}</td>
-      <td class="px-4 py-2">${webhook.event}</td>
+      <td class="px-4 py-2 text-sm">${webhook.name || '-'}</td>
+      <td class="px-4 py-2 text-sm">${webhook.url}</td>
+      <td class="px-4 py-2 text-sm">${eventsList}</td>
       <td class="px-4 py-2">
-        <span class="px-2 py-1 rounded text-white text-sm ${webhook.enabled ? 'bg-green-500' : 'bg-gray-400'}">
-          ${webhook.enabled ? 'Enabled' : 'Disabled'}
+        <span class="px-2 py-1 rounded text-white text-sm ${isActive ? 'bg-green-500' : 'bg-gray-400'}">
+          ${isActive ? '啟用' : '停用'}
         </span>
       </td>
       <td class="px-4 py-2 space-x-2">
         <button class="px-2 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                onclick="__modules.webhooks.openWebhookFormModal('${webhook.id}')">Edit</button>
-        <button class="px-2 py-1 bg-purple-500 text-white text-sm rounded hover:bg-purple-600"
-                onclick="__modules.webhooks.viewWebhookLogs('${webhook.id}')">Logs</button>
+                onclick="__modules.webhooks.openWebhookFormModal('${webhook.id}')">編輯</button>
+        <button class="px-2 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                onclick="__modules.webhooks.testWebhookPush('${webhook.id}')">測試推送</button>
         <button class="px-2 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-                onclick="__modules.webhooks.deleteWebhook('${webhook.id}')">Delete</button>
+                onclick="__modules.webhooks.deleteWebhook('${webhook.id}')">刪除</button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   container.innerHTML = `
     <table class="w-full border-collapse border">
       <thead class="bg-gray-100">
         <tr>
+          <th class="px-4 py-2 text-left">名稱</th>
           <th class="px-4 py-2 text-left">URL</th>
-          <th class="px-4 py-2 text-left">Event</th>
-          <th class="px-4 py-2 text-left">Status</th>
-          <th class="px-4 py-2">Actions</th>
+          <th class="px-4 py-2 text-left">事件</th>
+          <th class="px-4 py-2 text-left">狀態</th>
+          <th class="px-4 py-2">操作</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>

@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { mutations } from '../mutations.js';
+import { openModal, closeModal } from './utils.js';
 
 export function populateAllTransTagFilter() {
   const select = document.getElementById('all-transactions-tag-filter');
@@ -19,7 +20,7 @@ export function openTransactionModal(productId, productName, accountableQty, non
     form.elements['currentNonAccountable'].value = nonAccountableQty;
   }
 
-  mutations.OPEN_MODAL('transactionModal');
+  openModal('transaction-modal');
 }
 
 export async function handleTransactionSubmit(e) {
@@ -47,7 +48,7 @@ export async function handleTransactionSubmit(e) {
     if (!response.ok) throw new Error('Failed to create transaction');
 
     mutations.SHOW_NOTIFICATION('Transaction recorded successfully', 'success');
-    mutations.CLOSE_MODAL('transactionModal');
+    closeModal('transaction-modal');
     form.reset();
     await loadAllTransactions();
   } catch (error) {
@@ -59,7 +60,7 @@ export async function handleTransactionSubmit(e) {
 }
 
 export async function openHistoryModal(productId, productName, productSku) {
-  mutations.OPEN_MODAL('historyModal');
+  openModal('history-modal');
 
   try {
     mutations.SET_LOADING('transactions', true);
@@ -108,7 +109,7 @@ export function renderHistory(transactions) {
 }
 
 export async function openAllTransactionsModal() {
-  mutations.OPEN_MODAL('allTransactionsModal');
+  openModal('all-transactions-modal');
   await loadAllTransactions();
 }
 

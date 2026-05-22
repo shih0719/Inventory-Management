@@ -1,5 +1,6 @@
 import { state } from '../state.js';
 import { mutations } from '../mutations.js';
+import { openModal, closeModal } from './utils.js';
 
 export async function loadProductUnits(page = 1) {
   try {
@@ -91,7 +92,7 @@ export function renderProductUnitsPagination() {
 }
 
 export function openProductUnitsModal() {
-  mutations.OPEN_MODAL('productUnitsModal');
+  openModal('product-units-modal');
   loadProductUnits();
 }
 
@@ -115,7 +116,7 @@ export async function handleProductUnitSubmit(e) {
     const unit = await response.json();
     mutations.ADD_PRODUCT_UNIT(unit);
     mutations.SHOW_NOTIFICATION('Product unit saved successfully', 'success');
-    mutations.CLOSE_MODAL('puEditModal');
+    closeModal('pu-edit-modal');
     form.reset();
   } catch (error) {
     console.error('Error submitting product unit:', error);
@@ -137,7 +138,7 @@ export function editProductUnit(unitId) {
     form.elements['projectCase'].value = unit.projectCase || '';
   }
 
-  mutations.OPEN_MODAL('puEditModal');
+  openModal('pu-edit-modal');
 }
 
 export async function deleteProductUnit(unitId) {

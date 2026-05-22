@@ -1,14 +1,26 @@
 import { mutations } from '../mutations.js';
 
 export function openModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.add('active');
+  }
   mutations.OPEN_MODAL(modalId);
 }
 
 export function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.remove('active');
+  }
   mutations.CLOSE_MODAL(modalId);
 }
 
 export function toggleModal(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.classList.toggle('active');
+  }
   mutations.TOGGLE_MODAL(modalId);
 }
 
