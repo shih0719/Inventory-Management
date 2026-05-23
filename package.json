@@ -17,7 +17,10 @@
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop all",
     "pm2:restart": "pm2 restart all",
-    "pm2:delete": "pm2 delete all"
+    "pm2:delete": "pm2 delete all",
+    "build:frontend": "cd vite-app && npm run build && cd ..",
+    "copy:frontend": "node scripts/copy-frontend.js",
+    "deploy": "npm install && npm run build:frontend && npm run copy:frontend && npm run pm2:start"
   },
   "dependencies": {
     "cors": "^2.8.5",

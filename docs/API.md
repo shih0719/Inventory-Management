@@ -251,6 +251,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 - `product_units`: 包含序號品的詳細信息（id、serial_number、status）
 - 一般品（normal）的 product_unit_ids 為 null
 - 序號品（AP）進出庫時會自動記錄
+- **前端功能**: 序號品詳情頁提供「複製」按鈕，一鍵複製所有序號品（自動跳行區分，可直接貼到 Excel）
 
 ---
 
@@ -653,7 +654,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ### GET /api/shipments/:id
 
-取得出貨單據詳情（含完整 Transactions）。
+取得出貨單據詳情（含完整 Transactions 和序號品資訊）。
 
 **Response (200):**
 ```json
@@ -665,16 +666,59 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
     "customer": "客戶 A",
     "project_case": "案件編號",
     "shipment_date": "2026-05-23",
-    "transaction_ids": [101, 102, 103],
+    "transaction_ids": [101, 102],
     "items_summary": [
       {
         "id": 101,
         "product_id": 1,
         "sku": "SKU-001",
+        "product_name": "測試 AP 產品",
+        "product_type": "ap",
         "quantity_change": -5,
-        "product_name": "產品名稱",
         "tag_name": "出庫",
+        "tag_color": "#EF4444",
+        "product_unit_ids": "[10, 11, 12, 13, 14]",
+        "product_units": [
+          {
+            "id": 10,
+            "serial_number": "SN-001",
+            "status": "sold"
+          },
+          {
+            "id": 11,
+            "serial_number": "SN-002",
+            "status": "sold"
+          },
+          {
+            "id": 12,
+            "serial_number": "SN-003",
+            "status": "sold"
+          },
+          {
+            "id": 13,
+            "serial_number": "SN-004",
+            "status": "sold"
+          },
+          {
+            "id": 14,
+            "serial_number": "SN-005",
+            "status": "sold"
+          }
+        ],
         "created_at": "2026-05-23T10:00:00Z"
+      },
+      {
+        "id": 102,
+        "product_id": 2,
+        "sku": "SKU-002",
+        "product_name": "一般產品",
+        "product_type": "normal",
+        "quantity_change": -3,
+        "tag_name": "出庫",
+        "tag_color": "#EF4444",
+        "product_unit_ids": null,
+        "product_units": null,
+        "created_at": "2026-05-23T10:05:00Z"
       }
     ],
     "created_at": "2026-05-23T10:00:00Z",
@@ -682,6 +726,11 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   }
 }
 ```
+
+**Notes:**
+- `items_summary`: 包含所有關聯的 Transactions，並包含序號品詳情
+- `product_units`: 序號品（AP）會包含具體的序號品清單；一般品（normal）為 null
+- 序號品可複製：前端提供「複製」按鈕，自動複製所有序號，每行一個
 
 **Error (404):**
 ```json

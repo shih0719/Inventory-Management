@@ -67,7 +67,14 @@
       "Bash(curl -s http://localhost:3030/api/product-units/bulk-sell -H 'Content-Type: application/json' -d '{ *)",
       "PowerShell(\"Done\")",
       "Bash(curl -s http://localhost:3030/api/transactions/12)",
-      "PowerShell(\"Process restarted\")"
+      "PowerShell(\"Process restarted\")",
+      "Bash(pm2 status *)",
+      "Bash(pm2 logs *)",
+      "Bash(findstr :3030)",
+      "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 3030 -ErrorAction SilentlyContinue | Select-Object OwningProcess\")",
+      "Bash(taskkill /PID 7780 /F)",
+      "Bash(pm2 restart *)",
+      "Bash(curl -s http://localhost:3030/api/system/health)"
     ]
   }
 }

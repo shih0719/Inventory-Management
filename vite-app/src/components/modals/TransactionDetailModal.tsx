@@ -64,6 +64,15 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
 
   const isInbound = transaction.quantity_change > 0;
 
+  const handleCopySerials = () => {
+    if (!transaction.product_units || transaction.product_units.length === 0) return;
+    const serials = transaction.product_units.map((u) => u.serial_number).join('\n');
+    navigator.clipboard.writeText(serials).then(() => {
+      // Optional: show a brief toast/notification
+      alert(lang === 'en' ? 'Copied!' : '已複製');
+    });
+  };
+
   return (
     <div className="modal-scrim" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: 600 }}>
@@ -141,10 +150,27 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
           {/* Serial Numbers */}
           {transaction.product_type === 'ap' && transaction.product_units && transaction.product_units.length > 0 && (
             <div className="field" style={{ marginBottom: 20 }}>
-              <label>
-                {lang === 'en' ? 'Serial Numbers' : '序號品'} ({transaction.product_units.length})
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ marginBottom: 0 }}>
+                  {lang === 'en' ? 'Serial Numbers' : '序號品'} ({transaction.product_units.length})
+                </label>
+                <button
+                  onClick={handleCopySerials}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 11,
+                    backgroundColor: 'var(--ok)',
+                    color: 'var(--surface)',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                  }}
+                >
+                  {lang === 'en' ? '📋 Copy' : '📋 複製'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 {transaction.product_units.map((unit) => (
                   <div
                     key={unit.id}
