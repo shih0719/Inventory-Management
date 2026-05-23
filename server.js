@@ -26,6 +26,7 @@ const systemRoutes = require("./src/routes/system");
 const webhooksRoutes = require("./src/routes/webhooks");
 const productUnitsRoutes = require("./src/routes/productUnits");
 const updatesRoutes = require("./src/routes/updates");
+const shipmentsRoutes = require("./src/routes/shipments");
 
 // Import update service
 const updateService = require("./src/services/updateService");
@@ -44,6 +45,7 @@ app.use("/api/system", systemRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/product-units", productUnitsRoutes);
 app.use("/api/updates", updatesRoutes);
+app.use("/api/shipments", shipmentsRoutes);
 
 
 // Health check endpoint

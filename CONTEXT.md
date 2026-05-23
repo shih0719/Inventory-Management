@@ -59,6 +59,30 @@ AP 批次新增可同時用於兩種場景：
 
 > ⚠️ 此處的 Tag 為**交易分類**，與 GitHub issue 的 label 無關，雖然兩者程式中都叫 "tag"。
 
+### Shipment（出貨單據）
+**定位**：在 Transaction 建立之後，賦予多筆庫存異動業務意義的獨立組織層。一份出貨單據整合與追蹤一次出貨操作中的多個庫存異動記錄。
+
+**核心關係**：
+- **一對多** — 一個 Shipment 包含多筆 Transactions
+- **排他性** — 一個 Transaction 同時只能屬於一個 Shipment（或不屬於任何 Shipment）
+- **獨立性** — Transaction 先獨立存在，Shipment 後續選擇性綁定；刪除 Shipment 不刪除 Transaction，僅解除關聯
+
+**業務欄位**（全部選填，可後補修改）：
+- `customer` — 收貨客戶
+- `project_case` — 案件編號。**注意**：此欄位與 AP 的 `project_case` 各自獨立，系統**不驗證一致性**。Shipment 的 project_case 純粹是出貨單據的業務分類標籤，可包含來自不同案件的 Transactions
+- `shipment_date` — 實際出貨日期，由使用者指定（不是系統時間戳）
+
+**自動生成欄位**：
+- `shipment_number` — 格式 `SHP-YYYYMMDD-XXX`，按出貨日期每日遞增（e.g., `SHP-20260523-001`、`SHP-20260523-002`...）
+- `items_summary` — 逐筆列出被綁定的 Transactions 詳細資訊（不聚合），便於追蹤個別異動
+
+**操作規則**：
+1. **建立** — 提供 `transaction_ids`；如果某 ID 已屬於其他 Shipment，API 返回 409 Conflict（防止誤加）
+2. **修改** — 通過 `PUT /shipments/:id` 提供完整新的 `transaction_ids` 列表，覆蓋舊值；所有業務欄位也可修改
+3. **刪除** — 軟刪除，Transactions 保留並自動解除關聯（shipment_id → NULL）；已刪除 Shipment 仍可查詢
+
+**無狀態設計**：Shipment 不追蹤 pending/confirmed/shipped/delivered 等狀態。一旦建立就是有效單據，無生命週期轉移。
+
 ---
 
 ## 庫存變動
@@ -111,7 +135,8 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 透過 Big5 編碼的 CSV 檔批量建立/更新 Product。匯入時以 SKU 為 upsert key——存在則更新，不存在則建立。
 
 ### Soft Delete（軟刪除）
-Product 的 `is_deleted = 1`，記錄保留但從預設查詢中濾除。
+- **Product** — `is_deleted = 1`，記錄保留但從預設查詢中濾除
+- **Shipment** — `is_deleted = 1`，已刪除的出貨單記錄保留供審計追蹤
 
 > Location、Transaction、Batch **目前無軟刪除機制**——若未來需要請開 ADR 討論。
 

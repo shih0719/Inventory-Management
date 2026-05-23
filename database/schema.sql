@@ -146,3 +146,42 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
 
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_subscription_id ON webhook_logs(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
+
+-- Shipments Table (出貨單據)
+CREATE TABLE IF NOT EXISTS shipments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shipment_number TEXT NOT NULL,
+    customer TEXT,
+    project_case TEXT,
+    shipment_date DATE,
+    is_deleted BOOLEAN NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Shipment Transactions Junction Table (Many-to-many relationship)
+CREATE TABLE IF NOT EXISTS shipment_transactions (
+    shipment_id INTEGER NOT NULL,
+    transaction_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (shipment_id, transaction_id),
+    FOREIGN KEY (shipment_id) REFERENCES shipments(id),
+    FOREIGN KEY (transaction_id) REFERENCES transactions(id)
+);
+
+-- Indexes for Shipments
+-- Partial UNIQUE index: only active (not deleted) shipments must have unique shipment_number
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shipments_shipment_number_active
+ON shipments(shipment_number) WHERE is_deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_shipments_is_deleted ON shipments(is_deleted);
+CREATE INDEX IF NOT EXISTS idx_shipments_created_at ON shipments(created_at);
+CREATE INDEX IF NOT EXISTS idx_shipment_transactions_shipment_id ON shipment_transactions(shipment_id);
+CREATE INDEX IF NOT EXISTS idx_shipment_transactions_transaction_id ON shipment_transactions(transaction_id);
+
+-- Trigger to update shipments updated_at timestamp
+CREATE TRIGGER IF NOT EXISTS update_shipments_timestamp
+AFTER UPDATE ON shipments
+FOR EACH ROW
+BEGIN
+    UPDATE shipments SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+END;
