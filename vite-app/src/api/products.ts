@@ -56,3 +56,9 @@ export async function updateProduct(id: number, patch: Partial<Product>) {
 export async function deleteProduct(id: number) {
   await api.del(`/api/products/${id}`);
 }
+
+export async function getProductLocations(sku: string): Promise<Array<{ id: number; name: string; description: string }>> {
+  const res = await api.get<{ product: Product; locations: Array<{ id: number; name: string; description: string }> }>(`/api/products/${encodeURIComponent(sku)}/locations`);
+  const locations = (res.data as any)?.locations || [];
+  return Array.isArray(locations) ? locations : [];
+}

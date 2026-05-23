@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CreateTransactionInput, Location, Product, QuantityType, Tag } from '../../types';
 import { L, type Lang } from '../../lib/i18n';
-import { updateProduct } from '../../api/products';
+import { updateProduct, getProductLocations } from '../../api/products';
 
 export interface AdjustStockModalProps {
   product: Product;
@@ -27,6 +27,7 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   const [quantityType, setQuantityType] = useState<QuantityType>('accountable');
   const [tagId, setTagId] = useState<number>(inboundTag?.id ?? tags[0]?.id ?? 1);
   const [locationTag, setLocationTag] = useState<string>('');
+  const [productLocations, setProductLocations] = useState<Array<{ id: number; name: string; description: string }>>([]);
   const [remarks, setRemarks] = useState('');
   const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
   const [productType, setProductType] = useState<'normal' | 'ap'>(product.type);
@@ -43,6 +44,27 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   }, [product, qty, quantityType]);
 
   const stockShort = result < 0;
+
+  // Load product locations
+  useEffect(() => {
+    const loadLocations = async () => {
+      try {
+        const locs = await getProductLocations(product.sku);
+        const locArray = Array.isArray(locs) ? locs : [];
+        setProductLocations(locArray);
+        if (locArray.length > 0) {
+          setLocationTag(locArray[0].name);
+        } else {
+          setLocationTag('');
+        }
+      } catch (err) {
+        console.error('Failed to load product locations:', err);
+        setProductLocations([]);
+        setLocationTag('');
+      }
+    };
+    void loadLocations();
+  }, [product.sku]);
 
   // Keep tagIdRef in sync
   useEffect(() => {
@@ -199,25 +221,31 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
           </div>
 
 
-          {/* Location + Remarks */}
+          {/* Location */}
           <div className="field">
-            <div className="row2">
-              <div>
-                <label>{t.location}</label>
-                <select value={locationTag} onChange={(e) => setLocationTag(e.target.value)}>
-                  <option value="">{t.none}</option>
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.name}>
-                      {loc.name} · {loc.description}
-                    </option>
-                  ))}
-                </select>
+            <label>{t.location}</label>
+            {!Array.isArray(productLocations) || productLocations.length === 0 ? (
+              <div style={{ padding: '10px 12px', backgroundColor: 'var(--surface-2)', borderRadius: 4, color: 'var(--ink-3)', fontSize: 12 }}>
+                {lang === 'en' ? 'Not assigned to any location' : '未指派至任何位置'}
               </div>
-              <div>
-                <label>{t.remarks}</label>
-                <input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t.remarksPh} />
+            ) : (
+              <div style={{ padding: '10px 12px', backgroundColor: 'var(--surface-2)', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {productLocations.map((loc) => (
+                  <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>{loc.name}</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                      {loc.description}
+                    </span>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
+          </div>
+
+          {/* Remarks */}
+          <div className="field">
+            <label>{t.remarks}</label>
+            <input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t.remarksPh} />
           </div>
 
           {/* Product Type */}
