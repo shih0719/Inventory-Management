@@ -5,6 +5,7 @@ import type { CreateTransactionInput, Transaction } from '../types';
 export interface ListTransactionsParams {
   page?: number;
   limit?: number;
+  [key: string]: string | number | boolean | undefined;
 }
 
 export async function listTransactions(params: ListTransactionsParams = {}) {

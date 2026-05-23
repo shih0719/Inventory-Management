@@ -13,13 +13,14 @@
 2. [Transactions](#transactions-庫存異動)
 3. [Tags](#tags-標籤管理)
 4. [Batches](#batches-批次管理)
-5. [Locations](#locations-倉庫位置)
-6. [Product Units](#product-units-序號品)
-7. [CSV](#csv-批量導入導出)
-8. [Webhooks](#webhooks-webhook-訂閱)
-9. [System](#system-系統管理)
-10. [Updates](#updates-更新管理)
-11. [Health & Info](#health--info-健康檢查)
+5. [Shipments](#shipments-出貨單據)
+6. [Locations](#locations-倉庫位置)
+7. [Product Units](#product-units-序號品)
+8. [CSV](#csv-批量導入導出)
+9. [Webhooks](#webhooks-webhook-訂閱)
+10. [System](#system-系統管理)
+11. [Updates](#updates-更新管理)
+12. [Health & Info](#health--info-健康檢查)
 
 ---
 
@@ -459,6 +460,233 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   }
 }
 ```
+
+---
+
+## Shipments 出貨單據
+
+整合和追蹤一次出貨操作中的多個庫存異動記錄。一個 Shipment 關聯多筆 Transactions，一個 Transaction 只能屬於一個 Shipment。
+
+### POST /api/shipments
+
+建立新的出貨單據。
+
+**Request Body:**
+```json
+{
+  "transaction_ids": [101, 102, 103],
+  "customer": "客戶 A",
+  "project_case": "案件編號",
+  "shipment_date": "2026-05-23"
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "shipment_number": "SHP-20260523-001",
+    "customer": "客戶 A",
+    "project_case": "案件編號",
+    "shipment_date": "2026-05-23",
+    "transaction_ids": [101, 102, 103],
+    "items_summary": [
+      {
+        "id": 101,
+        "product_id": 1,
+        "sku": "SKU-001",
+        "quantity_change": -5,
+        "product_name": "產品名稱",
+        "tag_name": "出庫",
+        "created_at": "2026-05-23T10:00:00Z"
+      }
+    ],
+    "created_at": "2026-05-23T10:00:00Z"
+  }
+}
+```
+
+**Error (409 - 衝突):**
+```json
+{
+  "success": false,
+  "error": "Conflict: Some transactions are already assigned to other shipments",
+  "errors": ["Transaction 102 already belongs to shipment 5"]
+}
+```
+
+**Error (400 - 驗證失敗):**
+```json
+{
+  "success": false,
+  "error": "transaction_ids array is required and must not be empty"
+}
+```
+
+**Notes:**
+- `shipment_number` 自動生成，格式為 `SHP-YYYYMMDD-XXX`（日期+遞增序號）
+- 所有業務欄位（`customer`、`project_case`、`shipment_date`）皆為選填，可後補
+- Transaction 衝突時返回 409，防止重複綁定
+- 同一 Transaction 只能屬於一個 Shipment
+
+---
+
+### GET /api/shipments
+
+列出所有出貨單據（含分頁）。
+
+**Query Parameters:**
+| 參數 | 型態 | 必填 | 說明 |
+|------|------|------|------|
+| `limit` | integer | N | 每頁筆數（預設: 50） |
+| `offset` | integer | N | 偏移量（預設: 0） |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "shipment_number": "SHP-20260523-001",
+      "customer": "客戶 A",
+      "project_case": "案件編號",
+      "shipment_date": "2026-05-23",
+      "transaction_count": 3,
+      "created_at": "2026-05-23T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/shipments/:id
+
+取得出貨單據詳情（含完整 Transactions）。
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "shipment_number": "SHP-20260523-001",
+    "customer": "客戶 A",
+    "project_case": "案件編號",
+    "shipment_date": "2026-05-23",
+    "transaction_ids": [101, 102, 103],
+    "items_summary": [
+      {
+        "id": 101,
+        "product_id": 1,
+        "sku": "SKU-001",
+        "quantity_change": -5,
+        "product_name": "產品名稱",
+        "tag_name": "出庫",
+        "created_at": "2026-05-23T10:00:00Z"
+      }
+    ],
+    "created_at": "2026-05-23T10:00:00Z",
+    "updated_at": "2026-05-23T10:00:00Z"
+  }
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Shipment not found"
+}
+```
+
+---
+
+### PUT /api/shipments/:id
+
+修改出貨單據（完全替換 Transactions 和業務欄位）。
+
+**Request Body:**
+```json
+{
+  "transaction_ids": [101, 104],
+  "customer": "新客戶",
+  "project_case": "新案件",
+  "shipment_date": "2026-05-24"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "shipment_number": "SHP-20260523-001",
+    "customer": "新客戶",
+    "project_case": "新案件",
+    "shipment_date": "2026-05-24",
+    "transaction_ids": [101, 104],
+    "items_summary": [
+      {
+        "id": 101,
+        "product_id": 1,
+        "quantity_change": -5,
+        "created_at": "2026-05-23T10:00:00Z"
+      }
+    ],
+    "updated_at": "2026-05-23T11:00:00Z"
+  }
+}
+```
+
+**Error (409 - 衝突):**
+```json
+{
+  "success": false,
+  "error": "Conflict: Some transactions are already assigned to other shipments",
+  "errors": ["Transaction 104 already belongs to shipment 2"]
+}
+```
+
+**Notes:**
+- 修改時完全替換 `transaction_ids` 列表
+- 如果新 Transaction 已屬於其他 Shipment，返回 409 Conflict
+- 所有欄位都可修改，包括業務信息和綁定的 Transactions
+
+---
+
+### DELETE /api/shipments/:id
+
+軟刪除出貨單據（不刪除關聯的 Transactions，僅解除關聯）。
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Shipment deleted successfully",
+  "data": {
+    "id": 1,
+    "shipment_number": "SHP-20260523-001"
+  }
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Shipment not found"
+}
+```
+
+**Notes:**
+- 軟刪除：Shipment 記錄保留（`is_deleted = 1`），但查詢時被濾除
+- Transactions 自動解除關聯，可被新 Shipment 綁定
+- 已刪除的 `shipment_number` 可被重新使用（同日期）
 
 ---
 

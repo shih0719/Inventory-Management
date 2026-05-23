@@ -109,7 +109,6 @@ export const L = {
     markedAssoldTitle: 'Marked as Sold',
     markedAsoldMsg: 'marked as sold successfully.',
     failedToMarkTitle: 'Failed to Mark as Sold',
-    ok: 'OK',
   },
   zh: {
     appName: '小倉庫存',

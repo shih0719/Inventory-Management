@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Product, ProductUnit } from '../../types';
 import { L, type Lang } from '../../lib/i18n';
-import { listProductUnits, createProductUnits } from '../../api/product-units';
+import { listProductUnits } from '../../api/product-units';
 import { CreateProductUnitsModal } from './CreateProductUnitsModal';
 import { ProductUnitsModal } from './ProductUnitsModal';
 

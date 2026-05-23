@@ -26,6 +26,7 @@ import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
 import { LocationsPage } from './components/LocationsPage';
 import { APProductsPage } from './components/APProductsPage';
+import { ShipmentsPage } from './components/ShipmentsPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
 import { ProductPickerModal } from './components/modals/ProductPickerModal';
@@ -54,7 +55,8 @@ type View =
   | { kind: 'dashboard' }
   | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
   | { kind: 'locations' }
-  | { kind: 'ap-products' };
+  | { kind: 'ap-products' }
+  | { kind: 'shipments' };
 
 type Modal =
   | null
@@ -336,6 +338,15 @@ export function App() {
       </button>
 
       <button
+        className="btn ghost"
+        onClick={() => setView({ kind: 'shipments' })}
+        disabled={bootState !== 'ready'}
+        title={lang === 'en' ? 'Shipments' : '出貨單據'}
+      >
+        📦 {lang === 'en' ? 'Shipments' : '出貨單據'}
+      </button>
+
+      <button
         className="btn"
         onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
         disabled={bootState !== 'ready'}
@@ -473,6 +484,12 @@ export function App() {
           lang={lang}
           onBack={() => setView({ kind: 'dashboard' })}
           onSelectProduct={(product) => setModal({ kind: 'ap-product', product })}
+        />
+      )}
+      {view.kind === 'shipments' && (
+        <ShipmentsPage
+          lang={lang}
+          onBack={() => setView({ kind: 'dashboard' })}
         />
       )}
 
