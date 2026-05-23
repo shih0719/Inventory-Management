@@ -132,3 +132,32 @@ export interface CreateBatchResult {
     quantity_change: number;
   }>;
 }
+
+// ---- Shipments (出貨單據) --------------------------------------------------
+
+export interface Shipment {
+  id: number;
+  shipment_number: string;
+  customer?: string | null;
+  project_case?: string | null;
+  shipment_date: string;
+  transaction_ids: number[];
+  items_summary: Transaction[]; // Full transaction details
+  transaction_count?: number; // For list view
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface CreateShipmentInput {
+  transaction_ids: number[];
+  customer?: string;
+  project_case?: string;
+  shipment_date?: string;
+}
+
+export interface UpdateShipmentInput {
+  transaction_ids?: number[];
+  customer?: string;
+  project_case?: string;
+  shipment_date?: string;
+}
