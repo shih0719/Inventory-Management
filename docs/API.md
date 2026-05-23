@@ -521,12 +521,12 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ---
 
-### GET /api/locations/:name/content
+### GET /api/locations/:tag/content
 
 查詢位置中的產品清單。
 
 **Parameters:**
-- `:name` (required) — 位置名稱（如 "A-01"）
+- `:tag` (required) — 位置標籤（如 "A-01"）
 
 **Response (200):**
 ```json
@@ -566,12 +566,12 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ---
 
-### POST /api/locations/:name/products
+### POST /api/locations/:tag/products
 
 將產品分配到位置。
 
 **Parameters:**
-- `:name` (required) — 位置名稱（如 "A-01"）
+- `:tag` (required) — 位置標籤（如 "A-01"）
 
 **Request Body:**
 ```json
@@ -606,12 +606,12 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ---
 
-### DELETE /api/locations/:name/products/:productId
+### DELETE /api/locations/:tag/products/:productId
 
 從位置移除產品。
 
 **Parameters:**
-- `:name` (required) — 位置名稱（如 "A-01"）
+- `:tag` (required) — 位置標籤（如 "A-01"）
 - `:productId` (required) — 產品 ID
 
 **Response (200):**
@@ -632,9 +632,67 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ---
 
+### DELETE /api/locations/:name
+
+刪除位置。
+
+**Parameters:**
+- `:name` (required) — 位置名稱（如 "A-01"）
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Location deleted successfully"
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Location not found"
+}
+```
+
+---
+
+### DELETE /api/locations/:name
+
+刪除位置。
+
+**Parameters:**
+- `:name` (required) — 位置名稱（如 "A-01"）
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Location deleted successfully"
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Location not found"
+}
+```
+
+---
+
 ## Product Units 序號品
 
 管理需追蹤序號的產品個體（AP）。
+
+### GET /api/product-units/export
+
+匯出序號品為 CSV 檔案。
+
+**Response (200):** CSV 檔案下載
+
+---
 
 ### GET /api/product-units
 
@@ -674,28 +732,6 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 取得單一序號品詳情。
 
 **Response (200):**
-```json
-{
-  "success": true,
-  "data": { ... }
-}
-```
-
----
-
-### POST /api/product-units
-
-建立單個序號品。
-
-**Request Body:**
-```json
-{
-  "product_id": 1,
-  "serial_number": "SN-NEW"
-}
-```
-
-**Response (201):**
 ```json
 {
   "success": true,
@@ -763,6 +799,28 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 ---
 
+### POST /api/product-units
+
+建立單個序號品。
+
+**Request Body:**
+```json
+{
+  "product_id": 1,
+  "serial_number": "SN-NEW"
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+---
+
 ### PUT /api/product-units/:id
 
 更新序號品信息。
@@ -797,14 +855,6 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   "message": "Unit deleted"
 }
 ```
-
----
-
-### GET /api/product-units/export
-
-匯出序號品為 CSV。
-
-**Response (200):** CSV 檔案下載
 
 ---
 
@@ -1099,12 +1149,9 @@ Webhook 用於在特定事件發生時向外部系統推送通知。
 **Response (200):**
 ```json
 {
-  "success": true,
-  "data": {
-    "currentVersion": "2.0.0",
-    "isUpdating": false,
-    "lastUpdateTime": "2026-05-10T10:00:00Z"
-  }
+  "currentVersion": "2.0.0",
+  "isUpdating": false,
+  "lastUpdateTime": "2026-05-10T10:00:00Z"
 }
 ```
 
@@ -1117,12 +1164,9 @@ Webhook 用於在特定事件發生時向外部系統推送通知。
 **Response (200):**
 ```json
 {
-  "success": true,
-  "data": {
-    "currentVersion": "2.0.0",
-    "remoteVersion": "2.0.1",
-    "updateAvailable": true
-  }
+  "currentVersion": "2.0.0",
+  "remoteVersion": "2.0.1",
+  "updateAvailable": true
 }
 ```
 
@@ -1135,7 +1179,6 @@ Webhook 用於在特定事件發生時向外部系統推送通知。
 **Response (200):**
 ```json
 {
-  "success": true,
   "message": "更新已開始，應用將自動重啟..."
 }
 ```

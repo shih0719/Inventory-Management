@@ -5,6 +5,7 @@ import {
   createLocation,
   getLocationContent,
   removeProductFromLocation,
+  deleteLocation,
   type LocationContent,
 } from '../api/locations';
 
@@ -68,6 +69,31 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
       await removeProductFromLocation(selectedName, productId);
       const updated = await getLocationContent(selectedName);
       setSelectedContent(updated);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteLocation = async (name: string) => {
+    const confirm = window.confirm(
+      lang === 'en'
+        ? `Delete location "${name}"?`
+        : `確定要刪除位置「${name}」？`
+    );
+    if (!confirm) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      await deleteLocation(name);
+      // Refresh locations list
+      const res = await fetch('/api/locations');
+      const data = await res.json();
+      if (data.success) {
+        onLocationsUpdate(data.data);
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -215,15 +241,27 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
               <div
                 key={loc.id}
                 className="card"
-                onClick={() => handleSelectLocation(loc)}
                 style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}
               >
-                <div>
+                <div onClick={() => handleSelectLocation(loc)}>
                   <div className="loc-tag">{loc.name}</div>
                   <div className="loc-name">{loc.description}</div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 'auto' }}>
-                  查看 →
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-2)' }} onClick={() => handleSelectLocation(loc)}>
+                    查看 →
+                  </div>
+                  <button
+                    className="btn small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteLocation(loc.name);
+                    }}
+                    disabled={loading}
+                    style={{ color: 'var(--accent)' }}
+                  >
+                    {lang === 'en' ? 'Delete' : '刪除'}
+                  </button>
                 </div>
               </div>
             ))

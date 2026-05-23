@@ -15,7 +15,8 @@
       "Bash(curl -s http://localhost:5173/styles.css)",
       "Bash(curl -s http://localhost:5173/main.jsx)",
       "Bash(curl -s http://localhost:5173/data.js)",
-      "Bash(curl -s http://localhost:5173)"
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\\\\src\\\\routes\" -Recurse -Filter \"*.ts\")"
     ]
   }
 }

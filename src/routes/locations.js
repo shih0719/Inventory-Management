@@ -17,7 +17,4 @@ router.post('/:tag/products', locationsController.assignProduct);
 // DELETE /api/locations/:tag/products/:productId (Unassign product)
 router.delete('/:tag/products/:productId', locationsController.unassignProduct);
 
-// DELETE /api/locations/:name (Delete location)
-router.delete('/:name', locationsController.delete);
-
 module.exports = router;

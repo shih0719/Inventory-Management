@@ -43,3 +43,8 @@ export async function assignProductToLocation(name: string, productId: number) {
   const res = await api.post(`/api/locations/${encodeURIComponent(name)}/products`, { product_id: productId });
   return res.data;
 }
+
+export async function deleteLocation(name: string) {
+  const res = await api.del(`/api/locations/${encodeURIComponent(name)}`);
+  return res.data;
+}
