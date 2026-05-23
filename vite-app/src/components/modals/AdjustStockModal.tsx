@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CreateTransactionInput, Location, Product, QuantityType, Tag } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
+import { updateProduct } from '../../api/products';
 
 export interface AdjustStockModalProps {
   product: Product;
@@ -27,6 +28,7 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   const [tagId, setTagId] = useState<number>(inboundTag?.id ?? tags[0]?.id ?? 1);
   const [locationTag, setLocationTag] = useState<string>('');
   const [remarks, setRemarks] = useState('');
+  const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
   const [submitting, setSubmitting] = useState(false);
 
   const isInbound = typeof qty === 'number' && qty > 0;
@@ -61,6 +63,11 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
         location_id: loc?.id ?? null,
         remarks: remarks || '',
       });
+
+      const newMinStock = typeof minStock === 'number' ? minStock : product.min_stock;
+      if (newMinStock !== product.min_stock) {
+        await updateProduct(product.id, { min_stock: newMinStock });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -207,6 +214,17 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
                 <input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t.remarksPh} />
               </div>
             </div>
+          </div>
+
+          {/* Min Stock */}
+          <div className="field">
+            <label>{lang === 'en' ? 'Min Stock' : '最低庫存'}</label>
+            <input
+              type="number"
+              min={0}
+              value={minStock}
+              onChange={(e) => setMinStock(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+            />
           </div>
         </div>
 
