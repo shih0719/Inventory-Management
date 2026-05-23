@@ -9,9 +9,10 @@ export interface DashboardProps {
   transactions: Transaction[];
   lang: Lang;
   onAdjustProduct: (p: Product) => void;
+  onManageAPProduct?: (p: Product) => void;
 }
 
-export function Dashboard({ products, transactions, lang, onAdjustProduct }: DashboardProps) {
+export function Dashboard({ products, transactions, lang, onAdjustProduct, onManageAPProduct }: DashboardProps) {
   const t = L[lang];
 
   const lowItems = useMemo(
@@ -109,7 +110,11 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct }: Das
               </div>
             )}
             {lowItems.map((p) => (
-              <div key={p.id} className="low-row" onClick={() => onAdjustProduct(p)}>
+              <div
+                key={p.id}
+                className="low-row"
+                onClick={() => (p.type === 'ap' && onManageAPProduct ? onManageAPProduct(p) : onAdjustProduct(p))}
+              >
                 <div className="low-row-main">
                   <div className="low-row-head">
                     <span className="sku">{p.sku}</span>

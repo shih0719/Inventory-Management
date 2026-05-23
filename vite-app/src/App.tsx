@@ -25,9 +25,11 @@ import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
 import { LocationsPage } from './components/LocationsPage';
+import { APProductsPage } from './components/APProductsPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
 import { ProductPickerModal } from './components/modals/ProductPickerModal';
+import { APProductModal } from './components/modals/APProductModal';
 import { Toast, type ToastState } from './components/Toast';
 
 // ---- recent SKU memory (localStorage) -------------------------------------
@@ -51,12 +53,14 @@ function loadRecent(): string[] {
 type View =
   | { kind: 'dashboard' }
   | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
-  | { kind: 'locations' };
+  | { kind: 'locations' }
+  | { kind: 'ap-products' };
 
 type Modal =
   | null
   | { kind: 'adjust'; product: Product }
-  | { kind: 'picker'; onPick: (p: Product) => void };
+  | { kind: 'picker'; onPick: (p: Product) => void }
+  | { kind: 'ap-product'; product: Product };
 
 // ---- App ------------------------------------------------------------------
 
@@ -321,6 +325,16 @@ export function App() {
           placeholder={t.search}
         />
       </div>
+
+      <button
+        className="btn ghost"
+        onClick={() => setView({ kind: 'ap-products' })}
+        disabled={bootState !== 'ready'}
+        title={lang === 'en' ? 'AP Products' : 'AP 序號品'}
+      >
+        🏷 {lang === 'en' ? 'AP Products' : 'AP 序號品'}
+      </button>
+
       <button
         className="btn"
         onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
@@ -428,6 +442,7 @@ export function App() {
           transactions={transactions}
           lang={lang}
           onAdjustProduct={handleAdjustProduct}
+          onManageAPProduct={(product) => setModal({ kind: 'ap-product', product })}
         />
       )}
       {view.kind === 'batch' && (
@@ -452,6 +467,14 @@ export function App() {
           onLocationsUpdate={setLocations}
         />
       )}
+      {view.kind === 'ap-products' && (
+        <APProductsPage
+          products={products}
+          lang={lang}
+          onBack={() => setView({ kind: 'dashboard' })}
+          onSelectProduct={(product) => setModal({ kind: 'ap-product', product })}
+        />
+      )}
 
       {modal && modal.kind === 'adjust' && (
         <AdjustStockModal
@@ -473,6 +496,14 @@ export function App() {
             setModal(null);
             cb?.(p);
           }}
+        />
+      )}
+      {modal && modal.kind === 'ap-product' && (
+        <APProductModal
+          product={modal.product}
+          lang={lang}
+          onClose={() => setModal(null)}
+          onProductUpdated={refetchProducts}
         />
       )}
 

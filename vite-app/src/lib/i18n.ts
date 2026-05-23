@@ -77,7 +77,7 @@ export const L = {
     returnLbl: 'Return',
     internalLbl: 'Internal',
 
-    apNoteForBatch: 'AP product · serial-number tracking lives on the AP page',
+    apNoteForBatch: 'AP product · manage units in the AP panel',
     apNote: 'AP item · serial numbers are tracked separately',
 
     today: 'today',
@@ -105,6 +105,11 @@ export const L = {
     products: 'Products',
     noProducts: 'No products in this location',
     removeProduct: 'Remove',
+
+    markedAssoldTitle: 'Marked as Sold',
+    markedAsoldMsg: 'marked as sold successfully.',
+    failedToMarkTitle: 'Failed to Mark as Sold',
+    ok: 'OK',
   },
   zh: {
     appName: '小倉庫存',
@@ -180,7 +185,7 @@ export const L = {
     returnLbl: '退貨',
     internalLbl: '內部',
 
-    apNoteForBatch: 'AP 序號品 · 序號管理在 AP 專頁',
+    apNoteForBatch: 'AP 序號品 · 在 AP 面板中管理',
     apNote: 'AP 品 · 序號獨立追蹤',
 
     today: '今日',

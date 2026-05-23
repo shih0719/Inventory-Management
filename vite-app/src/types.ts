@@ -11,6 +11,7 @@ export interface Product {
   accountable_quantity: number;
   non_accountable_quantity: number;
   min_stock: number;
+  track_serial?: boolean;
   /** Only present on list responses for AP products. Defaults to 0 if missing. */
   ap_in_stock_count?: number;
   created_at?: string;
@@ -55,6 +56,18 @@ export interface Batch {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   transaction_count?: number;
   transactions?: Transaction[];
+  created_at: string;
+}
+
+export type ProductUnitStatus = 'in_stock' | 'sold' | 'returned';
+
+export interface ProductUnit {
+  id: number;
+  product_id: number;
+  serial_number: string;
+  status: ProductUnitStatus;
+  sold_to?: string | null;
+  project_case?: string | null;
   created_at: string;
 }
 

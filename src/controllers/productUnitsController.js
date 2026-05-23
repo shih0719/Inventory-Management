@@ -132,7 +132,8 @@ async function bulkCreate(req, res) {
     }
 
     if (inserted === 0 && errors.length > 0) {
-      return res.status(400).json({ success: false, inserted: 0, failed: errors.length, errors });
+      const errorMsg = errors.map((e) => `${e.serial_number}: ${e.reason}`).join('; ');
+      return res.status(400).json({ success: false, error: errorMsg, errors });
     }
 
     if (inserted > 0) {
@@ -157,7 +158,11 @@ async function bulkCreate(req, res) {
       }
     }
 
-    res.status(201).json({ success: true, inserted, failed: errors.length, errors });
+    const message = errors.length > 0
+      ? `${inserted} unit${inserted !== 1 ? 's' : ''} created successfully. ${errors.length} failed: ${errors.map((e) => `${e.serial_number} (${e.reason})`).join(', ')}`
+      : `${inserted} unit${inserted !== 1 ? 's' : ''} created successfully.`;
+
+    res.status(201).json({ success: true, data: { inserted, failed: errors.length, errors, message } });
   } catch (error) {
     console.error("Error bulk creating product units:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -247,7 +252,14 @@ async function bulkSell(req, res) {
       }
     }
 
-    res.json({ success: true, sold: validUnits.length, transactions_created: transactionsCreated });
+    res.json({
+      success: true,
+      data: {
+        sold: validUnits.length,
+        transactions_created: transactionsCreated,
+        message: `${validUnits.length} unit${validUnits.length !== 1 ? 's' : ''} have been marked as sold.`
+      }
+    });
   } catch (error) {
     console.error("Error bulk selling product units:", error);
     res.status(500).json({ success: false, error: error.message });

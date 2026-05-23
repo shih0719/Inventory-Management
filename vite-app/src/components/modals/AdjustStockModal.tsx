@@ -29,6 +29,7 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   const [locationTag, setLocationTag] = useState<string>('');
   const [remarks, setRemarks] = useState('');
   const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
+  const [productType, setProductType] = useState<'normal' | 'ap'>(product.type);
   const [submitting, setSubmitting] = useState(false);
   const tagIdRef = useRef(tagId);
 
@@ -70,8 +71,17 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
       });
 
       const newMinStock = typeof minStock === 'number' ? minStock : product.min_stock;
-      if (newMinStock !== product.min_stock) {
-        await updateProduct(product.id, { min_stock: newMinStock });
+      const updates: Partial<Product> = {};
+      if (newMinStock !== product.min_stock) updates.min_stock = newMinStock;
+      if (productType !== product.type) {
+        updates.type = productType;
+        // Auto-enable track_serial when switching to AP type
+        if (productType === 'ap') {
+          (updates as any).track_serial = true;
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        await updateProduct(product.id, updates);
       }
     } finally {
       setSubmitting(false);
@@ -218,6 +228,25 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
                 <label>{t.remarks}</label>
                 <input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t.remarksPh} />
               </div>
+            </div>
+          </div>
+
+          {/* Product Type */}
+          <div className="field">
+            <label>{lang === 'en' ? 'Product Type' : '產品類型'}</label>
+            <div className="type-chips">
+              <button
+                className={productType === 'normal' ? 'on' : ''}
+                onClick={() => setProductType('normal')}
+              >
+                {lang === 'en' ? 'Normal' : '一般'}
+              </button>
+              <button
+                className={productType === 'ap' ? 'on' : ''}
+                onClick={() => setProductType('ap')}
+              >
+                {lang === 'en' ? 'AP (Serial)' : 'AP (序號品)'}
+              </button>
             </div>
           </div>
 

@@ -6,6 +6,7 @@ export interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   isDangerous?: boolean;
+  showCancel?: boolean;
   lang: Lang;
   onConfirm: () => void;
   onCancel: () => void;
@@ -17,6 +18,7 @@ export function ConfirmModal({
   confirmText,
   cancelText,
   isDangerous = false,
+  showCancel = true,
   lang,
   onConfirm,
   onCancel,
@@ -39,9 +41,11 @@ export function ConfirmModal({
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-          <button className="btn ghost" onClick={onCancel}>
-            {cancelText || defaultCancel}
-          </button>
+          {showCancel && (
+            <button className="btn ghost" onClick={onCancel}>
+              {cancelText || defaultCancel}
+            </button>
+          )}
           <button
             className="btn"
             onClick={onConfirm}
