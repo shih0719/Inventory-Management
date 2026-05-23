@@ -399,35 +399,47 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ```json
 {
   "name": "5月批量進貨",
+  "tag_id": 1,
+  "description": "進貨備註（可選）",
   "items": [
     {
       "product_id": 1,
       "quantity_change": 10,
       "quantity_type": "accountable",
-      "tag_id": 1,
-      "remarks": "備註"
+      "remarks": "產品備註"
     },
     {
       "product_id": 2,
       "quantity_change": 20,
       "quantity_type": "accountable",
-      "tag_id": 1,
-      "remarks": "備註"
+      "remarks": "產品備註"
     }
   ]
 }
 ```
 
+**Parameters:**
+- `name` (required): 批次名稱
+- `tag_id` (required): 標籤 ID（如 1=INBOUND進貨、2=OUTBOUND出貨）
+- `description` (optional): 批次描述
+- `items` (required): 異動項目陣列
+  - `product_id` (required): 產品 ID
+  - `quantity_change` (required): 數量變化（正數=入庫，負數=出庫）
+  - `quantity_type` (required): `accountable` (有帳) 或 `non_accountable` (無帳)
+  - `remarks` (optional): 項目備註
+
 **Response (201):**
 ```json
 {
   "success": true,
+  "message": "Batch created successfully. Processed 2 items.",
   "data": {
     "batch_id": 1,
-    "name": "5月批量進貨",
-    "status": "completed",
-    "transaction_ids": [1, 2],
-    "created_at": "2026-05-14T10:00:00Z"
+    "batch_number": "BATCH-1715682000000",
+    "processed_items": [
+      { "product_id": 1, "product_name": "產品名稱", "quantity_type": "accountable", "quantity_change": 10 },
+      { "product_id": 2, "product_name": "產品名稱", "quantity_type": "accountable", "quantity_change": 20 }
+    ]
   }
 }
 ```
@@ -1134,7 +1146,7 @@ Webhook 用於在特定事件發生時向外部系統推送通知。
 
 ## 常見操作範例
 
-### 完整的庫存入貨流程
+### 完整的庫存入貨流程（使用批次 API）
 
 ```bash
 # 1. 建立產品
@@ -1159,22 +1171,28 @@ curl -X POST http://localhost:3000/api/product-units/bulk \
     "serial_prefix": "LT"
   }'
 
-# 3. 建立進貨異動
-curl -X POST http://localhost:3000/api/transactions \
+# 3. 批量進貨（推薦使用批次 API）
+curl -X POST http://localhost:3000/api/batches \
   -H "Content-Type: application/json" \
   -d '{
-    "product_id": 1,
-    "quantity_change": 3,
-    "quantity_type": "accountable",
+    "name": "5月進貨批次",
     "tag_id": 1,
-    "remarks": "進貨"
+    "description": "進口筆記本",
+    "items": [
+      {
+        "product_id": 1,
+        "quantity_change": 3,
+        "quantity_type": "accountable",
+        "remarks": "進貨 3 台"
+      }
+    ]
   }'
 
 # 4. 查詢最新庫存
 curl http://localhost:3000/api/products/1
 ```
 
-### 出貨流程
+### 出貨流程（使用批次 API）
 
 ```bash
 # 1. 標記序號品為已出售
@@ -1190,15 +1208,37 @@ curl -X POST http://localhost:3000/api/product-units/bulk-sell \
     ]
   }'
 
-# 2. 記錄出庫異動
+# 2. 批量出貨（使用批次 API）
+curl -X POST http://localhost:3000/api/batches \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "5月出貨批次",
+    "tag_id": 2,
+    "description": "售出給客戶 A",
+    "items": [
+      {
+        "product_id": 1,
+        "quantity_change": -1,
+        "quantity_type": "accountable",
+        "remarks": "出貨給客戶 A"
+      }
+    ]
+  }'
+```
+
+### 單筆異動（使用 Transactions API）
+
+若需要單筆記錄（非批次），可使用 `POST /api/transactions`：
+
+```bash
 curl -X POST http://localhost:3000/api/transactions \
   -H "Content-Type: application/json" \
   -d '{
     "product_id": 1,
-    "quantity_change": -1,
+    "quantity_change": 5,
     "quantity_type": "accountable",
-    "tag_id": 2,
-    "remarks": "出貨給客戶 A"
+    "tag_id": 1,
+    "remarks": "單筆進貨"
   }'
 ```
 

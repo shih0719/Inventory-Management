@@ -5,7 +5,17 @@
       "Bash(curl -s http://localhost:5173/products.html)",
       "Bash(pkill -f \"npm run dev\")",
       "Bash(npm run *)",
-      "Bash(curl -s http://localhost:5173/batches.html)"
+      "Bash(curl -s http://localhost:5173/batches.html)",
+      "Bash(Start-Sleep -Seconds 2)",
+      "Bash(Get-Content \"C:\\\\Users\\\\eyeye\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-eyeye-Documents-code-test-Inventory-Management\\\\0b07a99b-e359-4240-b715-74bf2040a507\\\\tasks\\\\b6xrv4whu.output\")",
+      "Bash(Select-Object -Last 20)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\" -Filter \"vite*\" -o Name)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\" -Filter \"*config*\")",
+      "Bash(Select-Object Name)",
+      "Bash(curl -s http://localhost:5173/styles.css)",
+      "Bash(curl -s http://localhost:5173/main.jsx)",
+      "Bash(curl -s http://localhost:5173/data.js)",
+      "Bash(curl -s http://localhost:5173)"
     ]
   }
 }
