@@ -477,8 +477,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   "data": [
     {
       "id": 1,
-      "tag": "A-01",
-      "location_name": "貨架 A 第 1 層",
+      "name": "A-01",
+      "description": "貨架 A 第 1 層",
       "created_at": "2026-05-14T10:00:00Z"
     }
   ]
@@ -494,8 +494,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 **Request Body:**
 ```json
 {
-  "tag": "A-02",
-  "location_name": "貨架 A 第 2 層"
+  "name": "A-02",
+  "description": "貨架 A 第 2 層"
 }
 ```
 
@@ -503,45 +503,80 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ```json
 {
   "success": true,
-  "data": { ... }
+  "data": {
+    "id": 2,
+    "name": "A-02",
+    "description": "貨架 A 第 2 層"
+  }
+}
+```
+
+**Error (400 - 位置已存在):**
+```json
+{
+  "success": false,
+  "error": "此櫃位名稱已存在"
 }
 ```
 
 ---
 
-### GET /api/locations/:tag/content
+### GET /api/locations/:name/content
 
 查詢位置中的產品清單。
+
+**Parameters:**
+- `:name` (required) — 位置名稱（如 "A-01"）
 
 **Response (200):**
 ```json
 {
   "success": true,
   "data": {
-    "location_tag": "A-01",
+    "location": {
+      "id": 1,
+      "name": "A-01",
+      "description": "貨架 A 第 1 層"
+    },
     "products": [
       {
-        "product_id": 1,
+        "id": 1,
         "sku": "SKU-001",
         "name": "產品名稱",
-        "quantity": 10
+        "type": "normal|ap",
+        "model": "型號",
+        "accountable_quantity": 10,
+        "non_accountable_quantity": 5,
+        "min_stock": 5,
+        "is_deleted": 0,
+        "created_at": "2026-05-14T10:00:00Z"
       }
     ]
   }
 }
 ```
 
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Location not found"
+}
+```
+
 ---
 
-### POST /api/locations/:tag/products
+### POST /api/locations/:name/products
 
 將產品分配到位置。
+
+**Parameters:**
+- `:name` (required) — 位置名稱（如 "A-01"）
 
 **Request Body:**
 ```json
 {
-  "product_id": 1,
-  "quantity": 10
+  "product_id": 1
 }
 ```
 
@@ -549,21 +584,49 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ```json
 {
   "success": true,
-  "message": "Product assigned"
+  "message": "Product assigned to location successfully"
+}
+```
+
+**Error (400):**
+```json
+{
+  "success": false,
+  "error": "product_id is required"
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Location not found"
 }
 ```
 
 ---
 
-### DELETE /api/locations/:tag/products/:productId
+### DELETE /api/locations/:name/products/:productId
 
 從位置移除產品。
+
+**Parameters:**
+- `:name` (required) — 位置名稱（如 "A-01"）
+- `:productId` (required) — 產品 ID
 
 **Response (200):**
 ```json
 {
   "success": true,
-  "message": "Product unassigned"
+  "message": "Product removed from location successfully"
+}
+```
+
+**Error (404):**
+```json
+{
+  "success": false,
+  "error": "Location not found"
 }
 ```
 

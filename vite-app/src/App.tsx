@@ -24,6 +24,7 @@ import { ApiError } from './api/client';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
+import { LocationsPage } from './components/LocationsPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
 import { ProductPickerModal } from './components/modals/ProductPickerModal';
@@ -47,7 +48,10 @@ function loadRecent(): string[] {
 
 // ---- view state -----------------------------------------------------------
 
-type View = { kind: 'dashboard' } | { kind: 'batch'; batchKind: 'inbound' | 'outbound' };
+type View =
+  | { kind: 'dashboard' }
+  | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
+  | { kind: 'locations' };
 
 type Modal =
   | null
@@ -186,7 +190,7 @@ export function App() {
         tag_name: newTx.tag_name || tags.find((tg) => tg.id === payload.tag_id)?.name || '',
         location_tag:
           newTx.location_tag ??
-          (payload.location_id ? locations.find((l) => l.id === payload.location_id)?.tag ?? null : null),
+          (payload.location_id ? locations.find((l) => l.id === payload.location_id)?.name ?? null : null),
       };
       setTransactions((prev) => [enriched, ...prev]);
       setModal(null);
@@ -334,6 +338,17 @@ export function App() {
 
       <div className="tb-divider" />
 
+      <button
+        className="btn ghost"
+        onClick={() => setView({ kind: 'locations' })}
+        disabled={bootState !== 'ready'}
+        title={t.locations}
+      >
+        📍 {t.locations}
+      </button>
+
+      <div className="tb-divider" />
+
       <button className="btn ghost" onClick={handleImportClick} title={t.importCsv}>
         <span style={{ fontSize: 13, lineHeight: 1 }}>⤴</span>
         <span>CSV</span>
@@ -427,6 +442,14 @@ export function App() {
           onSubmit={handleBatchSubmit}
           onOpenPicker={openPicker}
           onPickProduct={trackRecent}
+        />
+      )}
+      {view.kind === 'locations' && (
+        <LocationsPage
+          locations={locations}
+          lang={lang}
+          onBack={() => setView({ kind: 'dashboard' })}
+          onLocationsUpdate={setLocations}
         />
       )}
 

@@ -95,6 +95,16 @@ export const L = {
     loading: 'Loading…',
     loadFailed: 'Failed to load',
     retry: 'Retry',
+
+    locations: 'Locations',
+    locationTag: 'Location tag',
+    locationName: 'Location name',
+    createLocation: '+ New location',
+    noLocations: 'No locations yet',
+    addLocation: 'Add location',
+    products: 'Products',
+    noProducts: 'No products in this location',
+    removeProduct: 'Remove',
   },
   zh: {
     appName: '小倉庫存',
@@ -188,6 +198,16 @@ export const L = {
     loading: '載入中…',
     loadFailed: '載入失敗',
     retry: '重試',
+
+    locations: '位置管理',
+    locationTag: '位置標籤',
+    locationName: '位置名稱',
+    createLocation: '+ 新增位置',
+    noLocations: '尚無位置',
+    addLocation: '新增位置',
+    products: '產品',
+    noProducts: '此位置沒有產品',
+    removeProduct: '移除',
   },
 } as const;
 

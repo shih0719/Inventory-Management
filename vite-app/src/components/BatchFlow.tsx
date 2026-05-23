@@ -108,7 +108,7 @@ export function BatchFlow({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    const loc = locationTag ? locations.find((l) => l.tag === locationTag) : null;
+    const loc = locationTag ? locations.find((l) => l.name === locationTag) : null;
     const items: CreateBatchItem[] = validLines.map((l) => ({
       product_id: l.product!.id,
       quantity_change: isInbound ? Number(l.qty) : -Number(l.qty),
@@ -175,8 +175,8 @@ export function BatchFlow({
             <select value={locationTag} onChange={(e) => setLocationTag(e.target.value)}>
               <option value="">{t.none}</option>
               {locations.map((loc) => (
-                <option key={loc.id} value={loc.tag}>
-                  {loc.tag} · {loc.location_name}
+                <option key={loc.id} value={loc.name}>
+                  {loc.name} · {loc.description}
                 </option>
               ))}
             </select>

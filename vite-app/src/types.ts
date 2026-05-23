@@ -44,8 +44,8 @@ export interface Tag {
 
 export interface Location {
   id: number;
-  tag: string;
-  location_name: string;
+  name: string;
+  description: string;
   created_at?: string;
 }
 

@@ -53,7 +53,7 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
     if (isZero || stockShort || submitting) return;
     setSubmitting(true);
     try {
-      const loc = locationTag ? locations.find((l) => l.tag === locationTag) : null;
+      const loc = locationTag ? locations.find((l) => l.name === locationTag) : null;
       await onSubmit({
         product_id: product.id,
         sku: product.sku,
@@ -203,8 +203,8 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
                 <select value={locationTag} onChange={(e) => setLocationTag(e.target.value)}>
                   <option value="">{t.none}</option>
                   {locations.map((loc) => (
-                    <option key={loc.id} value={loc.tag}>
-                      {loc.tag} · {loc.location_name}
+                    <option key={loc.id} value={loc.name}>
+                      {loc.name} · {loc.description}
                     </option>
                   ))}
                 </select>
