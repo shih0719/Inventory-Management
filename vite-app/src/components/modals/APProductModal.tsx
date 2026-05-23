@@ -159,7 +159,7 @@ export function APProductModal({
                   <div>{lang === 'en' ? 'Customer' : '客戶'}</div>
                 </div>
                 <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                  {units.map((unit) => (
+                  {units.slice(0, 5).map((unit) => (
                     <div
                       key={unit.id}
                       style={{
@@ -208,6 +208,11 @@ export function APProductModal({
                       </div>
                     </div>
                   ))}
+                  {units.length > 5 && (
+                    <div style={{ padding: '10px 8px', fontSize: 12, color: 'var(--ink-2)', textAlign: 'center', borderTop: '1px solid var(--border-2)' }}>
+                      {lang === 'en' ? `... and ${units.length - 5} more` : `... 等共 ${units.length - 5} 筆`}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

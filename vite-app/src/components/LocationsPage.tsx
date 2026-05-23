@@ -1,23 +1,26 @@
-import { useState } from 'react';
-import type { Location } from '../types';
+import { useMemo, useState } from 'react';
+import type { Location, Product } from '../types';
 import { L, type Lang } from '../lib/i18n';
 import {
   createLocation,
   getLocationContent,
   removeProductFromLocation,
+  assignProductToLocation,
   deleteLocation,
   type LocationContent,
 } from '../api/locations';
+import { ProductCombobox } from './ProductCombobox';
 import { ConfirmModal } from './modals/ConfirmModal';
 
 export interface LocationsPageProps {
   locations: Location[];
+  products: Product[];
   lang: Lang;
   onBack: () => void;
   onLocationsUpdate: (locs: Location[]) => void;
 }
 
-export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: LocationsPageProps) {
+export function LocationsPage({ locations, products, lang, onBack, onLocationsUpdate }: LocationsPageProps) {
   const t = L[lang];
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [selectedContent, setSelectedContent] = useState<LocationContent | null>(null);
@@ -27,6 +30,14 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ name: string } | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | ''>('');
+
+  const availableProducts = useMemo(() => {
+    if (!selectedContent) return [];
+    const existingIds = new Set(selectedContent.products.map((p) => p.id));
+    return products.filter((p) => !existingIds.has(p.id));
+  }, [products, selectedContent]);
 
   const handleSelectLocation = async (loc: Location) => {
     try {
@@ -56,6 +67,23 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
       setTag('');
       setName('');
       setIsCreating(false);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddProduct = async () => {
+    if (!selectedName || !selectedProductId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      await assignProductToLocation(selectedName, selectedProductId as number);
+      const updated = await getLocationContent(selectedName);
+      setSelectedContent(updated);
+      setIsAddingProduct(false);
+      setSelectedProductId('');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -121,34 +149,144 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
           </div>
         )}
 
-        <div className="card panel">
-          <h3>{t.products}</h3>
-          <div className="rows">
-            {selectedContent.products.length === 0 ? (
-              <div style={{ padding: '24px 8px', color: 'var(--ink-3)', fontSize: 12, textAlign: 'center' }}>
-                {t.noProducts}
+        {isAddingProduct && (
+          <div className="card panel" style={{ marginBottom: 16 }}>
+            <h3>{lang === 'en' ? 'Add Product' : '添加產品'}</h3>
+            {availableProducts.length === 0 ? (
+              <div style={{ color: 'var(--ink-3)', fontSize: 12, padding: '12px 0' }}>
+                {lang === 'en' ? 'All products have been added to this location.' : '所有產品已添加至此位置。'}
               </div>
             ) : (
-              selectedContent.products.map((prod) => (
-                <div key={prod.id} className="location-product-row">
-                  <div className="loc-prod-info">
-                    <div className="loc-prod-sku">{prod.sku}</div>
-                    <div className="loc-prod-name">{prod.name}</div>
-                  </div>
-                  <div className="loc-prod-qty">
-                    <span>{prod.accountable_quantity + prod.non_accountable_quantity}</span>
-                  </div>
-                  <button
-                    className="btn small"
-                    onClick={() => handleRemoveProduct(prod.id)}
-                    disabled={loading}
-                  >
-                    {t.removeProduct}
-                  </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <ProductCombobox
+                    products={availableProducts}
+                    value={selectedProductId}
+                    onChange={(id) => setSelectedProductId(id)}
+                    lang={lang}
+                    placeholder={lang === 'en' ? 'Search product...' : '搜尋產品...'}
+                    showQty={false}
+                  />
                 </div>
-              ))
+                <button
+                  onClick={handleAddProduct}
+                  disabled={!selectedProductId || loading}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: selectedProductId ? 'var(--ok)' : 'var(--surface-3)',
+                    color: 'var(--bg)',
+                    border: 'none',
+                    borderRadius: 4,
+                    cursor: selectedProductId ? 'pointer' : 'not-allowed',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    opacity: selectedProductId ? 1 : 0.5,
+                    marginTop: 6,
+                  }}
+                >
+                  {lang === 'en' ? 'Add' : '添加'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsAddingProduct(false);
+                    setSelectedProductId('');
+                  }}
+                  disabled={loading}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'var(--surface-2)',
+                    border: '1px solid var(--border-2)',
+                    borderRadius: 4,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 500,
+                    marginTop: 6,
+                  }}
+                >
+                  {t.cancel}
+                </button>
+              </div>
             )}
           </div>
+        )}
+
+        <div className="card panel">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0 }}>{t.products}</h3>
+            {!isAddingProduct && (
+              <button
+                onClick={() => setIsAddingProduct(true)}
+                disabled={loading || availableProducts.length === 0}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: availableProducts.length > 0 ? 'var(--ok)' : 'var(--surface-3)',
+                  color: 'var(--bg)',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: availableProducts.length > 0 ? 'pointer' : 'not-allowed',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  opacity: availableProducts.length > 0 ? 1 : 0.5,
+                }}
+              >
+                {lang === 'en' ? '+ Add Product' : '+ 添加產品'}
+              </button>
+            )}
+          </div>
+          {selectedContent.products.length === 0 ? (
+            <div style={{ padding: '24px 8px', color: 'var(--ink-3)', fontSize: 12, textAlign: 'center' }}>
+              {t.noProducts}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              {selectedContent.products.map((prod) => (
+                <div
+                  key={prod.id}
+                  style={{
+                    backgroundColor: 'rgba(100, 200, 150, 0.08)',
+                    border: '1px solid rgba(100, 200, 150, 0.2)',
+                    borderRadius: 8,
+                    padding: 12,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 8,
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)' }}>{prod.sku}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, marginTop: 4 }}>{prod.name}</div>
+                    {prod.model && (
+                      <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{prod.model}</div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                      {lang === 'en' ? 'Qty: ' : '數量: '}
+                      <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
+                        {prod.accountable_quantity + prod.non_accountable_quantity}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveProduct(prod.id)}
+                      disabled={loading}
+                      style={{
+                        padding: '4px 10px',
+                        backgroundColor: 'var(--accent-soft)',
+                        color: 'var(--accent)',
+                        border: 'none',
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {lang === 'en' ? 'Remove' : '移除'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -244,7 +382,13 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
               <div
                 key={loc.id}
                 className="card"
-                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8 }}
+                style={{
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  backgroundColor: 'var(--surface-2)',
+                }}
               >
                 <div onClick={() => handleSelectLocation(loc)}>
                   <div className="loc-tag">{loc.name}</div>

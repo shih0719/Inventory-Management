@@ -1,5 +1,5 @@
 // src/components/Dashboard.tsx
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Product, Transaction } from '../types';
 import { L, tagLabel, type Lang } from '../lib/i18n';
 import { fmtTime, isToday } from '../lib/format';
@@ -15,6 +15,9 @@ export interface DashboardProps {
 
 export function Dashboard({ products, transactions, lang, onAdjustProduct, onManageAPProduct, onViewTransaction }: DashboardProps) {
   const t = L[lang];
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const lowItems = useMemo(
     () =>
@@ -23,6 +26,24 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
         .sort((a, b) => a.accountable_quantity - b.accountable_quantity),
     [products],
   );
+
+  const filteredTransactions = useMemo(() => {
+    setCurrentPage(1);
+    if (!startDate && !endDate) return transactions;
+    return transactions.filter((tx) => {
+      const txDate = new Date(tx.created_at).toISOString().split('T')[0];
+      if (startDate && txDate < startDate) return false;
+      if (endDate && txDate > endDate) return false;
+      return true;
+    });
+  }, [transactions, startDate, endDate]);
+
+  const pageSize = 5;
+  const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+  const paginatedTransactions = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize;
+    return filteredTransactions.slice(startIdx, startIdx + pageSize);
+  }, [filteredTransactions, currentPage]);
 
   const stats = useMemo(() => {
     const totalProducts = products.length;
@@ -156,45 +177,134 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
         <div className="card panel">
           <h3>
             <span>{t.recentTitle}</span>
-            <span className="pill">{transactions.length}</span>
+            <span className="pill">{filteredTransactions.length}</span>
           </h3>
           <div className="lbl" style={{ marginBottom: 6 }}>
             {t.recentHint}
           </div>
-          <div className="rows">
-            {transactions.slice(0, 14).map((tx) => {
-              const isIn = tx.quantity_change > 0;
-              const prod = products.find((p) => p.sku === tx.sku || p.id === tx.product_id);
-              return (
-                <div key={tx.id} className="tx-row" onClick={() => onViewTransaction?.(tx)} style={{ cursor: 'pointer' }}>
-                  <span className={'dot ' + (isIn ? 'in' : 'out')} />
-                  <div className="tx-main">
-                    <div className="tx-head">
-                      <span className="sku">{tx.sku}</span>
-                      <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
-                        {tagLabel(tx.tag_name, lang)}
-                      </span>
-                      {tx.quantity_type === 'non_accountable' && (
-                        <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
-                          {t.nonAcctShort}
-                        </span>
-                      )}
-                      {tx.location_tag && <span className="loc-pill">{tx.location_tag}</span>}
-                    </div>
-                    <div className="tx-name">{prod ? prod.name : tx.sku}</div>
-                    {tx.remarks && <div className="tx-remarks">{tx.remarks}</div>}
-                  </div>
-                  <div className="tx-qty">
-                    <span className={'tx-q-v ' + (isIn ? 'in' : 'out')}>
-                      {isIn ? '+' : ''}
-                      {tx.quantity_change}
-                    </span>
-                    <span className="tx-q-t">{fmtTime(tx.created_at, lang)}</span>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                border: '1px solid var(--border-2)',
+                borderRadius: 4,
+                font: '12px var(--sans)',
+                backgroundColor: 'var(--surface-2)',
+              }}
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                border: '1px solid var(--border-2)',
+                borderRadius: 4,
+                font: '12px var(--sans)',
+                backgroundColor: 'var(--surface-2)',
+              }}
+            />
+            {(startDate || endDate) && (
+              <button
+                onClick={() => {
+                  setStartDate('');
+                  setEndDate('');
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid var(--border-2)',
+                  borderRadius: 4,
+                  backgroundColor: 'var(--surface-2)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                }}
+              >
+                {lang === 'en' ? 'Clear' : '清除'}
+              </button>
+            )}
           </div>
+          <div className="rows">
+            {paginatedTransactions.length === 0 ? (
+              <div style={{ padding: '24px 8px', color: 'var(--ink-3)', fontSize: 12, textAlign: 'center' }}>
+                {lang === 'en' ? 'No transactions.' : '無交易紀錄。'}
+              </div>
+            ) : (
+              paginatedTransactions.map((tx) => {
+                const isIn = tx.quantity_change > 0;
+                const prod = products.find((p) => p.sku === tx.sku || p.id === tx.product_id);
+                return (
+                  <div key={tx.id} className="tx-row" onClick={() => onViewTransaction?.(tx)} style={{ cursor: 'pointer' }}>
+                    <span className={'dot ' + (isIn ? 'in' : 'out')} />
+                    <div className="tx-main">
+                      <div className="tx-head">
+                        <span className="sku">{tx.sku}</span>
+                        <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
+                          {tagLabel(tx.tag_name, lang)}
+                        </span>
+                        {tx.quantity_type === 'non_accountable' && (
+                          <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
+                            {t.nonAcctShort}
+                          </span>
+                        )}
+                        {tx.location_tag && <span className="loc-pill">{tx.location_tag}</span>}
+                      </div>
+                      <div className="tx-name">{prod ? prod.name : tx.sku}</div>
+                      {tx.remarks && <div className="tx-remarks">{tx.remarks}</div>}
+                    </div>
+                    <div className="tx-qty">
+                      <span className={'tx-q-v ' + (isIn ? 'in' : 'out')}>
+                        {isIn ? '+' : ''}
+                        {tx.quantity_change}
+                      </span>
+                      <span className="tx-q-t">{fmtTime(tx.created_at, lang)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border-2)' }}>
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid var(--border-2)',
+                  borderRadius: 4,
+                  backgroundColor: currentPage === 1 ? 'var(--surface-3)' : 'var(--surface-2)',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  fontSize: 12,
+                  opacity: currentPage === 1 ? 0.5 : 1,
+                }}
+              >
+                {lang === 'en' ? '← Prev' : '← 上一頁'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                {lang === 'en' ? `Page ${currentPage} of ${totalPages}` : `第 ${currentPage} / ${totalPages} 頁`}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid var(--border-2)',
+                  borderRadius: 4,
+                  backgroundColor: currentPage === totalPages ? 'var(--surface-3)' : 'var(--surface-2)',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  fontSize: 12,
+                  opacity: currentPage === totalPages ? 0.5 : 1,
+                }}
+              >
+                {lang === 'en' ? 'Next →' : '下一頁 →'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

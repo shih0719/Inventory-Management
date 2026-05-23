@@ -116,7 +116,7 @@ export const L = {
     inbound: '+ 進貨',
     outbound: '+ 出貨',
 
-    kProducts: '產品總數',
+    kProducts: '品項總數',
     kLowStock: '低庫存',
     kToday: '今日異動',
     kApStock: 'AP 在庫',

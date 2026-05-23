@@ -465,6 +465,7 @@ export function App() {
       {view.kind === 'locations' && (
         <LocationsPage
           locations={locations}
+          products={products}
           lang={lang}
           onBack={() => setView({ kind: 'dashboard' })}
           onLocationsUpdate={setLocations}
