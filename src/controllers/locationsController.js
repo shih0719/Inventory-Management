@@ -135,10 +135,40 @@ async function unassignProduct(req, res) {
   }
 }
 
+// Delete location
+async function deleteLocation(req, res) {
+  try {
+    const { name } = req.params;
+
+    const location = await db.get("SELECT id FROM locations WHERE name = ?", [name]);
+    if (!location) {
+      return res.status(404).json({ success: false, error: "Location not found" });
+    }
+
+    // Delete associated product_locations entries first
+    await db.run(
+      `DELETE FROM product_locations WHERE location_id = ?`,
+      [location.id]
+    );
+
+    // Delete the location
+    await db.run(
+      `DELETE FROM locations WHERE id = ?`,
+      [location.id]
+    );
+
+    res.json({ success: true, message: "Location deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting location:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   getAll,
   create,
   getContent,
   assignProduct,
-  unassignProduct
+  unassignProduct,
+  delete: deleteLocation
 };

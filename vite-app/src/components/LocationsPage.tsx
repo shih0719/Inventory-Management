@@ -8,6 +8,7 @@ import {
   deleteLocation,
   type LocationContent,
 } from '../api/locations';
+import { ConfirmModal } from './modals/ConfirmModal';
 
 export interface LocationsPageProps {
   locations: Location[];
@@ -25,6 +26,7 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ name: string } | null>(null);
 
   const handleSelectLocation = async (loc: Location) => {
     try {
@@ -76,13 +78,14 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
     }
   };
 
-  const handleDeleteLocation = async (name: string) => {
-    const confirm = window.confirm(
-      lang === 'en'
-        ? `Delete location "${name}"?`
-        : `確定要刪除位置「${name}」？`
-    );
-    if (!confirm) return;
+  const handleDeleteLocation = (name: string) => {
+    setDeleteConfirm({ name });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const name = deleteConfirm.name;
+    setDeleteConfirm(null);
 
     try {
       setLoading(true);
@@ -268,6 +271,23 @@ export function LocationsPage({ locations, lang, onBack, onLocationsUpdate }: Lo
           )}
         </div>
       </div>
+
+      {deleteConfirm && (
+        <ConfirmModal
+          title={lang === 'en' ? 'Delete location' : '刪除位置'}
+          message={
+            lang === 'en'
+              ? `Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone.`
+              : `確定要刪除位置「${deleteConfirm.name}」？此操作無法復原。`
+          }
+          confirmText={lang === 'en' ? 'Delete' : '刪除'}
+          cancelText={lang === 'en' ? 'Cancel' : '取消'}
+          isDangerous={true}
+          lang={lang}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // src/components/modals/AdjustStockModal.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CreateTransactionInput, Location, Product, QuantityType, Tag } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
 import { updateProduct } from '../../api/products';
@@ -30,6 +30,7 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   const [remarks, setRemarks] = useState('');
   const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
   const [submitting, setSubmitting] = useState(false);
+  const tagIdRef = useRef(tagId);
 
   const isInbound = typeof qty === 'number' && qty > 0;
   const isOutbound = typeof qty === 'number' && qty < 0;
@@ -42,12 +43,16 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
 
   const stockShort = result < 0;
 
-  // Auto-suggest tag based on sign of qty
+  // Keep tagIdRef in sync
   useEffect(() => {
-    if (isInbound && outboundTag && tagId === outboundTag.id && inboundTag) setTagId(inboundTag.id);
-    if (isOutbound && inboundTag && tagId === inboundTag.id && outboundTag) setTagId(outboundTag.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInbound, isOutbound]);
+    tagIdRef.current = tagId;
+  }, [tagId]);
+
+  // Auto-suggest tag based on sign of qty only (not when user manually changes tag)
+  useEffect(() => {
+    if (isInbound && outboundTag && tagIdRef.current === outboundTag.id && inboundTag) setTagId(inboundTag.id);
+    if (isOutbound && inboundTag && tagIdRef.current === inboundTag.id && outboundTag) setTagId(outboundTag.id);
+  }, [isInbound, isOutbound, inboundTag, outboundTag]);
 
   const handleSubmit = async () => {
     if (isZero || stockShort || submitting) return;
