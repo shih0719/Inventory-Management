@@ -74,7 +74,8 @@
       "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 3030 -ErrorAction SilentlyContinue | Select-Object OwningProcess\")",
       "Bash(taskkill /PID 7780 /F)",
       "Bash(pm2 restart *)",
-      "Bash(curl -s http://localhost:3030/api/system/health)"
+      "Bash(curl -s http://localhost:3030/api/system/health)",
+      "Bash(git checkout *)"
     ]
   }
 }

@@ -1,7 +1,7 @@
 // src/components/modals/AdjustStockModal.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CreateTransactionInput, Location, Product, QuantityType, Tag } from '../../types';
-import { L, tagLabel, type Lang } from '../../lib/i18n';
+import { L, type Lang } from '../../lib/i18n';
 import { updateProduct } from '../../api/products';
 
 export interface AdjustStockModalProps {
@@ -198,17 +198,6 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
             </div>
           </div>
 
-          {/* Tag */}
-          <div className="field">
-            <label>{t.tag}</label>
-            <div className="tag-chips">
-              {tags.map((tg) => (
-                <button key={tg.id} className={tagId === tg.id ? 'on' : ''} onClick={() => setTagId(tg.id)}>
-                  {tagLabel(tg.name, lang)}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Location + Remarks */}
           <div className="field">
