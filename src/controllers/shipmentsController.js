@@ -171,13 +171,35 @@ async function getById(req, res) {
     );
 
     const transactions = await db.all(
-      `SELECT t.*, p.name as product_name, p.sku, tg.display_name as tag_name
+      `SELECT t.*, p.name as product_name, p.sku, p.type as product_type, tg.display_name as tag_name, tg.color as tag_color
        FROM transactions t
        JOIN products p ON t.product_id = p.id
        JOIN tags tg ON t.tag_id = tg.id
        WHERE t.id IN (${transactionIds.map(tx => tx.transaction_id).join(',') || 'NULL'})
        ORDER BY t.created_at ASC`
     );
+
+    // Enrich transactions with product_units details
+    for (const tx of transactions) {
+      if (tx.product_unit_ids) {
+        try {
+          const unitIds = JSON.parse(tx.product_unit_ids);
+          if (Array.isArray(unitIds) && unitIds.length > 0) {
+            const placeholders = unitIds.map(() => '?').join(',');
+            const units = await db.all(
+              `SELECT id, serial_number, status FROM product_units WHERE id IN (${placeholders})`,
+              unitIds
+            );
+            tx.product_units = units;
+          }
+        } catch (e) {
+          console.error("Error parsing product_unit_ids:", e);
+          tx.product_units = [];
+        }
+      } else {
+        tx.product_units = null;
+      }
+    }
 
     res.json({
       success: true,

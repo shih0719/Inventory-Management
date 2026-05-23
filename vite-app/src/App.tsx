@@ -28,9 +28,11 @@ import { LocationsPage } from './components/LocationsPage';
 import { APProductsPage } from './components/APProductsPage';
 import { ShipmentsPage } from './components/ShipmentsPage';
 import { ProductCombobox } from './components/ProductCombobox';
+import { Dropdown, DropdownItem } from './components/Dropdown';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
 import { ProductPickerModal } from './components/modals/ProductPickerModal';
 import { APProductModal } from './components/modals/APProductModal';
+import { TransactionDetailModal } from './components/modals/TransactionDetailModal';
 import { Toast, type ToastState } from './components/Toast';
 
 // ---- recent SKU memory (localStorage) -------------------------------------
@@ -62,7 +64,8 @@ type Modal =
   | null
   | { kind: 'adjust'; product: Product }
   | { kind: 'picker'; onPick: (p: Product) => void }
-  | { kind: 'ap-product'; product: Product };
+  | { kind: 'ap-product'; product: Product }
+  | { kind: 'transaction-detail'; transactionId: number };
 
 // ---- App ------------------------------------------------------------------
 
@@ -329,24 +332,6 @@ export function App() {
       </div>
 
       <button
-        className="btn ghost"
-        onClick={() => setView({ kind: 'ap-products' })}
-        disabled={bootState !== 'ready'}
-        title={lang === 'en' ? 'AP Products' : 'AP 序號品'}
-      >
-        🏷 {lang === 'en' ? 'AP Products' : 'AP 序號品'}
-      </button>
-
-      <button
-        className="btn ghost"
-        onClick={() => setView({ kind: 'shipments' })}
-        disabled={bootState !== 'ready'}
-        title={lang === 'en' ? 'Shipments' : '出貨單據'}
-      >
-        📦 {lang === 'en' ? 'Shipments' : '出貨單據'}
-      </button>
-
-      <button
         className="btn"
         onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
         disabled={bootState !== 'ready'}
@@ -363,14 +348,20 @@ export function App() {
 
       <div className="tb-divider" />
 
-      <button
-        className="btn ghost"
-        onClick={() => setView({ kind: 'locations' })}
+      <Dropdown
+        trigger={lang === 'en' ? 'Manage' : '管理'}
         disabled={bootState !== 'ready'}
-        title={t.locations}
       >
-        📍 {t.locations}
-      </button>
+        <DropdownItem onClick={() => setView({ kind: 'locations' })} disabled={bootState !== 'ready'}>
+          📍 {t.locations}
+        </DropdownItem>
+        <DropdownItem onClick={() => setView({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
+          🏷 {lang === 'en' ? 'AP Products' : 'AP 序號品'}
+        </DropdownItem>
+        <DropdownItem onClick={() => setView({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
+          📦 {lang === 'en' ? 'Shipments' : '出貨單據'}
+        </DropdownItem>
+      </Dropdown>
 
       <div className="tb-divider" />
 
@@ -454,6 +445,7 @@ export function App() {
           lang={lang}
           onAdjustProduct={handleAdjustProduct}
           onManageAPProduct={(product) => setModal({ kind: 'ap-product', product })}
+          onViewTransaction={(tx) => setModal({ kind: 'transaction-detail', transactionId: tx.id })}
         />
       )}
       {view.kind === 'batch' && (
@@ -521,6 +513,13 @@ export function App() {
           lang={lang}
           onClose={() => setModal(null)}
           onProductUpdated={refetchProducts}
+        />
+      )}
+      {modal && modal.kind === 'transaction-detail' && (
+        <TransactionDetailModal
+          transactionId={modal.transactionId}
+          lang={lang}
+          onClose={() => setModal(null)}
         />
       )}
 

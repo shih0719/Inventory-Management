@@ -142,10 +142,10 @@ async function getByProduct(req, res) {
     const { productId } = req.params;
 
     const transactions = await db.all(
-      `SELECT t.*, 
-              p.name as product_name, 
-              p.sku, 
-              tg.display_name as tag_name, 
+      `SELECT t.*,
+              p.name as product_name,
+              p.sku,
+              tg.display_name as tag_name,
               tg.color as tag_color,
               b.batch_number
        FROM transactions t
@@ -156,6 +156,28 @@ async function getByProduct(req, res) {
        ORDER BY t.created_at DESC`,
       [productId],
     );
+
+    // Enrich transactions with product_units details
+    for (const tx of transactions) {
+      if (tx.product_unit_ids) {
+        try {
+          const unitIds = JSON.parse(tx.product_unit_ids);
+          if (Array.isArray(unitIds) && unitIds.length > 0) {
+            const placeholders = unitIds.map(() => '?').join(',');
+            const units = await db.all(
+              `SELECT id, serial_number, status FROM product_units WHERE id IN (${placeholders})`,
+              unitIds
+            );
+            tx.product_units = units;
+          }
+        } catch (e) {
+          console.error("Error parsing product_unit_ids:", e);
+          tx.product_units = [];
+        }
+      } else {
+        tx.product_units = null;
+      }
+    }
 
     res.json({ success: true, data: transactions });
   } catch (error) {
@@ -221,9 +243,83 @@ async function getAll(req, res) {
 
     const transactions = await db.all(sql, params);
 
+    // Enrich transactions with product_units details
+    for (const tx of transactions) {
+      if (tx.product_unit_ids) {
+        try {
+          const unitIds = JSON.parse(tx.product_unit_ids);
+          if (Array.isArray(unitIds) && unitIds.length > 0) {
+            const placeholders = unitIds.map(() => '?').join(',');
+            const units = await db.all(
+              `SELECT id, serial_number, status FROM product_units WHERE id IN (${placeholders})`,
+              unitIds
+            );
+            tx.product_units = units;
+          }
+        } catch (e) {
+          console.error("Error parsing product_unit_ids:", e);
+          tx.product_units = [];
+        }
+      } else {
+        tx.product_units = null;
+      }
+    }
+
     res.json({ success: true, data: transactions });
   } catch (error) {
     console.error("Error fetching transactions:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// Get single transaction by ID
+async function getById(req, res) {
+  try {
+    const { id } = req.params;
+
+    const transaction = await db.get(
+      `SELECT t.*,
+              p.name as product_name,
+              p.sku,
+              p.type as product_type,
+              tg.display_name as tag_name,
+              tg.color as tag_color,
+              b.batch_number
+       FROM transactions t
+       JOIN products p ON t.product_id = p.id
+       JOIN tags tg ON t.tag_id = tg.id
+       LEFT JOIN batches b ON t.batch_id = b.id
+       WHERE t.id = ?`,
+      [id],
+    );
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, error: "Transaction not found" });
+    }
+
+    // Enrich with product_units details
+    if (transaction.product_unit_ids) {
+      try {
+        const unitIds = JSON.parse(transaction.product_unit_ids);
+        if (Array.isArray(unitIds) && unitIds.length > 0) {
+          const placeholders = unitIds.map(() => '?').join(',');
+          const units = await db.all(
+            `SELECT id, serial_number, status FROM product_units WHERE id IN (${placeholders})`,
+            unitIds
+          );
+          transaction.product_units = units;
+        }
+      } catch (e) {
+        console.error("Error parsing product_unit_ids:", e);
+        transaction.product_units = [];
+      }
+    } else {
+      transaction.product_units = null;
+    }
+
+    res.json({ success: true, data: transaction });
+  } catch (error) {
+    console.error("Error fetching transaction:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -232,4 +328,5 @@ module.exports = {
   create,
   getByProduct,
   getAll,
+  getById,
 };

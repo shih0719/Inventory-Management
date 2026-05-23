@@ -54,7 +54,7 @@ function initDatabase() {
       }
       console.log("✅ Database schema initialized");
 
-      // Migration: add min_stock column to products if missing
+      // Migration: add missing columns
       db.all("PRAGMA table_info(products)", (err, columns) => {
         if (err) {
           console.error("❌ Failed to inspect products table:", err.message);
@@ -90,7 +90,33 @@ function initDatabase() {
 
         ensureMinStock
           .then(() => ensureTrackSerial)
-          .then(() => loadSeeds())
+          .then(() => {
+            // Check and add product_unit_ids to transactions table
+            db.all("PRAGMA table_info(transactions)", (err, trxColumns) => {
+              if (err) {
+                console.error("❌ Failed to inspect transactions table:", err.message);
+                reject(err);
+                return;
+              }
+              const hasProductUnitIds = trxColumns.some((c) => c.name === "product_unit_ids");
+              if (hasProductUnitIds) {
+                loadSeeds();
+              } else {
+                db.run(
+                  "ALTER TABLE transactions ADD COLUMN product_unit_ids TEXT",
+                  (e) => {
+                    if (e) {
+                      console.error("❌ Failed to add product_unit_ids column:", e.message);
+                      reject(e);
+                    } else {
+                      console.log("✅ Added product_unit_ids column to transactions");
+                      loadSeeds();
+                    }
+                  }
+                );
+              }
+            });
+          })
           .catch((e) => {
             console.error("❌ Migration failed:", e.message);
             reject(e);

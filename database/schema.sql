@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     location_id INTEGER,
     quantity_change INTEGER NOT NULL,
     remarks TEXT,
+    product_unit_ids TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (tag_id) REFERENCES tags(id),

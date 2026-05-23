@@ -146,9 +146,16 @@ async function bulkCreate(req, res) {
           { quantityType: 'accountable' }
         );
         if (validation.ok) {
+          // Get the IDs of newly created product units
+          const newUnits = await db.all(
+            "SELECT id FROM product_units WHERE product_id = ? ORDER BY created_at DESC LIMIT ?",
+            [product_id, inserted]
+          );
+          const productUnitIds = JSON.stringify(newUnits.map(u => u.id));
+
           await db.run(
-            "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
-            [product_id, inboundTag.id, inserted, "系統自動"],
+            "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?)",
+            [product_id, inboundTag.id, inserted, "系統自動", productUnitIds],
           );
           await db.run(
             "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
@@ -226,9 +233,11 @@ async function bulkSell(req, res) {
     if (outboundTag) {
       const grouped = {};
       for (const unit of validUnits) {
-        grouped[unit.product_id] = (grouped[unit.product_id] || 0) + 1;
+        if (!grouped[unit.product_id]) grouped[unit.product_id] = [];
+        grouped[unit.product_id].push(unit.id);
       }
-      for (const [productId, count] of Object.entries(grouped)) {
+      for (const [productId, unitIds] of Object.entries(grouped)) {
+        const count = unitIds.length;
         const productForValidation = await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [productId]);
         if (productForValidation) {
           // Validate outbound using QuantityState module
@@ -238,9 +247,10 @@ async function bulkSell(req, res) {
             { quantityType: 'accountable' }
           );
           if (validation.ok) {
+            const productUnitIdsJson = JSON.stringify(unitIds);
             await db.run(
-              "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) VALUES (?, ?, ?, ?)",
-              [productId, outboundTag.id, -count, "系統自動"],
+              "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?)",
+              [productId, outboundTag.id, -count, "系統自動", productUnitIdsJson],
             );
             await db.run(
               "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",

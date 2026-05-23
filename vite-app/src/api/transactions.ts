@@ -19,6 +19,11 @@ export async function listProductTransactions(productId: number, params: ListTra
   return api.get<Transaction[]>(`/api/transactions/product/${productId}`, params);
 }
 
+export async function getTransaction(id: number): Promise<Transaction> {
+  const res = await api.get<Transaction>(`/api/transactions/${id}`);
+  return res.data;
+}
+
 /**
  * Create a single transaction.
  *   Inbound:  quantity_change > 0

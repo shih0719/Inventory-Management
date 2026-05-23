@@ -35,6 +35,12 @@ export interface Transaction {
   remarks: string;
   created_at: string;
   batch_name?: string;
+  /** Product units involved in this transaction (serial numbers for AP products) */
+  product_units?: Array<{ id: number; serial_number: string; status: ProductUnitStatus }> | null;
+  product_unit_ids?: string;
+  product_name?: string;
+  product_type?: ProductType;
+  tag_color?: string;
 }
 
 export interface Tag {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Shipment, Transaction } from '../types';
+import type { Shipment, Transaction, Product } from '../types';
 import {
   listShipments,
   getShipment,
@@ -8,7 +8,9 @@ import {
   deleteShipment,
 } from '../api/shipments';
 import { listTransactions } from '../api/transactions';
+import { listAllProducts } from '../api/products';
 import { ConfirmModal } from './modals/ConfirmModal';
+import { TransactionDetailModal } from './modals/TransactionDetailModal';
 
 export interface ShipmentsPageProps {
   onBack: () => void;
@@ -18,7 +20,9 @@ export interface ShipmentsPageProps {
 export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,14 +39,36 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
   useEffect(() => {
     loadShipments();
     loadTransactions();
+    loadProducts();
   }, []);
+
+  const loadProducts = async () => {
+    try {
+      const list = await listAllProducts();
+      setProducts(list);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+    }
+  };
 
   const loadShipments = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await listShipments();
-      setShipments(res.data || []);
+      const list = res.data || [];
+      // Load full shipment details (including transaction_ids) for all shipments
+      const fullShipments = await Promise.all(
+        list.map(async (s) => {
+          const full = await getShipment(s.id);
+          // Preserve transaction_count from list response
+          return {
+            ...full,
+            transaction_count: full.transaction_ids?.length || 0,
+          };
+        })
+      );
+      setShipments(fullShipments);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -127,10 +153,11 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
     setShipmentDate(new Date().toISOString().split('T')[0]);
   };
 
-  // Get unbound transactions (not in any shipment or in the selected one being edited)
+  // Get unbound negative transactions (not in any shipment, negative quantity only)
   const availableTransactions = transactions.filter((tx) => {
     const isAlreadyBound = shipments.some((s) => (s.transaction_ids || []).includes(tx.id));
-    return !isAlreadyBound;
+    // Only allow negative quantity transactions for shipments
+    return !isAlreadyBound && tx.quantity_change < 0;
   });
 
   return (
@@ -174,28 +201,31 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, padding: 8 }}>
-            {shipments.map((s) => (
-              <div
-                key={s.id}
-                onClick={() => handleSelectShipment(s)}
-                style={{
-                  padding: '10px 12px',
-                  border: selectedShipment?.id === s.id ? '1px solid var(--ok)' : '1px solid var(--border)',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  background: selectedShipment?.id === s.id ? 'var(--surface-2)' : 'transparent',
-                  fontSize: 13,
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 2 }}>{s.shipment_number}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 2 }}>
-                  {s.customer || '—'}
+            {shipments.map((s) => {
+              const displayName = [s.customer, s.project_case].filter(Boolean).join(' - ') || (lang === 'en' ? 'Unnamed' : '未命名');
+              const shipmentDate = new Date(s.shipment_date).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW');
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => handleSelectShipment(s)}
+                  style={{
+                    padding: '10px 12px',
+                    border: selectedShipment?.id === s.id ? '1px solid var(--ok)' : '1px solid var(--border)',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    background: selectedShipment?.id === s.id ? 'var(--surface-2)' : 'transparent',
+                    fontSize: 13,
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                    {displayName} · {shipmentDate}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                    {s.shipment_number} · {s.transaction_count || 0} {lang === 'en' ? 'txns' : '筆異動'}
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                  {s.transaction_count || 0} {lang === 'en' ? 'txns' : '筆異動'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -252,26 +282,30 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
                         {lang === 'en' ? 'No transactions available' : '沒有可用的異動'}
                       </div>
                     ) : (
-                      availableTransactions.map((tx) => (
-                        <label key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedTransactionIds.includes(tx.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedTransactionIds([...selectedTransactionIds, tx.id]);
-                              } else {
-                                setSelectedTransactionIds(
-                                  selectedTransactionIds.filter((id) => id !== tx.id)
-                                );
-                              }
-                            }}
-                          />
-                          <span>
-                            [{tx.sku}] {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change}
-                          </span>
-                        </label>
-                      ))
+                      availableTransactions.map((tx) => {
+                        const product = products.find((p) => p.sku === tx.sku);
+                        const date = new Date(tx.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW');
+                        return (
+                          <label key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedTransactionIds.includes(tx.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTransactionIds([...selectedTransactionIds, tx.id]);
+                                } else {
+                                  setSelectedTransactionIds(
+                                    selectedTransactionIds.filter((id) => id !== tx.id)
+                                  );
+                                }
+                              }}
+                            />
+                            <span style={{ fontSize: 12 }}>
+                              [{tx.sku}] {product?.name || '—'} · {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change} · {date}
+                            </span>
+                          </label>
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -318,11 +352,28 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
                     {lang === 'en' ? 'Transactions' : '異動明細'}
                   </div>
                   <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 4, padding: 8, fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {selectedShipment.items_summary?.map((tx) => (
-                      <div key={tx.id} style={{ color: 'var(--ink-2)' }}>
-                        [{tx.sku}] {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change} — {tx.tag_name}
-                      </div>
-                    ))}
+                    {selectedShipment.items_summary?.map((tx) => {
+                      const product = products.find((p) => p.sku === tx.sku);
+                      const date = new Date(tx.created_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'zh-TW');
+                      return (
+                        <div
+                          key={tx.id}
+                          onClick={() => setSelectedTransaction(tx.id)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: 'var(--surface-2)',
+                            borderRadius: 4,
+                            color: 'var(--ink-2)',
+                            cursor: 'pointer',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--border)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface-2)')}
+                        >
+                          [{tx.sku}] {product?.name || '—'} · {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change} · {date}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -351,6 +402,14 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
           lang={lang}
           onConfirm={confirmDelete}
           onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+
+      {selectedTransaction !== null && (
+        <TransactionDetailModal
+          transactionId={selectedTransaction}
+          lang={lang}
+          onClose={() => setSelectedTransaction(null)}
         />
       )}
     </div>

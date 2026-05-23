@@ -56,7 +56,18 @@
       "Bash(curl -s http://localhost:3030/api/products?limit=5)",
       "Bash(curl -s \"http://localhost:3030/api/transactions?limit=500\")",
       "Bash(curl -s \"http://localhost:3030/api/shipments\")",
-      "Bash(curl -s \"http://localhost:5173/api/shipments\" -v)"
+      "Bash(curl -s \"http://localhost:5173/api/shipments\" -v)",
+      "Bash(curl -s http://localhost:3030/api/products -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s http://localhost:3030/api/products/34 -X PUT -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s http://localhost:3030/api/product-units/bulk -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s http://localhost:3030/api/transactions/product/34)",
+      "Bash(curl -s \"http://localhost:3030/api/product-units?product_id=34\")",
+      "PowerShell(\"Process stopped\")",
+      "Bash(curl -s http://localhost:3030/api/transactions/product/35)",
+      "Bash(curl -s http://localhost:3030/api/product-units/bulk-sell -H 'Content-Type: application/json' -d '{ *)",
+      "PowerShell(\"Done\")",
+      "Bash(curl -s http://localhost:3030/api/transactions/12)",
+      "PowerShell(\"Process restarted\")"
     ]
   }
 }

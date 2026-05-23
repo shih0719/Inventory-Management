@@ -10,9 +10,10 @@ export interface DashboardProps {
   lang: Lang;
   onAdjustProduct: (p: Product) => void;
   onManageAPProduct?: (p: Product) => void;
+  onViewTransaction?: (tx: Transaction) => void;
 }
 
-export function Dashboard({ products, transactions, lang, onAdjustProduct, onManageAPProduct }: DashboardProps) {
+export function Dashboard({ products, transactions, lang, onAdjustProduct, onManageAPProduct, onViewTransaction }: DashboardProps) {
   const t = L[lang];
 
   const lowItems = useMemo(
@@ -165,7 +166,7 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
               const isIn = tx.quantity_change > 0;
               const prod = products.find((p) => p.sku === tx.sku || p.id === tx.product_id);
               return (
-                <div key={tx.id} className="tx-row">
+                <div key={tx.id} className="tx-row" onClick={() => onViewTransaction?.(tx)} style={{ cursor: 'pointer' }}>
                   <span className={'dot ' + (isIn ? 'in' : 'out')} />
                   <div className="tx-main">
                     <div className="tx-head">

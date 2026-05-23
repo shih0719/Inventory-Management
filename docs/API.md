@@ -226,12 +226,72 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
       "tag_id": 1,
       "tag_name": "INBOUND",
       "remarks": "入庫",
+      "product_unit_ids": "[1, 2, 3, 4, 5]",
+      "product_units": [
+        {
+          "id": 1,
+          "serial_number": "SN-001",
+          "status": "in_stock"
+        },
+        {
+          "id": 2,
+          "serial_number": "SN-002",
+          "status": "in_stock"
+        }
+      ],
       "created_at": "2026-05-14T10:00:00Z"
     }
   ],
   "pagination": { ... }
 }
 ```
+
+**Notes:**
+- `product_unit_ids`: JSON 陣列，記錄關聯的序號品 ID（序號品專用）
+- `product_units`: 包含序號品的詳細信息（id、serial_number、status）
+- 一般品（normal）的 product_unit_ids 為 null
+- 序號品（AP）進出庫時會自動記錄
+
+---
+
+### GET /api/transactions/:id
+
+取得單筆交易的詳細信息（包含序號品詳情）。
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 12,
+    "product_id": 35,
+    "sku": "TEST-AP-001",
+    "product_name": "測試AP產品",
+    "product_type": "ap",
+    "quantity_change": -2,
+    "tag_name": "出庫",
+    "tag_color": "#EF4444",
+    "product_unit_ids": "[10,11]",
+    "product_units": [
+      {
+        "id": 10,
+        "serial_number": "SN-A",
+        "status": "sold"
+      },
+      {
+        "id": 11,
+        "serial_number": "SN-B",
+        "status": "sold"
+      }
+    ],
+    "created_at": "2026-05-23T16:11:54Z"
+  }
+}
+```
+
+**Notes:**
+- 序號品（AP）會包含具體的序號品清單
+- 一般品（normal）的 product_units 為 null
 
 ---
 
@@ -249,10 +309,38 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ```json
 {
   "success": true,
-  "data": [ ... ],
+  "data": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "sku": "SKU-001",
+      "product_name": "產品名稱",
+      "quantity_change": 5,
+      "tag_name": "INBOUND",
+      "remarks": "進庫",
+      "product_unit_ids": "[1, 2, 3, 4, 5]",
+      "product_units": [
+        {
+          "id": 1,
+          "serial_number": "SN-001",
+          "status": "in_stock"
+        },
+        {
+          "id": 2,
+          "serial_number": "SN-002",
+          "status": "in_stock"
+        }
+      ],
+      "created_at": "2026-05-23T10:00:00Z"
+    }
+  ],
   "pagination": { ... }
 }
 ```
+
+**Notes:**
+- 序號品（AP）的進出庫會記錄具體的序號品 ID 和詳情
+- 一般品（normal）的 product_units 為 null
 
 ---
 
@@ -1526,23 +1614,44 @@ curl -X POST http://localhost:3000/api/batches \
 curl http://localhost:3000/api/products/1
 ```
 
-### 出貨流程（使用批次 API）
+### 序號品出貨流程
 
 ```bash
-# 1. 標記序號品為已出售
+# 標記序號品為已出售（會自動記錄 Transaction 和序號品詳情）
 curl -X POST http://localhost:3000/api/product-units/bulk-sell \
   -H "Content-Type: application/json" \
   -d '{
-    "items": [
-      {
-        "id": 1,
-        "sold_to": "客戶 A",
-        "project_case": "案件編號"
-      }
-    ]
+    "serial_numbers": ["SN-001", "SN-002", "SN-003"],
+    "sold_to": "客戶 A",
+    "project_case": "案件編號"
   }'
 
-# 2. 批量出貨（使用批次 API）
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "sold": 3,
+#     "transactions_created": 1,
+#     "message": "3 units have been marked as sold."
+#   }
+# }
+
+# 查詢出貨紀錄（包含序號品詳情）
+curl http://localhost:3000/api/transactions/product/1
+
+# Response 包含：
+# "product_unit_ids": "[1, 2, 3]"
+# "product_units": [
+#   { "id": 1, "serial_number": "SN-001", "status": "sold" },
+#   { "id": 2, "serial_number": "SN-002", "status": "sold" },
+#   { "id": 3, "serial_number": "SN-003", "status": "sold" }
+# ]
+```
+
+### 一般品出貨流程（使用批次 API）
+
+```bash
+# 批量出貨（使用批次 API）
 curl -X POST http://localhost:3000/api/batches \
   -H "Content-Type: application/json" \
   -d '{
@@ -1552,7 +1661,7 @@ curl -X POST http://localhost:3000/api/batches \
     "items": [
       {
         "product_id": 1,
-        "quantity_change": -1,
+        "quantity_change": -5,
         "quantity_type": "accountable",
         "remarks": "出貨給客戶 A"
       }

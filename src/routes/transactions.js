@@ -3,6 +3,7 @@ const router = express.Router();
 const transactionsController = require("../controllers/transactionsController");
 
 router.get("/", transactionsController.getAll);
+router.get("/:id", transactionsController.getById);
 router.get("/product/:productId", transactionsController.getByProduct);
 router.post("/", transactionsController.create);
 
