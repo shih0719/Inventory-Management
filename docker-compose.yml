@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/data/inventory.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # Optional: development service with hot reload
+  dev:
+    build: .
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/vite-app/node_modules
+    restart: unless-stopped
+    profiles:
+      - dev

@@ -14,7 +14,7 @@ import { TransactionDetailModal } from './modals/TransactionDetailModal';
 
 export interface ShipmentsPageProps {
   onBack: () => void;
-  lang?: 'en' | 'zh';
+  lang?: 'en' | 'zh' | 'ja';
 }
 
 export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {

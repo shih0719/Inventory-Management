@@ -32,5 +32,5 @@ export async function listAuditLogs(
     offset,
   });
 
-  return { data, pagination: pagination || { total: 0, offset, limit } };
+  return { data, pagination: pagination || { total: 0, page: 1, limit, totalPages: 0 } };
 }

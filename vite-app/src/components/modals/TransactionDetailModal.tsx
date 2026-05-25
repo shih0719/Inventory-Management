@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Transaction } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
-import { fmtTime } from '../../lib/format';
+import { fmtDateTime } from '../../lib/format';
 import { getTransaction } from '../../api/transactions';
 
 export interface TransactionDetailModalProps {
@@ -144,7 +144,7 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
           {/* Date */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label>{lang === 'en' ? 'Created' : '建立時間'}</label>
-            <div style={{ fontSize: 13 }}>{fmtTime(transaction.created_at, lang)}</div>
+            <div style={{ fontSize: 13 }}>{fmtDateTime(transaction.created_at, lang)}</div>
           </div>
 
           {/* Serial Numbers */}

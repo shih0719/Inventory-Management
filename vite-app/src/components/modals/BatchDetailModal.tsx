@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Batch, Transaction } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
-import { fmtTime } from '../../lib/format';
+import { fmtDateTime } from '../../lib/format';
 import { getBatch } from '../../api/batches';
 
 export interface BatchDetailModalProps {
@@ -115,7 +115,7 @@ export function BatchDetailModal({ batchId, lang, onClose }: BatchDetailModalPro
           {/* Created Date */}
           <div className="field" style={{ marginBottom: 24 }}>
             <label>{lang === 'en' ? 'Created' : lang === 'zh' ? '建立時間' : '作成日時'}</label>
-            <div style={{ fontSize: 13 }}>{fmtTime(batch.created_at, lang)}</div>
+            <div style={{ fontSize: 13 }}>{fmtDateTime(batch.created_at, lang)}</div>
           </div>
 
           {/* Transactions */}
