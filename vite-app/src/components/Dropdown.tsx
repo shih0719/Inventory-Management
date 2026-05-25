@@ -4,9 +4,10 @@ export interface DropdownProps {
   trigger: React.ReactNode;
   children: React.ReactNode;
   disabled?: boolean;
+  align?: 'left' | 'right';
 }
 
-export function Dropdown({ trigger, children, disabled = false }: DropdownProps) {
+export function Dropdown({ trigger, children, disabled = false, align = 'left' }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -40,12 +41,13 @@ export function Dropdown({ trigger, children, disabled = false }: DropdownProps)
           style={{
             position: 'absolute',
             top: '100%',
-            left: 0,
+            ...(align === 'right' ? { right: 0 } : { left: 0 }),
             marginTop: 4,
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 6,
             minWidth: 160,
+            width: 'max-content',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             zIndex: 1000,
           }}

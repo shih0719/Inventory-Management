@@ -60,7 +60,40 @@ async function logout(req, res) {
   }
 }
 
+async function changePassword(req, res) {
+  try {
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        error: "current_password and new_password are required",
+      });
+    }
+
+    await authService.changePassword(req.user.id, current_password, new_password);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (err) {
+    console.error("❌ Change password error:", err.message);
+
+    if (
+      err.message === "Current password is incorrect" ||
+      err.message === "User not found" ||
+      err.message.startsWith("New password")
+    ) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
 module.exports = {
   login,
   logout,
+  changePassword,
 };

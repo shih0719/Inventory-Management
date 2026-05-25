@@ -37,3 +37,10 @@ export async function logout(): Promise<void> {
     clearToken();
   }
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await api.post('/api/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}

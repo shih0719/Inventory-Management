@@ -92,6 +92,42 @@ Logout (stateless JWT - no token blacklist needed).
 
 ---
 
+### POST /api/auth/change-password
+
+修改當前登入用戶的密碼。
+
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+  "current_password": "oldpassword",
+  "new_password": "newpassword123"
+}
+```
+
+**Parameters:**
+- `current_password` (required): 當前密碼
+- `new_password` (required): 新密碼（最少 6 個字元）
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Password changed successfully"
+}
+```
+
+**Error (400 - 驗證失敗):**
+```json
+{
+  "success": false,
+  "error": "Current password is incorrect"
+}
+```
+
+---
+
 ## Audit Logs 審計日誌
 
 ### GET /api/audit-logs

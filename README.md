@@ -51,6 +51,35 @@ pm2 logs
 
 瀏覽器開啟：`http://localhost:3030`（PORT 可在 `.env` 覆寫）
 
+## 用戶管理
+
+### 新增用戶
+
+使用提供的腳本建立新用戶：
+
+```bash
+# 本地開發
+node scripts/create-user.js <username> <password>
+
+# Docker 中執行
+docker-compose exec app node scripts/create-user.js <username> <password>
+```
+
+**範例：**
+
+```bash
+# 建立用戶 alice，密碼 pass123
+node scripts/create-user.js alice pass123
+
+# 建立用戶 bob，密碼 mypassword
+docker-compose exec app node scripts/create-user.js bob mypassword
+```
+
+**注意事項：**
+- 密碼會自動使用 bcrypt (salt rounds = 10) 加密
+- username 全域唯一，不能重複建立
+- 目前無權限區分，所有登入用戶擁有相同權限
+
 ## 專案結構
 
 ```
@@ -83,6 +112,9 @@ public/
 
 | 前綴 | 說明 |
 |------|------|
+| `POST /api/auth/login` | 使用者登入 |
+| `POST /api/auth/logout` | 使用者登出 |
+| `POST /api/auth/change-password` | 修改密碼（需登入） |
 | `GET/POST/PUT/DELETE /api/products` | 商品 CRUD |
 | `GET/POST /api/transactions` | 庫存異動紀錄 |
 | `GET/POST /api/batches` | 批次異動 |
@@ -239,6 +271,8 @@ npm run pm2:restart
 ## 安全
 
 - 參數化查詢，防止 SQL Injection
-- 單用戶設計，無身份驗證機制
+- JWT 身份驗證（24 小時有效期），密碼使用 bcrypt 加密（salt rounds = 10）
+- 支援修改密碼功能（`POST /api/auth/change-password`）
 - 軟刪除保留異動歷史，避免資料消失
 - 定期自動備份數據庫，確保數據安全
+- 審計日誌記錄所有寫入操作（建立、更新、刪除）

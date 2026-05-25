@@ -84,10 +84,30 @@ async function createUser(username, password) {
   };
 }
 
+async function changePassword(userId, currentPassword, newPassword) {
+  const user = await db.get("SELECT * FROM users WHERE id = ?", [userId]);
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const isValid = await comparePassword(currentPassword, user.password_hash);
+  if (!isValid) {
+    throw new Error("Current password is incorrect");
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    throw new Error("New password must be at least 6 characters");
+  }
+
+  const newHash = await hashPassword(newPassword);
+  await db.run("UPDATE users SET password_hash = ? WHERE id = ?", [newHash, userId]);
+}
+
 module.exports = {
   login,
   verifyToken,
   hashPassword,
   comparePassword,
   createUser,
+  changePassword,
 };

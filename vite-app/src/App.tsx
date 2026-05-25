@@ -22,6 +22,7 @@ import { listLocations } from './api/locations';
 import { importProductsCsv, exportProductsCsvUrl } from './api/csv';
 import { ApiError, getToken } from './api/client';
 import { logout, type User } from './api/auth';
+import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
@@ -73,7 +74,8 @@ type Modal =
   | { kind: 'ap-product'; product: Product }
   | { kind: 'transaction-detail'; transactionId: number }
   | { kind: 'batch-detail'; batchId: number }
-  | { kind: 'shipment-detail'; shipmentId: number };
+  | { kind: 'shipment-detail'; shipmentId: number }
+  | { kind: 'change-password' };
 
 // ---- App ------------------------------------------------------------------
 
@@ -422,8 +424,9 @@ export function App() {
         </button>
       </div>
 
-      <Dropdown trigger={currentUser?.username?.[0]?.toUpperCase() || 'A'}>
+      <Dropdown trigger={currentUser?.username?.[0]?.toUpperCase() || 'A'} align="right">
         <DropdownItem disabled>{currentUser?.username}</DropdownItem>
+        <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang === 'zh' ? '修改密碼' : 'パスワード変更'}</DropdownItem>
         <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang === 'zh' ? '登出' : 'ログアウト'}</DropdownItem>
       </Dropdown>
     </div>
@@ -598,6 +601,16 @@ export function App() {
           shipmentId={modal.shipmentId}
           lang={lang}
           onClose={() => setModal(null)}
+        />
+      )}
+      {modal && modal.kind === 'change-password' && (
+        <ChangePasswordModal
+          lang={lang}
+          onClose={() => setModal(null)}
+          onSuccess={() => {
+            setModal(null);
+            showToast(lang === 'zh' ? '密碼已更新' : lang === 'ja' ? 'パスワードを変更しました' : 'Password updated');
+          }}
         />
       )}
 
