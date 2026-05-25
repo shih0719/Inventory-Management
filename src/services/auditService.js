@@ -14,8 +14,8 @@ async function logAction(userId, action, resourceType, resourceId) {
     }
 
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, timestamp)
-       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id)
+       VALUES (?, ?, ?, ?)`,
       [userId, action, resourceType, resourceId]
     );
   } catch (err) {

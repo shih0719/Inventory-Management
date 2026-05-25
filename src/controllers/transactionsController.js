@@ -2,6 +2,7 @@ const db = require("../config/database");
 const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
 const auditService = require("../services/auditService");
+const { formatTimestamps } = require("../utils/formatTimestamps");
 
 // Create new transaction and update product quantity
 async function create(req, res) {
@@ -136,7 +137,7 @@ async function create(req, res) {
         });
       }
 
-      res.status(201).json({ success: true, data: transaction });
+      res.status(201).json({ success: true, data: formatTimestamps(transaction) });
     } catch (error) {
       await db.run("ROLLBACK");
       throw error;
@@ -190,7 +191,7 @@ async function getByProduct(req, res) {
       }
     }
 
-    res.json({ success: true, data: transactions });
+    res.json({ success: true, data: formatTimestamps(transactions) });
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -276,7 +277,7 @@ async function getAll(req, res) {
       }
     }
 
-    res.json({ success: true, data: transactions });
+    res.json({ success: true, data: formatTimestamps(transactions) });
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ success: false, error: error.message });

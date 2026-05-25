@@ -4,10 +4,7 @@ import type { Lang } from './i18n';
 
 /** "09:42" for today, "yest 09:42" for yesterday, "3d ago" otherwise. */
 export function fmtTime(iso: string, lang: Lang): string {
-  // Backend returns timestamps without timezone info (e.g., "2026-05-25 15:08:29")
-  // Treat as UTC by adding Z suffix
-  const utcTimestamp = iso.includes('T') ? iso : iso.replace(' ', 'T') + 'Z';
-  const d = new Date(utcTimestamp);
+  const d = new Date(iso);
   const now = new Date();
   const same = d.toDateString() === now.toDateString();
   const yest = (() => {

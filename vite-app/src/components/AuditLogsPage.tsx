@@ -70,10 +70,7 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
   }, [offset, limit, t]);
 
   const formatTime = (timestamp: string) => {
-    // Backend returns timestamps without timezone info (e.g., "2026-05-25 15:08:29")
-    // Treat as UTC by adding Z suffix
-    const utcTimestamp = timestamp.includes('T') ? timestamp : timestamp.replace(' ', 'T') + 'Z';
-    const d = new Date(utcTimestamp);
+    const d = new Date(timestamp);
     const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
       month: '2-digit',

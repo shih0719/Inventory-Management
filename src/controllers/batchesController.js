@@ -2,6 +2,7 @@ const db = require("../config/database");
 const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
 const auditService = require("../services/auditService");
+const { formatTimestamps } = require("../utils/formatTimestamps");
 
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
@@ -211,7 +212,7 @@ async function getAllBatches(req, res) {
       [parseInt(limit), parseInt(offset)],
     );
 
-    res.json({ success: true, data: batches });
+    res.json({ success: true, data: formatTimestamps(batches) });
   } catch (error) {
     console.error("Error fetching batches:", error);
     res.status(500).json({ success: false, error: error.message });

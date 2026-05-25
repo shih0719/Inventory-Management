@@ -1,4 +1,5 @@
 const auditService = require("../services/auditService");
+const { formatTimestamps } = require("../utils/formatTimestamps");
 
 /**
  * GET /api/audit-logs
@@ -25,7 +26,7 @@ async function getAuditLogs(req, res) {
 
     return res.status(200).json({
       success: true,
-      data: result.data,
+      data: formatTimestamps(result.data),
       pagination: result.pagination,
     });
   } catch (err) {

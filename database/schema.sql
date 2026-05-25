@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS products (
     min_stock INTEGER NOT NULL DEFAULT 0,
     track_serial INTEGER NOT NULL DEFAULT 0,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Tags Table (Predefined transaction categories)
@@ -30,15 +30,15 @@ CREATE TABLE IF NOT EXISTS locations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Product Locations Table (Many-to-many relationship mapping product models to locations)
 CREATE TABLE IF NOT EXISTS product_locations (
     product_id INTEGER NOT NULL,
     location_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     PRIMARY KEY (product_id, location_id),
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (location_id) REFERENCES locations(id)
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     quantity_change INTEGER NOT NULL,
     remarks TEXT,
     product_unit_ids TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (tag_id) REFERENCES tags(id),
     FOREIGN KEY (batch_id) REFERENCES batches(id),
@@ -79,8 +79,8 @@ CREATE TABLE IF NOT EXISTS product_units (
     sold_to TEXT,
     sold_at DATETIME,
     remarks TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
@@ -92,7 +92,7 @@ CREATE TRIGGER IF NOT EXISTS update_product_units_timestamp
 AFTER UPDATE ON product_units
 FOR EACH ROW
 BEGIN
-    UPDATE product_units SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    UPDATE product_units SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
 END;
 
 -- Indexes for performance optimization
@@ -110,7 +110,7 @@ CREATE TRIGGER IF NOT EXISTS update_products_timestamp
 AFTER UPDATE ON products
 FOR EACH ROW
 BEGIN
-    UPDATE products SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
 END;
 
 -- Trigger to update updated_at timestamp for locations
@@ -118,7 +118,7 @@ CREATE TRIGGER IF NOT EXISTS update_locations_timestamp
 AFTER UPDATE ON locations
 FOR EACH ROW
 BEGIN
-    UPDATE locations SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    UPDATE locations SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
 END;
 
 -- Webhook Subscriptions Table
@@ -156,15 +156,15 @@ CREATE TABLE IF NOT EXISTS shipments (
     project_case TEXT,
     shipment_date DATE,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Shipment Transactions Junction Table (Many-to-many relationship)
 CREATE TABLE IF NOT EXISTS shipment_transactions (
     shipment_id INTEGER NOT NULL,
     transaction_id INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     PRIMARY KEY (shipment_id, transaction_id),
     FOREIGN KEY (shipment_id) REFERENCES shipments(id),
     FOREIGN KEY (transaction_id) REFERENCES transactions(id)
@@ -184,5 +184,5 @@ CREATE TRIGGER IF NOT EXISTS update_shipments_timestamp
 AFTER UPDATE ON shipments
 FOR EACH ROW
 BEGIN
-    UPDATE shipments SET updated_at = CURRENT_TIMESTAMP WHERE id = OLD.id;
+    UPDATE shipments SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
 END;
