@@ -363,6 +363,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
           "status": "in_stock"
         }
       ],
+      "created_by_user": "eric",
       "created_at": "2026-05-14T10:00:00Z"
     }
   ],
@@ -409,6 +410,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
         "status": "sold"
       }
     ],
+    "created_by_user": "eric",
     "created_at": "2026-05-23T16:11:54Z"
   }
 }
@@ -456,6 +458,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
           "status": "in_stock"
         }
       ],
+      "created_by_user": "eric",
       "created_at": "2026-05-23T10:00:00Z"
     }
   ],
@@ -503,8 +506,12 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   "data": {
     "id": 1,
     "product_id": 1,
+    "tag_id": 1,
     "quantity_change": 10,
-    ...
+    "quantity_type": "accountable",
+    "remarks": "入庫備註",
+    "created_by_user": "eric",
+    "created_at": "2026-05-25T10:00:00Z"
   }
 }
 ```
@@ -570,8 +577,9 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
     {
       "id": 1,
       "name": "批次名稱",
-      "status": "pending|processing|completed|failed",
+      "status": "completed",
       "transaction_count": 5,
+      "created_by_user": "eric",
       "created_at": "2026-05-14T10:00:00Z"
     }
   ],
@@ -591,16 +599,19 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
   "success": true,
   "data": {
     "id": 1,
-    "name": "批次名稱",
+    "name": "5月進貨批次",
     "status": "completed",
     "transactions": [
       {
         "id": 1,
         "product_id": 1,
+        "sku": "SKU-001",
         "quantity_change": 10,
-        ...
+        "quantity_type": "accountable",
+        "remarks": "進貨"
       }
     ],
+    "created_by_user": "eric",
     "created_at": "2026-05-14T10:00:00Z"
   }
 }
@@ -652,13 +663,19 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ```json
 {
   "success": true,
-  "message": "Batch created successfully. Processed 2 items.",
+  "message": "Batch created successfully. Processed 1 items.",
   "data": {
     "batch_id": 1,
     "batch_number": "BATCH-1715682000000",
+    "created_by_user": "eric",
+    "created_at": "2026-05-25T10:00:00Z",
     "processed_items": [
-      { "product_id": 1, "product_name": "產品名稱", "quantity_type": "accountable", "quantity_change": 10 },
-      { "product_id": 2, "product_name": "產品名稱", "quantity_type": "accountable", "quantity_change": 20 }
+      {
+        "product_id": 1,
+        "product_name": "產品名稱",
+        "quantity_type": "accountable",
+        "quantity_change": 10
+      }
     ]
   }
 }
@@ -725,6 +742,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
         "created_at": "2026-05-23T10:00:00Z"
       }
     ],
+    "created_by_user": "eric",
     "created_at": "2026-05-23T10:00:00Z"
   }
 }
@@ -777,6 +795,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
       "project_case": "案件編號",
       "shipment_date": "2026-05-23",
       "transaction_count": 3,
+      "created_by_user": "eric",
       "created_at": "2026-05-23T10:00:00Z"
     }
   ]
@@ -854,6 +873,7 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
         "created_at": "2026-05-23T10:05:00Z"
       }
     ],
+    "created_by_user": "eric",
     "created_at": "2026-05-23T10:00:00Z",
     "updated_at": "2026-05-23T10:00:00Z"
   }
@@ -910,6 +930,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
         "created_at": "2026-05-23T10:00:00Z"
       }
     ],
+    "created_by_user": "eric",
+    "created_at": "2026-05-23T10:00:00Z",
     "updated_at": "2026-05-23T11:00:00Z"
   }
 }
