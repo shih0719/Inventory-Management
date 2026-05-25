@@ -38,7 +38,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
             onDismiss(toast.id);
           }}
         >
-          {toast.lang === 'zh' ? '復原' : 'Undo'}
+          {toast.lang === 'zh' ? '復原' : toast.lang === 'ja' ? '取り消す' : 'Undo'}
         </button>
       )}
     </div>

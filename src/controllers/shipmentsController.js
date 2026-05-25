@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const auditService = require("../services/auditService");
 
 // Generate shipment number in format SHP-YYYYMMDD-XXX
 async function generateShipmentNumber(shipmentDate) {
@@ -75,13 +76,22 @@ async function create(req, res) {
     await db.run("BEGIN TRANSACTION");
 
     try {
+      const createdByUser = req.user?.username || "unknown";
       const result = await db.run(
-        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date)
-         VALUES (?, ?, ?, ?)`,
-        [shipmentNumber, customer || null, project_case || null, finalDate]
+        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user)
+         VALUES (?, ?, ?, ?, ?)`,
+        [shipmentNumber, customer || null, project_case || null, finalDate, createdByUser]
       );
 
       const shipmentId = result.id;
+
+      // Log shipment creation
+      auditService.logAction(
+        req.user?.id,
+        "CREATE",
+        "shipment",
+        shipmentId
+      );
 
       // Insert shipment-transaction relationships
       for (const txId of validatedTransactionIds) {

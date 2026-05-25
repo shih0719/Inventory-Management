@@ -99,22 +99,40 @@ function initDatabase() {
                 return;
               }
               const hasProductUnitIds = trxColumns.some((c) => c.name === "product_unit_ids");
-              if (hasProductUnitIds) {
-                loadSeeds();
-              } else {
-                db.run(
-                  "ALTER TABLE transactions ADD COLUMN product_unit_ids TEXT",
-                  (e) => {
-                    if (e) {
-                      console.error("❌ Failed to add product_unit_ids column:", e.message);
-                      reject(e);
-                    } else {
-                      console.log("✅ Added product_unit_ids column to transactions");
-                      loadSeeds();
-                    }
-                  }
-                );
-              }
+              const hasCreatedByUser = trxColumns.some((c) => c.name === "created_by_user");
+
+              const addProductUnitIds = hasProductUnitIds
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    db.run(
+                      "ALTER TABLE transactions ADD COLUMN product_unit_ids TEXT",
+                      (e) => {
+                        if (e) rej(e);
+                        else { console.log("✅ Added product_unit_ids column to transactions"); res(); }
+                      }
+                    );
+                  });
+
+              const addCreatedByUser = hasCreatedByUser
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    db.run(
+                      "ALTER TABLE transactions ADD COLUMN created_by_user TEXT",
+                      (e) => {
+                        if (e) rej(e);
+                        else { console.log("✅ Added created_by_user column to transactions"); res(); }
+                      }
+                    );
+                  });
+
+              addProductUnitIds
+                .then(() => addCreatedByUser)
+                .then(() => ensureAuthAndAuditTables())
+                .then(loadSeeds)
+                .catch((e) => {
+                  console.error("❌ Migration failed:", e.message);
+                  reject(e);
+                });
             });
           })
           .catch((e) => {
@@ -122,6 +140,88 @@ function initDatabase() {
             reject(e);
           });
       });
+
+      function ensureAuthAndAuditTables() {
+        return new Promise((res, rej) => {
+          // Create users table if not exists
+          db.run(
+            `CREATE TABLE IF NOT EXISTS users (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              username TEXT NOT NULL UNIQUE,
+              password_hash TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`,
+            (e1) => {
+              if (e1) {
+                rej(e1);
+                return;
+              }
+              console.log("✅ Users table ready");
+
+              // Create audit_logs table if not exists
+              db.run(
+                `CREATE TABLE IF NOT EXISTS audit_logs (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER NOT NULL,
+                  action TEXT NOT NULL CHECK(action IN ('CREATE', 'UPDATE', 'DELETE')),
+                  resource_type TEXT NOT NULL,
+                  resource_id INTEGER NOT NULL,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  FOREIGN KEY (user_id) REFERENCES users(id)
+                )`,
+                (e2) => {
+                  if (e2) {
+                    rej(e2);
+                    return;
+                  }
+                  console.log("✅ Audit logs table ready");
+
+                  // Add created_by_user to batches if needed
+                  db.all("PRAGMA table_info(batches)", (err, batchColumns) => {
+                    if (err) {
+                      rej(err);
+                      return;
+                    }
+                    const hasCreatedByUser = batchColumns.some((c) => c.name === "created_by_user");
+                    if (hasCreatedByUser) {
+                      checkShipments();
+                    } else {
+                      db.run(
+                        "ALTER TABLE batches ADD COLUMN created_by_user TEXT",
+                        (e) => {
+                          if (e) rej(e);
+                          else { console.log("✅ Added created_by_user to batches"); checkShipments(); }
+                        }
+                      );
+                    }
+                  });
+                }
+              );
+            }
+          );
+
+          function checkShipments() {
+            db.all("PRAGMA table_info(shipments)", (err, shipColumns) => {
+              if (err) {
+                rej(err);
+                return;
+              }
+              const hasCreatedByUser = shipColumns.some((c) => c.name === "created_by_user");
+              if (hasCreatedByUser) {
+                res();
+              } else {
+                db.run(
+                  "ALTER TABLE shipments ADD COLUMN created_by_user TEXT",
+                  (e) => {
+                    if (e) rej(e);
+                    else { console.log("✅ Added created_by_user to shipments"); res(); }
+                  }
+                );
+              }
+            });
+          }
+        });
+      }
 
       function loadSeeds() {
         const seeds = fs.readFileSync(SEEDS_PATH, "utf8");
@@ -132,7 +232,47 @@ function initDatabase() {
             return;
           }
           console.log("✅ Seed data loaded");
-          resolve(db);
+          createDefaultUserIfNotExists();
+        });
+      }
+
+      function createDefaultUserIfNotExists() {
+        // Check if default user already exists
+        db.all("SELECT id FROM users WHERE username = 'eric' LIMIT 1", (checkErr, rows) => {
+          if (checkErr) {
+            console.error("❌ Failed to check for default user:", checkErr.message);
+            resolve(db);
+            return;
+          }
+
+          if (rows && rows.length > 0) {
+            console.log("✅ Default user 'eric' already exists");
+            resolve(db);
+            return;
+          }
+
+          // Create default user with bcrypt
+          const bcrypt = require("bcrypt");
+          bcrypt.hash("password", 10, (hashErr, passwordHash) => {
+            if (hashErr) {
+              console.error("❌ Failed to hash password:", hashErr.message);
+              resolve(db);
+              return;
+            }
+
+            db.run(
+              "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+              ["eric", passwordHash],
+              function (insertErr) {
+                if (insertErr) {
+                  console.error("❌ Failed to create default user:", insertErr.message);
+                } else {
+                  console.log("✅ Default user 'eric' created (password: 'password')");
+                }
+                resolve(db);
+              }
+            );
+          });
         });
       }
     });

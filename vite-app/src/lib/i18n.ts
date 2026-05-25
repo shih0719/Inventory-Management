@@ -1,6 +1,6 @@
 // src/lib/i18n.ts — labels + tag-name translation.
 
-export type Lang = 'en' | 'zh';
+export type Lang = 'en' | 'zh' | 'ja';
 
 export const L = {
   en: {
@@ -212,6 +212,109 @@ export const L = {
     products: '產品',
     noProducts: '此位置沒有產品',
     removeProduct: '移除',
+  },
+  ja: {
+    appName: '在庫管理室',
+    search: 'SKU、名前、型番で検索…',
+    inbound: '+ 入荷',
+    outbound: '+ 出荷',
+
+    kProducts: '商品数',
+    kLowStock: '在庫不足',
+    kToday: '本日の異動',
+    kApStock: 'AP在庫',
+
+    apOf: 'AP',
+    units: '個',
+    inboundN: '入',
+    outboundN: '出',
+
+    lowStockTitle: '在庫不足',
+    lowStockHint: '行をタップして在庫を調整',
+    recentTitle: '最近の異動',
+    recentHint: '新しい順 · すべてのタグ',
+
+    onHand: '現在在庫',
+    accountable: '会計対象',
+    nonAccountable: '会計対象外',
+    acctShort: '対象',
+    nonAcctShort: '非対象',
+    min: '最小',
+    apInStock: 'AP在庫',
+    out: '欠品',
+    low: '低水準',
+    ok: '正常',
+    status: 'ステータス',
+
+    adjustTitle: '在庫調整',
+    adjustQty: '数量変更',
+    adjustHint: '正数 = 入荷 · 負数 = 出荷',
+    quantityType: '数量タイプ',
+    tag: 'タグ',
+    location: '場所(オプション)',
+    remarks: '備考',
+    remarksPh: 'オプションのメモ',
+    cancel: 'キャンセル',
+    save: '異動を保存',
+    none: '— なし —',
+
+    batchInTitle: '新規入荷バッチ',
+    batchOutTitle: '新規出荷バッチ',
+    batchName: 'バッチ名(オプション)',
+    batchNamePh: '例: 5/22 入荷',
+    batchLines: '品目',
+    addLine: '+ 品目を追加',
+    product: '商品',
+    qty: '数量',
+    type: 'タイプ',
+    submit: 'バッチを送信',
+    saveDraft: 'キャンセル',
+    back: '← 戻る',
+    total: '合計',
+    lines: '件',
+    summary: '要約',
+
+    txSaved: '異動を保存しました',
+    batchSaved: 'バッチが完了しました',
+    of: '/',
+    valid: '有効な行',
+    invalidQty: '数量は 0 にすることはできません。',
+    stockShort: 'この数量では在庫がマイナスになります — 数量を調整するか複数行に分割してください。',
+
+    inboundLbl: '入荷',
+    outboundLbl: '出荷',
+    adjustLbl: '調整',
+    returnLbl: '返品',
+    internalLbl: '内部',
+
+    apNoteForBatch: 'AP商品 · APパネルで管理',
+    apNote: 'AP品 · 型番は個別に追跡',
+
+    today: '今日',
+    yesterday: '昨日',
+
+    importCsv: 'CSVをインポート',
+    exportCsv: 'CSVをエクスポート',
+    importMissing: '不足している列',
+    importDone: 'インポート完了',
+    rows: '行',
+    updated: '更新',
+    added: '追加',
+    exported: 'エクスポート完了',
+
+    loading: '読み込み中…',
+    loadFailed: '読み込み失敗',
+    retry: '再試行',
+
+    locations: 'ロケーション管理',
+    locationTag: 'ロケーションタグ',
+    locationName: 'ロケーション名',
+    createLocation: '+ 新規ロケーション',
+    noLocations: 'ロケーションはまだありません',
+    addLocation: 'ロケーションを追加',
+    products: '商品',
+    noProducts: 'このロケーションに商品がありません',
+    removeProduct: '削除',
   },
 } as const;
 

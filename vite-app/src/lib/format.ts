@@ -14,9 +14,13 @@ export function fmtTime(iso: string, lang: Lang): string {
   })();
   const hm = d.toTimeString().slice(0, 5);
   if (same) return hm;
-  if (yest) return (lang === 'zh' ? '昨' : 'yest') + ' ' + hm;
+  if (yest) {
+    const yestLabel = lang === 'zh' ? '昨' : lang === 'ja' ? '昨' : 'yest';
+    return yestLabel + ' ' + hm;
+  }
   const diffDays = Math.round((now.getTime() - d.getTime()) / 86400000);
-  return diffDays + (lang === 'zh' ? ' 天前' : 'd ago');
+  const agoLabel = lang === 'zh' ? ' 天前' : lang === 'ja' ? '日前' : 'd ago';
+  return diffDays + agoLabel;
 }
 
 export function isToday(iso: string): boolean {

@@ -16,6 +16,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 // Import routes
+const authRoutes = require("./src/routes/auth");
+const auditRoutes = require("./src/routes/audit");
 const productsRoutes = require("./src/routes/products");
 const transactionsRoutes = require("./src/routes/transactions");
 const tagsRoutes = require("./src/routes/tags");
@@ -35,6 +37,8 @@ const updateService = require("./src/services/updateService");
 const { startBackupDaemon } = require("./src/services/backupService");
 
 // API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/audit-logs", auditRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/transactions", transactionsRoutes);
 app.use("/api/tags", tagsRoutes);

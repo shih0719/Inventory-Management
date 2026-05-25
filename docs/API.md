@@ -5,22 +5,144 @@
 
 本文檔列舉所有 API 端點，包括 HTTP 方法、參數、回應格式與範例。
 
+## 🔐 Authentication
+
+Most API endpoints require JWT authentication. Include token in `Authorization` header:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+**Exceptions (no auth required):**
+- `POST /api/auth/login`
+- `GET /api/health`
+- `GET /api/info`
+
 ---
 
 ## 📋 目錄
 
-1. [Products](#products-產品管理)
-2. [Transactions](#transactions-庫存異動)
-3. [Tags](#tags-標籤管理)
-4. [Batches](#batches-批次管理)
-5. [Shipments](#shipments-出貨單據)
-6. [Locations](#locations-倉庫位置)
-7. [Product Units](#product-units-序號品)
-8. [CSV](#csv-批量導入導出)
-9. [Webhooks](#webhooks-webhook-訂閱)
-10. [System](#system-系統管理)
-11. [Updates](#updates-更新管理)
-12. [Health & Info](#health--info-健康檢查)
+1. [Authentication](#authentication-認証)
+2. [Audit Logs](#audit-logs-審計日誌)
+3. [Products](#products-產品管理)
+4. [Transactions](#transactions-庫存異動)
+5. [Tags](#tags-標籤管理)
+6. [Batches](#batches-批次管理)
+7. [Shipments](#shipments-出貨單據)
+8. [Locations](#locations-倉庫位置)
+9. [Product Units](#product-units-序號品)
+10. [CSV](#csv-批量導入導出)
+11. [Webhooks](#webhooks-webhook-訂閱)
+12. [System](#system-系統管理)
+13. [Updates](#updates-更新管理)
+14. [Health & Info](#health--info-健康檢查)
+
+---
+
+## Authentication 認証
+
+### POST /api/auth/login
+
+Login with username and password to get JWT token.
+
+**Request Body:**
+```json
+{
+  "username": "eric",
+  "password": "password"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 1,
+      "username": "eric",
+      "created_at": "2026-05-25T10:00:00Z"
+    }
+  }
+}
+```
+
+**Error (401 - 認証失敗):**
+```json
+{
+  "success": false,
+  "error": "Invalid username or password"
+}
+```
+
+---
+
+### POST /api/auth/logout
+
+Logout (stateless JWT - no token blacklist needed).
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+## Audit Logs 審計日誌
+
+### GET /api/audit-logs
+
+查詢所有審計日誌（誰在何時做了什麼操作）。
+
+**Query Parameters:**
+| 參數 | 型態 | 必填 | 說明 |
+|------|------|------|------|
+| `resource_type` | string | N | 篩選資源類型（`transaction`, `batch`, `shipment`） |
+| `resource_id` | integer | N | 篩選特定資源 ID |
+| `user_id` | integer | N | 篩選特定用戶 |
+| `limit` | integer | N | 回傳筆數（預設: 50） |
+| `offset` | integer | N | 偏移量（預設: 0） |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "username": "eric",
+      "action": "CREATE",
+      "resource_type": "transaction",
+      "resource_id": 101,
+      "timestamp": "2026-05-25T10:05:30Z"
+    },
+    {
+      "id": 2,
+      "user_id": 1,
+      "username": "eric",
+      "action": "CREATE",
+      "resource_type": "batch",
+      "resource_id": 5,
+      "timestamp": "2026-05-25T10:10:15Z"
+    }
+  ],
+  "pagination": {
+    "total": 100,
+    "offset": 0,
+    "limit": 50
+  }
+}
+```
+
+**Notes:**
+- 需要有效的 JWT token
+- 記錄所有 POST/PUT/DELETE 操作
+- 讀取操作（GET）不被記錄
 
 ---
 
@@ -113,6 +235,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ### POST /api/products
 
 建立新產品。
+
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`
 
 **Request Body:**
 ```json
@@ -349,6 +473,9 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 建立新的庫存異動記錄。
 
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`  
+**Note:** `created_by_user` is automatically captured from the authenticated user.
+
 **Request Body:**
 ```json
 {
@@ -485,6 +612,9 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 建立批次並執行多筆異動。
 
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`  
+**Note:** `created_by_user` is automatically captured from the authenticated user for both batch and transactions.
+
 **Request Body:**
 ```json
 {
@@ -559,6 +689,9 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ### POST /api/shipments
 
 建立新的出貨單據。
+
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`  
+**Note:** `created_by_user` is automatically captured from the authenticated user.
 
 **Request Body:**
 ```json
@@ -746,6 +879,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 
 修改出貨單據（完全替換 Transactions 和業務欄位）。
 
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`
+
 **Request Body:**
 ```json
 {
@@ -799,6 +934,8 @@ curl "http://localhost:3000/api/products?page=1&limit=10&low_stock=true"
 ### DELETE /api/shipments/:id
 
 軟刪除出貨單據（不刪除關聯的 Transactions，僅解除關聯）。
+
+⚠️ **Requires Authentication** — `Authorization: Bearer <token>`
 
 **Response (200):**
 ```json

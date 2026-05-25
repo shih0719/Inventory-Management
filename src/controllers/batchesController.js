@@ -1,6 +1,7 @@
 const db = require("../config/database");
 const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
+const auditService = require("../services/auditService");
 
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
@@ -96,23 +97,41 @@ async function createBatch(req, res) {
     await db.run("BEGIN TRANSACTION");
 
     try {
+      const createdByUser = req.user?.username || "unknown";
       const batchResult = await db.run(
-        "INSERT INTO batches (batch_number, description) VALUES (?, ?)",
-        [batchNumber, description || ""],
+        "INSERT INTO batches (batch_number, description, created_by_user) VALUES (?, ?, ?)",
+        [batchNumber, description || "", createdByUser],
       );
       const batchId = batchResult.id;
 
+      // Log batch creation
+      auditService.logAction(
+        req.user?.id,
+        "CREATE",
+        "batch",
+        batchId
+      );
+
       for (const item of validatedItems) {
-        await db.run(
-          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks)
-           VALUES (?, ?, ?, ?, ?)`,
+        const txResult = await db.run(
+          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks, created_by_user)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           [
             item.product_id,
             tag_id,
             batchId,
             item.quantity_change,
             `[${item.quantity_type === "accountable" ? "有帳" : "無帳"}] ${item.remarks}`,
+            createdByUser,
           ],
+        );
+
+        // Log transaction creation
+        auditService.logAction(
+          req.user?.id,
+          "CREATE",
+          "transaction",
+          txResult.id
         );
 
         await db.run(

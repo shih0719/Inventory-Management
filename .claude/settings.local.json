@@ -75,7 +75,17 @@
       "Bash(taskkill /PID 7780 /F)",
       "Bash(pm2 restart *)",
       "Bash(curl -s http://localhost:3030/api/system/health)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"eric\",\"password\":\"password\"}')",
+      "Bash(rm -f ./database/inventory.db*)",
+      "Bash(npm start *)",
+      "Bash(pkill -9 node)",
+      "Bash(curl -s -X POST http://localhost:3030/api/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"eric\",\"password\":\"password\"}')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X POST http://localhost:3030/api/products -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -X POST http://localhost:3030/api/transactions -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJlcmljIiwiaWF0IjoxNzc5NzE4MDYyLCJleHAiOjE3Nzk4MDQ0NjJ9.u1JhwOg-UT0vMr-AH5fecPBSW0u60vOQLIxOKIn4wZc' -d '{ *)",
+      "Bash(curl -s http://localhost:3030/api/audit-logs -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJlcmljIiwiaWF0IjoxNzc5NzE4MDYyLCJleHAiOjE3Nzk4MDQ0NjJ9.u1JhwOg-UT0vMr-AH5fecPBSW0u60vOQLIxOKIn4wZc')",
+      "Bash(curl -s -X POST http://localhost:3030/api/transactions -H 'Content-Type: application/json' -d '{ *)"
     ]
   }
 }

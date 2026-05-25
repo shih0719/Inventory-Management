@@ -1,6 +1,7 @@
 const db = require("../config/database");
 const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
+const auditService = require("../services/auditService");
 
 // Create new transaction and update product quantity
 async function create(req, res) {
@@ -68,10 +69,11 @@ async function create(req, res) {
     await db.run("BEGIN TRANSACTION");
 
     try {
-      // Insert transaction record
+      // Insert transaction record with created_by_user
+      const createdByUser = req.user?.username || "unknown";
       const result = await db.run(
-        `INSERT INTO transactions (product_id, tag_id, quantity_change, remarks) 
-                 VALUES (?, ?, ?, ?)`,
+        `INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, created_by_user)
+                 VALUES (?, ?, ?, ?, ?)`,
         [
           product_id,
           tag_id,
@@ -79,7 +81,16 @@ async function create(req, res) {
           `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
             remarks || ""
           }`,
+          createdByUser,
         ],
+      );
+
+      // Log audit action
+      auditService.logAction(
+        req.user?.id,
+        "CREATE",
+        "transaction",
+        result.id
       );
 
       // Update product quantity

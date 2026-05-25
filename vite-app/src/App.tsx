@@ -125,7 +125,8 @@ export function App() {
 
   // Update <html lang> when language changes
   useEffect(() => {
-    document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+    const langMap = { en: 'en', zh: 'zh-Hant', ja: 'ja' };
+    document.documentElement.lang = langMap[lang];
     document.body.dataset.lang = lang;
   }, [lang]);
 
@@ -223,7 +224,7 @@ export function App() {
                 ...prev,
               ]);
               void refetchProducts();
-              showToast(lang === 'en' ? 'Reversed' : '已復原');
+              showToast(lang === 'en' ? 'Reversed' : lang === 'zh' ? '已復原' : '取り消されました');
             } catch (err) {
               showToast(`❌ ${(err as Error).message}`, { kind: 'alert', duration: 6000 });
             }
@@ -251,7 +252,8 @@ export function App() {
       if (err instanceof ApiError && err.body && typeof err.body === 'object') {
         const body = err.body as any;
         if (body?.data?.failed) {
-          detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : '失敗'})`;
+          detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : lang === 'zh' ? '失敗' : '失敗'})`;
+
         }
       }
       showToast(`❌ ${message}${detail}`, { kind: 'alert', duration: 6000 });
@@ -280,7 +282,7 @@ export function App() {
     document.body.appendChild(a);
     a.click();
     setTimeout(() => a.remove(), 500);
-    showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : '項'}`);
+    showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang === 'zh' ? '項' : '製品'}`);
   };
 
   const handleImportClick = () => {
@@ -349,17 +351,17 @@ export function App() {
       <div className="tb-divider" />
 
       <Dropdown
-        trigger={lang === 'en' ? 'Manage' : '管理'}
+        trigger={lang === 'en' ? 'Manage' : lang === 'zh' ? '管理' : '管理'}
         disabled={bootState !== 'ready'}
       >
         <DropdownItem onClick={() => setView({ kind: 'locations' })} disabled={bootState !== 'ready'}>
           📍 {t.locations}
         </DropdownItem>
         <DropdownItem onClick={() => setView({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
-          🏷 {lang === 'en' ? 'AP Products' : 'AP 序號品'}
+          🏷 {lang === 'en' ? 'AP Products' : lang === 'zh' ? 'AP 序號品' : 'AP商品'}
         </DropdownItem>
         <DropdownItem onClick={() => setView({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
-          📦 {lang === 'en' ? 'Shipments' : '出貨單據'}
+          📦 {lang === 'en' ? 'Shipments' : lang === 'zh' ? '出貨單據' : '配送'}
         </DropdownItem>
       </Dropdown>
 
@@ -389,6 +391,9 @@ export function App() {
         </button>
         <button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>
           中
+        </button>
+        <button className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')}>
+          日
         </button>
       </div>
 
