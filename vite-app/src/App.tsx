@@ -20,20 +20,25 @@ import { createBatch } from './api/batches';
 import { listTags } from './api/tags';
 import { listLocations } from './api/locations';
 import { importProductsCsv, exportProductsCsvUrl } from './api/csv';
-import { ApiError } from './api/client';
+import { ApiError, getToken } from './api/client';
+import { logout, type User } from './api/auth';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
 import { LocationsPage } from './components/LocationsPage';
 import { APProductsPage } from './components/APProductsPage';
 import { ShipmentsPage } from './components/ShipmentsPage';
+import { AuditLogsPage } from './components/AuditLogsPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { Dropdown, DropdownItem } from './components/Dropdown';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
 import { ProductPickerModal } from './components/modals/ProductPickerModal';
 import { APProductModal } from './components/modals/APProductModal';
 import { TransactionDetailModal } from './components/modals/TransactionDetailModal';
+import { BatchDetailModal } from './components/modals/BatchDetailModal';
+import { ShipmentDetailModal } from './components/modals/ShipmentDetailModal';
 import { Toast, type ToastState } from './components/Toast';
+import { LoginPage } from './components/LoginPage';
 
 // ---- recent SKU memory (localStorage) -------------------------------------
 
@@ -58,19 +63,24 @@ type View =
   | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
   | { kind: 'locations' }
   | { kind: 'ap-products' }
-  | { kind: 'shipments' };
+  | { kind: 'shipments' }
+  | { kind: 'audit-logs' };
 
 type Modal =
   | null
   | { kind: 'adjust'; product: Product }
   | { kind: 'picker'; onPick: (p: Product) => void }
   | { kind: 'ap-product'; product: Product }
-  | { kind: 'transaction-detail'; transactionId: number };
+  | { kind: 'transaction-detail'; transactionId: number }
+  | { kind: 'batch-detail'; batchId: number }
+  | { kind: 'shipment-detail'; shipmentId: number };
 
 // ---- App ------------------------------------------------------------------
 
 export function App() {
   const [lang, setLang] = useState<Lang>('en');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -269,6 +279,18 @@ export function App() {
     setModal({ kind: 'adjust', product });
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      setBootState('loading');
+    }
+  };
+
   // ---- CSV import / export ----------------------------------------------
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -363,6 +385,9 @@ export function App() {
         <DropdownItem onClick={() => setView({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
           📦 {lang === 'en' ? 'Shipments' : lang === 'zh' ? '出貨單據' : '配送'}
         </DropdownItem>
+        <DropdownItem onClick={() => setView({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
+          📋 {lang === 'en' ? 'Audit Logs' : lang === 'zh' ? '操作日誌' : '操作ログ'}
+        </DropdownItem>
       </Dropdown>
 
       <div className="tb-divider" />
@@ -397,11 +422,22 @@ export function App() {
         </button>
       </div>
 
-      <div className="avatar">A</div>
+      <Dropdown trigger={currentUser?.username?.[0]?.toUpperCase() || 'A'}>
+        <DropdownItem disabled>{currentUser?.username}</DropdownItem>
+        <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang === 'zh' ? '登出' : 'ログアウト'}</DropdownItem>
+      </Dropdown>
     </div>
   );
 
   // ---- Render -----------------------------------------------------------
+
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={(user) => {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      void loadAll();
+    }} lang={lang} />;
+  }
 
   if (bootState === 'loading') {
     return (
@@ -490,6 +526,28 @@ export function App() {
           onBack={() => setView({ kind: 'dashboard' })}
         />
       )}
+      {view.kind === 'audit-logs' && (
+        <AuditLogsPage
+          lang={lang}
+          onBack={() => setView({ kind: 'dashboard' })}
+          onResourceClick={(resourceType, resourceId) => {
+            if (resourceType === 'transaction') {
+              setModal({ kind: 'transaction-detail', transactionId: resourceId });
+            } else if (resourceType === 'batch') {
+              setModal({ kind: 'batch-detail', batchId: resourceId });
+            } else if (resourceType === 'shipment') {
+              setModal({ kind: 'shipment-detail', shipmentId: resourceId });
+            } else if (resourceType === 'product') {
+              const product = products.find((p) => p.id === resourceId);
+              if (product) {
+                setModal({ kind: 'adjust', product });
+              } else {
+                showToast(`${lang === 'en' ? 'Product not found' : lang === 'zh' ? '產品未找到' : '製品が見つかりません'}`, { kind: 'alert' });
+              }
+            }
+          }}
+        />
+      )}
 
       {modal && modal.kind === 'adjust' && (
         <AdjustStockModal
@@ -524,6 +582,20 @@ export function App() {
       {modal && modal.kind === 'transaction-detail' && (
         <TransactionDetailModal
           transactionId={modal.transactionId}
+          lang={lang}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal && modal.kind === 'batch-detail' && (
+        <BatchDetailModal
+          batchId={modal.batchId}
+          lang={lang}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal && modal.kind === 'shipment-detail' && (
+        <ShipmentDetailModal
+          shipmentId={modal.shipmentId}
           lang={lang}
           onClose={() => setModal(null)}
         />

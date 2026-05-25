@@ -1,0 +1,211 @@
+// src/components/LoginPage.tsx
+import { useState } from 'react';
+import { login } from '../api/auth';
+import { ApiError } from '../api/client';
+import type { User } from '../api/auth';
+
+interface LoginPageProps {
+  onLoginSuccess: (user: User) => void;
+  lang: 'en' | 'zh' | 'ja';
+}
+
+const texts = {
+  en: {
+    title: 'Inventory Management',
+    username: 'Username',
+    password: 'Password',
+    login: 'Login',
+    loginError: 'Login failed',
+    loginErrorDetail: 'Invalid username or password',
+    loading: 'Logging in...',
+  },
+  zh: {
+    title: '庫存管理',
+    username: '使用者名稱',
+    password: '密碼',
+    login: '登入',
+    loginError: '登入失敗',
+    loginErrorDetail: '使用者名稱或密碼不正確',
+    loading: '登入中...',
+  },
+  ja: {
+    title: 'インベントリ管理',
+    username: 'ユーザー名',
+    password: 'パスワード',
+    login: 'ログイン',
+    loginError: 'ログイン失敗',
+    loginErrorDetail: 'ユーザー名またはパスワードが正しくありません',
+    loading: 'ログイン中...',
+  },
+};
+
+export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const t = texts[lang];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const user = await login({ username, password });
+      onLoginSuccess(user);
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : (err as Error).message;
+      setError(message || t.loginErrorDetail);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-header">
+          <div className="logo-large">S</div>
+          <h1>{t.title}</h1>
+        </div>
+
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="username">{t.username}</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              placeholder="eric"
+              required
+              autoFocus
+              autoComplete="username"
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">{t.password}</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              placeholder="password123"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+
+          {error && <div className="form-error">{error}</div>}
+
+          <button type="submit" disabled={loading} className="btn-lg">
+            {loading ? t.loading : t.login}
+          </button>
+        </form>
+      </div>
+
+      <style>{`
+        .login-page {
+          width: 100vw;
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 100%);
+        }
+
+        .login-container {
+          width: 100%;
+          max-width: 360px;
+          padding: 0 20px;
+        }
+
+        .login-header {
+          text-align: center;
+          margin-bottom: 32px;
+        }
+
+        .logo-large {
+          font-size: 48px;
+          font-weight: 700;
+          color: var(--accent);
+          margin-bottom: 12px;
+          display: inline-block;
+          width: 60px;
+          height: 60px;
+          line-height: 60px;
+          background: var(--bg-1);
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-header h1 {
+          font-size: 24px;
+          font-weight: 600;
+          color: var(--ink-0);
+          margin: 0;
+        }
+
+        .login-form {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          background: white;
+          padding: 24px;
+          border-radius: 8px;
+          box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .form-group label {
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--ink-2);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .form-group input {
+          padding: 10px 12px;
+          font-size: 14px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: white;
+          color: var(--ink-0);
+          font-family: inherit;
+          transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-group input:disabled {
+          background: var(--bg-0);
+          color: var(--ink-2);
+          cursor: not-allowed;
+        }
+
+        .form-error {
+          padding: 8px 12px;
+          font-size: 13px;
+          color: #d32f2f;
+          background: #ffebee;
+          border-radius: 4px;
+          border-left: 3px solid #d32f2f;
+        }
+      `}</style>
+    </div>
+  );
+}

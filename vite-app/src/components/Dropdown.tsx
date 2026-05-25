@@ -58,7 +58,7 @@ export function Dropdown({ trigger, children, disabled = false }: DropdownProps)
 }
 
 export interface DropdownItemProps {
-  onClick: () => void;
+  onClick?: () => void;
   children: React.ReactNode;
   disabled?: boolean;
 }
@@ -66,7 +66,7 @@ export interface DropdownItemProps {
 export function DropdownItem({ onClick, children, disabled = false }: DropdownItemProps) {
   return (
     <button
-      onClick={onClick}
+      onClick={() => onClick?.()}
       disabled={disabled}
       style={{
         display: 'block',

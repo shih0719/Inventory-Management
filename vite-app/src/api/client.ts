@@ -23,6 +23,33 @@ export class ApiError extends Error {
  */
 const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
+// Token storage
+const TOKEN_KEY = 'inv.token';
+
+export function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    /* storage error — ignored */
+  }
+}
+
+export function clearToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    /* storage error — ignored */
+  }
+}
+
 interface RequestOpts extends Omit<RequestInit, 'body'> {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
@@ -42,11 +69,13 @@ function buildUrl(path: string, query?: RequestOpts['query']): string {
 
 async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data: T; pagination?: Pagination }> {
   const { body, query, headers, ...rest } = opts;
+  const token = getToken();
   const init: RequestInit = {
     ...rest,
     headers: {
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(headers || {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
