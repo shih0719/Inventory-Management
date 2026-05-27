@@ -148,6 +148,22 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_subscription_id ON webhook_logs(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
 
+-- CSV Imports Audit Table
+CREATE TABLE IF NOT EXISTS csv_imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_by_user TEXT,
+    imported_count INTEGER NOT NULL DEFAULT 0,
+    updated_count INTEGER NOT NULL DEFAULT 0,
+    error_count INTEGER NOT NULL DEFAULT 0,
+    file_name TEXT,
+    encoding TEXT,
+    details TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_csv_imports_created_at ON csv_imports(created_at);
+CREATE INDEX IF NOT EXISTS idx_csv_imports_created_by_user ON csv_imports(created_by_user);
+
 -- Shipments Table (出貨單據)
 CREATE TABLE IF NOT EXISTS shipments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -38,5 +38,7 @@ const upload = multer({
 router.post("/import", upload.single("file"), csvController.importCSV);
 router.get("/export", csvController.exportCSV);
 router.get("/template", csvController.downloadTemplate);
+router.get("/imports", csvController.getImportHistory);
+router.get("/imports/:importId", csvController.getImportDetail);
 
 module.exports = router;
