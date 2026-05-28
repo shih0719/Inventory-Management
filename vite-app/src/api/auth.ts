@@ -44,3 +44,8 @@ export async function changePassword(currentPassword: string, newPassword: strin
     new_password: newPassword,
   });
 }
+
+export async function getCurrentUser(): Promise<User> {
+  const { data } = await api.get<User>('/api/auth/me');
+  return data;
+}

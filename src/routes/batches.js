@@ -4,7 +4,7 @@ const batchesController = require("../controllers/batchesController");
 const { verifyAuth } = require("../middleware/authMiddleware");
 
 router.post("/", verifyAuth, batchesController.createBatch);
-router.get("/", batchesController.getAllBatches);
-router.get("/:id", batchesController.getBatchById);
+router.get("/", verifyAuth, batchesController.getAllBatches);
+router.get("/:id", verifyAuth, batchesController.getBatchById);
 
 module.exports = router;

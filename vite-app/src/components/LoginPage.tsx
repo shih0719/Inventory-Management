@@ -18,6 +18,7 @@ const texts = {
     loginError: 'Login failed',
     loginErrorDetail: 'Invalid username or password',
     loading: 'Logging in...',
+    guestInventory: 'View Product Count',
   },
   zh: {
     title: '庫存管理',
@@ -27,6 +28,7 @@ const texts = {
     loginError: '登入失敗',
     loginErrorDetail: '使用者名稱或密碼不正確',
     loading: '登入中...',
+    guestInventory: '不登入查看產品數量',
   },
   ja: {
     title: 'インベントリ管理',
@@ -36,6 +38,7 @@ const texts = {
     loginError: 'ログイン失敗',
     loginErrorDetail: 'ユーザー名またはパスワードが正しくありません',
     loading: 'ログイン中...',
+    guestInventory: 'ログインなしで製品数を表示',
   },
 };
 
@@ -69,6 +72,10 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           <div className="logo-large">S</div>
           <h1>{t.title}</h1>
         </div>
+
+        <a href="/inventory" className="btn-guest">
+          {t.guestInventory}
+        </a>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -116,35 +123,39 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           align-items: center;
           justify-content: center;
           background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 100%);
+          position: fixed;
+          top: 0;
+          left: 0;
+          overflow: hidden;
         }
 
         .login-container {
           width: 100%;
-          max-width: 360px;
-          padding: 0 20px;
+          max-width: 320px;
+          padding: 0 16px;
         }
 
         .login-header {
           text-align: center;
-          margin-bottom: 32px;
+          margin-bottom: 20px;
         }
 
         .logo-large {
-          font-size: 48px;
+          font-size: 36px;
           font-weight: 700;
           color: var(--accent);
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           display: inline-block;
-          width: 60px;
-          height: 60px;
-          line-height: 60px;
+          width: 48px;
+          height: 48px;
+          line-height: 48px;
           background: var(--bg-1);
           border-radius: 8px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .login-header h1 {
-          font-size: 24px;
+          font-size: 20px;
           font-weight: 600;
           color: var(--ink-0);
           margin: 0;
@@ -153,9 +164,9 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
           background: white;
-          padding: 24px;
+          padding: 16px;
           border-radius: 8px;
           box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
         }
@@ -163,7 +174,7 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
         .form-group {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
         }
 
         .form-group label {
@@ -175,8 +186,8 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
         }
 
         .form-group input {
-          padding: 10px 12px;
-          font-size: 14px;
+          padding: 8px 10px;
+          font-size: 13px;
           border: 1px solid var(--border);
           border-radius: 4px;
           background: white;
@@ -204,6 +215,32 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           background: #ffebee;
           border-radius: 4px;
           border-left: 3px solid #d32f2f;
+        }
+
+        .btn-guest {
+          display: block;
+          text-align: center;
+          padding: 8px 12px;
+          font-size: 13px;
+          background: white;
+          color: var(--accent);
+          border: 1px solid var(--accent);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-weight: 500;
+          text-decoration: none;
+          margin-bottom: 12px;
+        }
+
+        .btn-guest:hover {
+          background: var(--accent);
+          color: white;
+        }
+
+        .login-form .btn-lg {
+          padding: 8px 16px;
+          font-size: 13px;
         }
       `}</style>
     </div>

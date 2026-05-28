@@ -7,7 +7,7 @@ const { initDatabase } = require("./src/config/database");
 const logger = require("./src/config/logger");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3030;
 
 // Middleware
 app.use(cors());

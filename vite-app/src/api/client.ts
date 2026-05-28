@@ -26,6 +26,9 @@ const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 // Token storage
 const TOKEN_KEY = 'inv.token';
 
+// Token change listeners
+const tokenListeners = new Set<(token: string | null) => void>();
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -37,6 +40,7 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
+    notifyTokenListeners(token);
   } catch {
     /* storage error — ignored */
   }
@@ -45,9 +49,30 @@ export function setToken(token: string): void {
 export function clearToken(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    notifyTokenListeners(null);
   } catch {
     /* storage error — ignored */
   }
+}
+
+function notifyTokenListeners(token: string | null): void {
+  tokenListeners.forEach((listener) => listener(token));
+}
+
+export function onTokenChange(listener: (token: string | null) => void): () => void {
+  tokenListeners.add(listener);
+  // Listen to storage events from other tabs
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === TOKEN_KEY) {
+      listener(e.newValue);
+    }
+  };
+  window.addEventListener('storage', handleStorageChange);
+  // Return unsubscribe function
+  return () => {
+    tokenListeners.delete(listener);
+    window.removeEventListener('storage', handleStorageChange);
+  };
 }
 
 interface RequestOpts extends Omit<RequestInit, 'body'> {
@@ -138,3 +163,13 @@ export const api = {
   del: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
 };
+
+/** Raw fetch wrapper that automatically injects the auth token. Useful for file uploads, downloads, etc. */
+export async function fetchWithAuth(url: string, opts: RequestInit = {}): Promise<Response> {
+  const token = getToken();
+  const headers = new Headers(opts.headers);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, { ...opts, headers });
+}

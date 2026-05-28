@@ -19,8 +19,15 @@ if (!fs.existsSync(source)) {
 if (fs.existsSync(dest)) {
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
   const backup = `${dest}_backup_${timestamp}`;
-  fs.renameSync(dest, backup);
-  console.log(`✓ 已備份舊文件到: ${backup}`);
+  try {
+    fs.renameSync(dest, backup);
+    console.log(`✓ 已備份舊文件到: ${backup}`);
+  } catch (err) {
+    // 如果重命名失敗，嘗試直接刪除
+    console.log(`⚠ 無法備份，直接刪除舊文件...`);
+    fs.rmSync(dest, { recursive: true, force: true });
+    console.log(`✓ 已刪除舊文件`);
+  }
 }
 
 // 遞歸複製文件

@@ -60,6 +60,28 @@ async function logout(req, res) {
   }
 }
 
+/**
+ * GET /api/auth/me
+ * Get current user info from JWT token
+ */
+async function getCurrentUser(req, res) {
+  try {
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: req.user.id,
+        username: req.user.username,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Get current user error:", err.message);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to get current user",
+    });
+  }
+}
+
 async function changePassword(req, res) {
   try {
     const { current_password, new_password } = req.body;
@@ -95,5 +117,6 @@ async function changePassword(req, res) {
 module.exports = {
   login,
   logout,
+  getCurrentUser,
   changePassword,
 };

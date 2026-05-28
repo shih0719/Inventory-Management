@@ -184,6 +184,39 @@ HTML 片段存放於 `templates/` 目錄，按邏輯區域組織：
 
 ---
 
+## 認証與授權
+
+### 驗証策略
+系統採用 **JWT Bearer Token** 認証。所有 API 端點預設要求有效的 JWT token（透過 `Authorization: Bearer <token>` header），除非明確豁免。
+
+**豁免的端點**（無認証存取）：
+- `POST /api/auth/login` — 使用者登入
+- `POST /api/auth/logout` — 登出（無狀態，不檢查 token）
+- `GET /api/products` — 查詢所有商品清單（公開無認証查詢）
+- `GET /api/products/:id` — 查詢單個商品詳情（公開無認証查詢）
+
+**受保護的端點**（需要有效 JWT）：
+所有其他 API 端點，包括：
+- 所有修改操作（POST、PUT、DELETE）
+- 其他業務 API（locations、transactions、shipments、product-units、batches、webhooks、audit、CSV、system、updates 等）的所有讀寫操作
+
+### 公開查詢模式（Public Inventory View）
+出於外部利益相關者（客戶、廠商）查詢當前庫存的需求，系統提供兩種方式：
+
+**方式 1：靜態頁面（推薦）**
+- **URL**：`/inventory-view.html`
+- **特色**：簡潔的表格展示，自動每 30 秒刷新
+- **訪問**：無認証，可直接分享 URL 給客戶/廠商
+
+**方式 2：API 端點（供程式整合）**
+- `GET /api/products` — 查詢所有商品清單
+- `GET /api/products/:id` — 查詢單個商品詳情
+- **無認証存取**，可由外部系統或行動 App 調用
+
+**部署注意**：系統**不提供特殊的「公開鏈接」或 token**，僅透過網路可達性控制存取（例如防火牆、IP 白名單由部署層處理）。
+
+---
+
 ## 暫未納入範圍
 
 以下業務概念目前不在系統範圍內，未來若需擴充再評估是否新增 Tag 或專屬欄位：盤點、調撥、報廢。

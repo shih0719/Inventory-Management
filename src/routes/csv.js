@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { verifyAuth } = require("../middleware/authMiddleware");
 const csvController = require("../controllers/csvController");
 
 // Ensure uploads directory exists
@@ -35,9 +36,9 @@ const upload = multer({
   },
 });
 
-router.post("/import", upload.single("file"), csvController.importCSV);
-router.get("/export", csvController.exportCSV);
-router.get("/template", csvController.downloadTemplate);
+router.post("/import", verifyAuth, upload.single("file"), csvController.importCSV);
+router.get("/export", verifyAuth, csvController.exportCSV);
+router.get("/template", verifyAuth, csvController.downloadTemplate);
 router.get("/imports", csvController.getImportHistory);
 router.get("/imports/:importId", csvController.getImportDetail);
 

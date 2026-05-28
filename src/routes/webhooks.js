@@ -1,12 +1,13 @@
 const express = require("express");
 const router = express.Router();
+const { verifyAuth } = require("../middleware/authMiddleware");
 const webhooksController = require("../controllers/webhooksController");
 
-router.get("/", webhooksController.getAll);
-router.post("/", webhooksController.create);
-router.put("/:id", webhooksController.update);
-router.delete("/:id", webhooksController.remove);
-router.get("/:id/logs", webhooksController.getLogs);
-router.post("/:id/test", webhooksController.test);
+router.get("/", verifyAuth, webhooksController.getAll);
+router.post("/", verifyAuth, webhooksController.create);
+router.put("/:id", verifyAuth, webhooksController.update);
+router.delete("/:id", verifyAuth, webhooksController.remove);
+router.get("/:id/logs", verifyAuth, webhooksController.getLogs);
+router.post("/:id/test", verifyAuth, webhooksController.test);
 
 module.exports = router;
