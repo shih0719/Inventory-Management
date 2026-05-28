@@ -21,7 +21,7 @@ import { listTags } from './api/tags';
 import { listLocations } from './api/locations';
 import { importProductsCsv, exportProductsCsvUrl } from './api/csv';
 import { ApiError, getToken } from './api/client';
-import { logout, type User } from './api/auth';
+import { logout, getCurrentUser, type User } from './api/auth';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
@@ -125,6 +125,21 @@ export function App() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Restore current user info on page refresh (if logged in but currentUser is null)
+  useEffect(() => {
+    if (isAuthenticated && !currentUser) {
+      (async () => {
+        try {
+          const user = await getCurrentUser();
+          setCurrentUser(user);
+        } catch (err) {
+          // If getting current user fails, just continue without it
+          console.error('Failed to get current user:', err);
+        }
+      })();
+    }
+  }, [isAuthenticated, currentUser]);
 
   // Persist recents
   useEffect(() => {
@@ -289,7 +304,7 @@ export function App() {
     } finally {
       setIsAuthenticated(false);
       setCurrentUser(null);
-      setBootState('loading');
+      // Don't call loadAll() on logout — just go back to login
     }
   };
 

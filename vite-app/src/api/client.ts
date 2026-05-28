@@ -26,6 +26,9 @@ const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 // Token storage
 const TOKEN_KEY = 'inv.token';
 
+// Token change listeners
+const tokenListeners = new Set<(token: string | null) => void>();
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -37,6 +40,7 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
+    notifyTokenListeners(token);
   } catch {
     /* storage error — ignored */
   }
@@ -45,9 +49,30 @@ export function setToken(token: string): void {
 export function clearToken(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    notifyTokenListeners(null);
   } catch {
     /* storage error — ignored */
   }
+}
+
+function notifyTokenListeners(token: string | null): void {
+  tokenListeners.forEach((listener) => listener(token));
+}
+
+export function onTokenChange(listener: (token: string | null) => void): () => void {
+  tokenListeners.add(listener);
+  // Listen to storage events from other tabs
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === TOKEN_KEY) {
+      listener(e.newValue);
+    }
+  };
+  window.addEventListener('storage', handleStorageChange);
+  // Return unsubscribe function
+  return () => {
+    tokenListeners.delete(listener);
+    window.removeEventListener('storage', handleStorageChange);
+  };
 }
 
 interface RequestOpts extends Omit<RequestInit, 'body'> {

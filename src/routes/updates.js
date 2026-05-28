@@ -1,10 +1,11 @@
 // 更新管理路由
 const express = require('express');
 const updateService = require('../services/updateService');
+const { verifyAuth } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 // 獲取更新狀態
-router.get('/status', (req, res) => {
+router.get('/status', verifyAuth, (req, res) => {
   try {
     const status = updateService.getStatus();
     // 確保版本號存在且有效
@@ -19,7 +20,7 @@ router.get('/status', (req, res) => {
 });
 
 // 手動檢查更新
-router.post('/check', async (req, res) => {
+router.post('/check', verifyAuth, async (req, res) => {
   try {
     const status = await updateService.checkRemoteVersion();
     res.json(status);
@@ -29,7 +30,7 @@ router.post('/check', async (req, res) => {
 });
 
 // 執行更新
-router.post('/apply', async (req, res) => {
+router.post('/apply', verifyAuth, async (req, res) => {
   try {
     if (updateService.updateStatus.isUpdating) {
       return res.status(409).json({ error: '更新正在進行中' });

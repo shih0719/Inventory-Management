@@ -90,7 +90,10 @@
       "Bash(bash tests/api-test.sh)",
       "Bash(docker build *)",
       "Bash(curl -s http://localhost:3000/api/transactions?limit=1)",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "mcp__codegraph__codegraph_files",
+      "Bash(curl -s -X PUT http://localhost:3030/api/products/1 -H 'Content-Type: application/json' -d '{\"accountable_quantity\": 999}' -w '\\\\nStatus: %{http_code}\\\\n')",
+      "Bash(curl -s -X POST http://localhost:3030/api/transactions -H 'Content-Type: application/json' -d '{\"product_id\": 1, \"quantity_change\": 10}' -w '\\\\nStatus: %{http_code}\\\\n')"
     ]
   }
 }
