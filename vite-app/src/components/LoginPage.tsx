@@ -18,6 +18,7 @@ const texts = {
     loginError: 'Login failed',
     loginErrorDetail: 'Invalid username or password',
     loading: 'Logging in...',
+    guestInventory: 'View as Guest',
   },
   zh: {
     title: '庫存管理',
@@ -27,6 +28,7 @@ const texts = {
     loginError: '登入失敗',
     loginErrorDetail: '使用者名稱或密碼不正確',
     loading: '登入中...',
+    guestInventory: '以訪客身份查看',
   },
   ja: {
     title: 'インベントリ管理',
@@ -36,6 +38,7 @@ const texts = {
     loginError: 'ログイン失敗',
     loginErrorDetail: 'ユーザー名またはパスワードが正しくありません',
     loading: 'ログイン中...',
+    guestInventory: 'ゲストとして表示',
   },
 };
 
@@ -105,6 +108,10 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           <button type="submit" disabled={loading} className="btn-lg">
             {loading ? t.loading : t.login}
           </button>
+
+          <a href="/inventory" className="btn-guest">
+            {t.guestInventory}
+          </a>
         </form>
       </div>
 
@@ -204,6 +211,26 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           background: #ffebee;
           border-radius: 4px;
           border-left: 3px solid #d32f2f;
+        }
+
+        .btn-guest {
+          display: block;
+          text-align: center;
+          padding: 10px 16px;
+          font-size: 14px;
+          background: white;
+          color: var(--accent);
+          border: 1px solid var(--accent);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-weight: 500;
+          text-decoration: none;
+        }
+
+        .btn-guest:hover {
+          background: var(--accent);
+          color: white;
         }
       `}</style>
     </div>

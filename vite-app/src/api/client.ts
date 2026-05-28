@@ -163,3 +163,13 @@ export const api = {
   del: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
 };
+
+/** Raw fetch wrapper that automatically injects the auth token. Useful for file uploads, downloads, etc. */
+export async function fetchWithAuth(url: string, opts: RequestInit = {}): Promise<Response> {
+  const token = getToken();
+  const headers = new Headers(opts.headers);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, { ...opts, headers });
+}

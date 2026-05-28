@@ -19,7 +19,7 @@ import { listTransactions, createTransaction } from './api/transactions';
 import { createBatch } from './api/batches';
 import { listTags } from './api/tags';
 import { listLocations } from './api/locations';
-import { importProductsCsv, exportProductsCsvUrl } from './api/csv';
+import { importProductsCsv, exportProductsCsv, downloadCsvTemplate } from './api/csv';
 import { ApiError, getToken } from './api/client';
 import { logout, getCurrentUser, type User } from './api/auth';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
@@ -312,16 +312,13 @@ export function App() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleExport = () => {
-    // /api/csv/export streams a CSV download; open in same tab so the browser
-    // intercepts the Content-Disposition header.
-    const a = document.createElement('a');
-    a.href = exportProductsCsvUrl();
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 500);
-    showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang === 'zh' ? '項' : '製品'}`);
+  const handleExport = async () => {
+    try {
+      await exportProductsCsv();
+      showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang === 'zh' ? '項' : '製品'}`);
+    } catch (err) {
+      showToast((err as Error).message, { kind: 'alert' });
+    }
   };
 
   const handleImportClick = () => {
