@@ -94,7 +94,29 @@
       "mcp__codegraph__codegraph_files",
       "Bash(curl -s -X PUT http://localhost:3030/api/products/1 -H 'Content-Type: application/json' -d '{\"accountable_quantity\": 999}' -w '\\\\nStatus: %{http_code}\\\\n')",
       "Bash(curl -s -X POST http://localhost:3030/api/transactions -H 'Content-Type: application/json' -d '{\"product_id\": 1, \"quantity_change\": 10}' -w '\\\\nStatus: %{http_code}\\\\n')",
-      "mcp__codegraph__codegraph_explore"
+      "mcp__codegraph__codegraph_explore",
+      "Bash(git pull *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\" -Directory)",
+      "Bash(Select-Object -First 10)",
+      "Bash(Format-Table Name)",
+      "Bash(codegraph init *)"
     ]
-  }
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"Write-Host '✅ Task complete. Verify git status:' -ForegroundColor Green; git status\""
+          }
+        ]
+      }
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "codegraph"
+  ]
 }

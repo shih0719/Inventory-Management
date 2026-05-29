@@ -7,7 +7,19 @@
       "mcp__codegraph__codegraph_callees",
       "mcp__codegraph__codegraph_impact",
       "mcp__codegraph__codegraph_node",
-      "mcp__codegraph__codegraph_status"
+      "mcp__codegraph__codegraph_status",
+      "mcp__codegraph__codegraph_files",
+      "mcp__codegraph__codegraph_explore",
+      "mcp__context7__resolve-library-id",
+      "Bash(curl -s *)",
+      "Bash(curl -X *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(gh issue *)",
+      "Bash(gh pr *)",
+      "Bash(docker-compose logs *)",
+      "Bash(sqlite3 *)"
     ]
   }
 }
