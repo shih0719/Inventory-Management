@@ -1,5 +1,4 @@
 const db = require("../config/database");
-const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
 const auditService = require("../services/auditService");
 const { formatTimestamps } = require("../utils/formatTimestamps");
@@ -107,35 +106,6 @@ async function create(req, res) {
         "SELECT * FROM transactions WHERE id = ?",
         [result.id],
       );
-
-      // Fire webhook (non-blocking)
-      webhookService.fire("inventory.changed", {
-        transaction_id: result.id,
-        product_id,
-        sku: product.sku,
-        product_name: product.name,
-        quantity_type,
-        quantity_change: parseInt(quantity_change),
-        new_quantity: newQuantity,
-        tag_id,
-        remarks: remarks || "",
-      });
-
-      // Edge-triggered inventory.low: only fire when accountable qty crosses below min_stock
-      if (
-        quantity_type === "accountable" &&
-        product.min_stock > 0 &&
-        currentQuantity >= product.min_stock &&
-        newQuantity < product.min_stock
-      ) {
-        webhookService.fire("inventory.low", {
-          product_id,
-          sku: product.sku,
-          name: product.name,
-          accountable_quantity: newQuantity,
-          min_stock: product.min_stock,
-        });
-      }
 
       res.status(201).json({ success: true, data: formatTimestamps(transaction) });
     } catch (error) {

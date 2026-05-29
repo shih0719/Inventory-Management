@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   CreateBatchItem,
   CreateTransactionInput,
-  Location,
   Product,
   Tag,
   Transaction,
@@ -18,7 +17,6 @@ import { listAllProducts } from './api/products';
 import { listTransactions, createTransaction } from './api/transactions';
 import { createBatch } from './api/batches';
 import { listTags } from './api/tags';
-import { listLocations } from './api/locations';
 import { importProductsCsv, exportProductsCsv, downloadCsvTemplate } from './api/csv';
 import { ApiError, getToken } from './api/client';
 import { logout, getCurrentUser, type User } from './api/auth';
@@ -26,7 +24,6 @@ import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
-import { LocationsPage } from './components/LocationsPage';
 import { APProductsPage } from './components/APProductsPage';
 import { ShipmentsPage } from './components/ShipmentsPage';
 import { AuditLogsPage } from './components/AuditLogsPage';
@@ -62,7 +59,6 @@ function loadRecent(): string[] {
 type View =
   | { kind: 'dashboard' }
   | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
-  | { kind: 'locations' }
   | { kind: 'ap-products' }
   | { kind: 'shipments' }
   | { kind: 'audit-logs' };
@@ -87,7 +83,6 @@ export function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [recentSkus, setRecentSkus] = useState<string[]>(loadRecent);
 
   const [view, setView] = useState<View>({ kind: 'dashboard' });
@@ -105,16 +100,14 @@ export function App() {
     setBootState('loading');
     setBootError(null);
     try {
-      const [productList, txRes, tagList, locList] = await Promise.all([
+      const [productList, txRes, tagList] = await Promise.all([
         listAllProducts(),
         listTransactions({ limit: 50, page: 1 }),
         listTags(),
-        listLocations(),
       ]);
       setProducts(productList);
       setTransactions(txRes.data);
       setTags(tagList);
-      setLocations(locList);
       setBootState('ready');
     } catch (err) {
       setBootError(err instanceof Error ? err.message : String(err));
@@ -225,9 +218,6 @@ export function App() {
         ...newTx,
         sku: newTx.sku || sku,
         tag_name: newTx.tag_name || tags.find((tg) => tg.id === payload.tag_id)?.name || '',
-        location_tag:
-          newTx.location_tag ??
-          (payload.location_id ? locations.find((l) => l.id === payload.location_id)?.name ?? null : null),
       };
       setTransactions((prev) => [enriched, ...prev]);
       setModal(null);
@@ -390,9 +380,6 @@ export function App() {
         trigger={lang === 'en' ? 'Manage' : lang === 'zh' ? '管理' : '管理'}
         disabled={bootState !== 'ready'}
       >
-        <DropdownItem onClick={() => setView({ kind: 'locations' })} disabled={bootState !== 'ready'}>
-          📍 {t.locations}
-        </DropdownItem>
         <DropdownItem onClick={() => setView({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
           🏷 {lang === 'en' ? 'AP Products' : lang === 'zh' ? 'AP 序號品' : 'AP商品'}
         </DropdownItem>
@@ -509,22 +496,12 @@ export function App() {
           kind={view.batchKind}
           products={products}
           tags={tags}
-          locations={locations}
           recentSkus={recentSkus}
           lang={lang}
           onBack={() => setView({ kind: 'dashboard' })}
           onSubmit={handleBatchSubmit}
           onOpenPicker={openPicker}
           onPickProduct={trackRecent}
-        />
-      )}
-      {view.kind === 'locations' && (
-        <LocationsPage
-          locations={locations}
-          products={products}
-          lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
-          onLocationsUpdate={setLocations}
         />
       )}
       {view.kind === 'ap-products' && (
@@ -568,7 +545,6 @@ export function App() {
         <AdjustStockModal
           product={modal.product}
           tags={tags}
-          locations={locations}
           lang={lang}
           onClose={() => setModal(null)}
           onSubmit={handleAdjustSubmit}

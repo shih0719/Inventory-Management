@@ -1,6 +1,6 @@
 // src/components/BatchFlow.tsx
 import { Fragment, useMemo, useState } from 'react';
-import type { CreateBatchItem, Location, Product, QuantityType, Tag } from '../types';
+import type { CreateBatchItem, Product, QuantityType, Tag } from '../types';
 import { L, tagLabel, type Lang } from '../lib/i18n';
 import { ProductCombobox } from './ProductCombobox';
 
@@ -16,7 +16,6 @@ export interface BatchFlowProps {
   kind: 'inbound' | 'outbound';
   products: Product[];
   tags: Tag[];
-  locations: Location[];
   recentSkus?: string[];
   lang: Lang;
   onBack: () => void;
@@ -37,7 +36,6 @@ export function BatchFlow({
   kind,
   products,
   tags,
-  locations,
   lang,
   onBack,
   onSubmit,
@@ -55,7 +53,6 @@ export function BatchFlow({
 
   const [name, setName] = useState('');
   const [tagId, setTagId] = useState<number>(defaultTagId);
-  const [locationTag, setLocationTag] = useState<string>('');
   const [lines, setLines] = useState<LineRow[]>([
     { id: 1, product_id: '', qty: 0, quantity_type: 'accountable', remarks: '' },
   ]);
@@ -108,12 +105,10 @@ export function BatchFlow({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    const loc = locationTag ? locations.find((l) => l.name === locationTag) : null;
     const items: CreateBatchItem[] = validLines.map((l) => ({
       product_id: l.product!.id,
       quantity_change: isInbound ? Number(l.qty) : -Number(l.qty),
       quantity_type: l.quantity_type,
-      location_id: loc?.id ?? null,
       remarks: l.remarks || name || '',
     }));
     const generatedName =
@@ -121,7 +116,7 @@ export function BatchFlow({
 
     setSubmitting(true);
     try {
-      await onSubmit({ name: generatedName, items, tagId, locationTag });
+      await onSubmit({ name: generatedName, items, tagId, locationTag: '' });
     } finally {
       setSubmitting(false);
     }
@@ -169,17 +164,6 @@ export function BatchFlow({
                 </button>
               ))}
             </div>
-          </div>
-          <div className="field">
-            <label>{t.location}</label>
-            <select value={locationTag} onChange={(e) => setLocationTag(e.target.value)}>
-              <option value="">{t.none}</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.name}>
-                  {loc.name} · {loc.description}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </div>

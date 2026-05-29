@@ -1,5 +1,4 @@
 const db = require("../config/database");
-const webhookService = require("../services/webhookService");
 const quantityStateService = require("../services/quantityStateService");
 const auditService = require("../services/auditService");
 const { formatTimestamps } = require("../utils/formatTimestamps");
@@ -146,34 +145,6 @@ async function createBatch(req, res) {
       const processedItems = validatedItems.map(({ product_id, product_name, quantity_type, quantity_change }) => ({
         product_id, product_name, quantity_type, quantity_change,
       }));
-
-      // Fire webhook (non-blocking)
-      webhookService.fire("batch.created", {
-        batch_id: batchId,
-        batch_number: batchNumber,
-        tag_id,
-        description: description || "",
-        processed_count: processedItems.length,
-        items: processedItems,
-      });
-
-      // Edge-triggered inventory.low per item
-      for (const item of validatedItems) {
-        if (
-          item.quantity_type === "accountable" &&
-          item.min_stock > 0 &&
-          item.currentQuantity >= item.min_stock &&
-          item.newQuantity < item.min_stock
-        ) {
-          webhookService.fire("inventory.low", {
-            product_id: item.product_id,
-            sku: item.product_sku,
-            name: item.product_name,
-            accountable_quantity: item.newQuantity,
-            min_stock: item.min_stock,
-          });
-        }
-      }
 
       res.status(201).json({
         success: true,

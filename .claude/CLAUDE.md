@@ -1,35 +1,48 @@
-<!-- CODEGRAPH_START -->
-## CodeGraph
+## 📐 CodeGraph
 
-This project has a CodeGraph MCP server (`codegraph_*` tools) configured. CodeGraph is a tree-sitter-parsed knowledge graph of every symbol, edge, and file. Reads are sub-millisecond and return structural information grep cannot.
+This project uses CodeGraph — a tree-sitter-parsed AST knowledge graph for fast structural search. Reads are sub-millisecond.
 
-### When to prefer codegraph over native search
+**When to use:**
+- "Where is X defined?" → `codegraph_search`
+- "What calls Y?" → `codegraph_callers`  
+- "How does X reach Y?" → `codegraph_trace` (one call, whole path incl. callbacks)
+- "Focused context for task T?" → `codegraph_context`
+- "Show several related symbols" → `codegraph_explore`
 
-Use codegraph for **structural** questions — what calls what, what would break, where is X defined, what is X's signature. Use native grep/read only for **literal text** queries (string contents, comments, log messages) or after you already have a specific file open.
+**Key rules:**
+- Answer directly — don't delegate. Use `codegraph_context` first, then `codegraph_explore` for sources.
+- Trust codegraph results (full AST parse). Don't re-verify with grep.
+- For flow tracing: start with `codegraph_trace`, not `codegraph_search` + `codegraph_callers`.
 
-| Question | Tool |
-|---|---|
-| "Where is X defined?" / "Find symbol named X" | `codegraph_search` |
-| "What calls function Y?" | `codegraph_callers` |
-| "What does Y call?" | `codegraph_callees` |
-| "How does X reach/become Y? / trace the flow from X to Y" | `codegraph_trace` (one call = the whole path, incl. callback/React/JSX dynamic hops) |
-| "What would break if I changed Z?" | `codegraph_impact` |
-| "Show me Y's signature / source / docstring" | `codegraph_node` |
-| "Give me focused context for a task/area" | `codegraph_context` |
-| "See several related symbols' source at once" | `codegraph_explore` |
-| "What files exist under path/" | `codegraph_files` |
-| "Is the index healthy?" | `codegraph_status` |
+---
 
-### Rules of thumb
+## 📁 Project Structure
 
-- **Answer directly — don't delegate exploration.** For "how does X work" / architecture questions, answer with 2-3 codegraph calls: `codegraph_context` first, then ONE `codegraph_explore` for the source of the symbols it surfaces. For a specific **flow** ("how does X reach Y") start with `codegraph_trace` from→to — one call returns the whole path with dynamic hops bridged — then ONE `codegraph_explore` for the bodies; don't rebuild the path with `codegraph_search` + `codegraph_callers`. Codegraph IS the pre-built index, so spawning a separate file-reading sub-task/agent — or running a grep + read loop — repeats work codegraph already did and costs more for the same answer.
-- **Trust codegraph results.** They come from a full AST parse. Do NOT re-verify them with grep — that's slower, less accurate, and wastes context.
-- **Don't grep first** when looking up a symbol by name. `codegraph_search` is faster and returns kind + location + signature in one call.
-- **Don't chain `codegraph_search` + `codegraph_node`** when you just want context — `codegraph_context` is one call.
-- **Don't loop `codegraph_node` over many symbols** — one `codegraph_explore` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
-- **Index lag — check the staleness banner, don't guess a wait.** When a codegraph response starts with "⚠️ Some files referenced below were edited since the last index sync…", the listed files are pending re-index — Read those specific files for accurate content. Files NOT in that banner are fresh and codegraph is authoritative for them. `codegraph_status` also lists pending files under "Pending sync".
+- **src/routes** — API endpoints
+- **src/controllers** — HTTP request handlers
+- **src/services** — Business logic layer
+- **src/middleware** — Auth, logging, error handling
+- **src/config** — Database, logger setup
+- **vite-app** — Frontend (React/Vue)
+- **database** — Schema migrations, seeders
+- **tests** — Unit & integration tests
 
-### If `.codegraph/` doesn't exist
+Module-specific rules are in `.claude/rules/` — loaded only when working in that directory.
 
-The MCP server returns "not initialized." Ask the user: *"I notice this project doesn't have CodeGraph initialized. Want me to run `codegraph init -i` to build the index?"*
-<!-- CODEGRAPH_END -->
+---
+
+## 🔧 How to Use This Project
+
+Skills like `inventory-operations` and `inventory-query` are available for inventory-specific tasks.
+
+### Module-specific Rules
+
+When you edit code in a specific directory, module-specific rules from `.claude/rules/` are automatically loaded:
+
+- **`src/routes/`, `src/controllers/`** → [[api-layer]]
+- **`src/services/`** → [[services-layer]]
+- **`src/middleware/`** → [[middleware-layer]]
+- **`vite-app/`** → [[frontend-layer]]
+- **`database/`, `src/config/`** → [[database-layer]]
+
+See [`.claude/rules/README.md`](rules/README.md) for how the hierarchical rules system works.

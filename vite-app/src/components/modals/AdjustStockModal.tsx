@@ -1,19 +1,18 @@
 // src/components/modals/AdjustStockModal.tsx
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CreateTransactionInput, Location, Product, QuantityType, Tag } from '../../types';
+import type { CreateTransactionInput, Product, QuantityType, Tag } from '../../types';
 import { L, type Lang } from '../../lib/i18n';
-import { updateProduct, getProductLocations } from '../../api/products';
+import { updateProduct } from '../../api/products';
 
 export interface AdjustStockModalProps {
   product: Product;
   tags: Tag[];
-  locations: Location[];
   lang: Lang;
   onClose: () => void;
   onSubmit: (input: CreateTransactionInput & { sku: string }) => Promise<void> | void;
 }
 
-export function AdjustStockModal({ product, tags, locations, lang, onClose, onSubmit }: AdjustStockModalProps) {
+export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: AdjustStockModalProps) {
   const t = L[lang];
 
   // Suggested quantity to refill back to min_stock + 50% buffer
@@ -26,8 +25,6 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
   const [qty, setQty] = useState<number | ''>(suggested);
   const [quantityType, setQuantityType] = useState<QuantityType>('accountable');
   const [tagId, setTagId] = useState<number>(inboundTag?.id ?? tags[0]?.id ?? 1);
-  const [locationTag, setLocationTag] = useState<string>('');
-  const [productLocations, setProductLocations] = useState<Array<{ id: number; name: string; description: string }>>([]);
   const [remarks, setRemarks] = useState('');
   const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
   const [productType, setProductType] = useState<'normal' | 'ap'>(product.type);
@@ -45,27 +42,6 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
 
   const stockShort = result < 0;
 
-  // Load product locations
-  useEffect(() => {
-    const loadLocations = async () => {
-      try {
-        const locs = await getProductLocations(product.sku);
-        const locArray = Array.isArray(locs) ? locs : [];
-        setProductLocations(locArray);
-        if (locArray.length > 0) {
-          setLocationTag(locArray[0].name);
-        } else {
-          setLocationTag('');
-        }
-      } catch (err) {
-        console.error('Failed to load product locations:', err);
-        setProductLocations([]);
-        setLocationTag('');
-      }
-    };
-    void loadLocations();
-  }, [product.sku]);
-
   // Keep tagIdRef in sync
   useEffect(() => {
     tagIdRef.current = tagId;
@@ -81,14 +57,12 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
     if (isZero || stockShort || submitting) return;
     setSubmitting(true);
     try {
-      const loc = locationTag ? locations.find((l) => l.name === locationTag) : null;
       await onSubmit({
         product_id: product.id,
         sku: product.sku,
         quantity_change: Number(qty),
         quantity_type: quantityType,
         tag_id: tagId,
-        location_id: loc?.id ?? null,
         remarks: remarks || '',
       });
 
@@ -220,27 +194,6 @@ export function AdjustStockModal({ product, tags, locations, lang, onClose, onSu
             </div>
           </div>
 
-
-          {/* Location */}
-          <div className="field">
-            <label>{t.location}</label>
-            {!Array.isArray(productLocations) || productLocations.length === 0 ? (
-              <div style={{ padding: '10px 12px', backgroundColor: 'var(--surface-2)', borderRadius: 4, color: 'var(--ink-3)', fontSize: 12 }}>
-                {lang === 'en' ? 'Not assigned to any location' : '未指派至任何位置'}
-              </div>
-            ) : (
-              <div style={{ padding: '10px 12px', backgroundColor: 'var(--surface-2)', borderRadius: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {productLocations.map((loc) => (
-                  <div key={loc.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 500 }}>{loc.name}</span>
-                    <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                      {loc.description}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
 
           {/* Remarks */}
           <div className="field">

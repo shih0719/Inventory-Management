@@ -49,13 +49,6 @@ export interface Tag {
   description: string;
 }
 
-export interface Location {
-  id: number;
-  name: string;
-  description: string;
-  created_at?: string;
-}
-
 export interface Batch {
   id: number;
   name: string;
