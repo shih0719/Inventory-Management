@@ -381,11 +381,13 @@ async function importCSV(req, res) {
 // Export products to CSV
 async function exportCSV(req, res) {
   try {
+    const warehouseId = req.warehouseId;
     const products = await db.all(
       `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock
        FROM products
-       WHERE is_deleted = 0
+       WHERE is_deleted = 0 AND warehouse_id = ?
        ORDER BY sku ASC`,
+      [warehouseId],
     );
 
     const exportData = products.map((product) => ({
