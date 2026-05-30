@@ -1,5 +1,7 @@
 # MVP: Add User Login + Audit Trail
 
+> ⚠️ **此文件為規劃紀錄，已於 2026-05-30 實作完成。** 見 `docs/adr/0001-auth-provider-abstraction.md` 了解最終設計決策。
+
 ## Overview
 Add simple user authentication and track who performed inventory operations (入庫/出庫).
 

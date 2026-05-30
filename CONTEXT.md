@@ -3,9 +3,8 @@
 本專案的領域術語表（domain glossary）。撰寫 issue、PR、測試、refactor 提案時，請使用此處定義的術語，避免漂移到同義詞。
 
 延伸文件：
-- `.context/CURRENT_PROGRESS.md` — 當前狀態、近期工作、待處理項、安全注意事項
-- `.context/API_REFERENCE.md` — API 介面參考
 - `docs/adr/` — 架構決策紀錄（按需建立）
+- `workFlows/` — 各階段開發計畫與進度紀錄
 
 ---
 
@@ -19,8 +18,6 @@
 
 > ⚠️ **SKU ≠ serial_number**。SKU 是**型號層級**（10 台同型筆電共用同一個 SKU）；serial_number 是**個體層級**（每一台都不同，見 AP 條目）。一個 SKU 在 `products` 表只會有一筆；同一個 SKU 對應的 AP 在 `product_units` 表可有 0~N 筆，每筆 serial_number 各自唯一。
 
-### Location（儲位）
-倉庫實體儲存位置（例如 `A-01`），以 `name` 為唯一識別。Product 與 Location 為多對多關係（一個商品可放多個儲位、一個儲位可放多個商品）。
 
 ### AP（序號品） _Aid & Pwd_
 
@@ -108,27 +105,6 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 
 ---
 
-## 整合 / 通知
-
-### Event（領域事件）
-系統廣播的事件，由 webhook 推送至訂閱者。目前支援：
-
-- `inventory.changed` — 單筆 Transaction 成立後觸發
-- `batch.created` — Batch 建立後觸發
-- `inventory.low` — 商品 `accountable_quantity` **由 ≥ `min_stock` 跨越到 < `min_stock` 的瞬間**觸發（edge-triggered）。同一商品在補貨回到閾值以上之前不會重複觸發。CSV import 不觸發此事件（CSV 視為資料校正）。
-
-擴充事件：修改 `src/services/webhookService.js` 的 `SUPPORTED_EVENTS`。
-
-### Webhook Subscription（Webhook 訂閱）
-外部系統註冊接收 Event 的端點，包含 `name`、`url`、訂閱的 `events` 陣列、`is_active` 旗標。
-
-### Webhook Log（推送紀錄）
-每次 webhook 推送嘗試的紀錄，含 `attempts`（重試次數）、`status_code`、`success`、`error_message`。
-
-**推送策略**：Fire-and-forget + 3 次指數退避 retry，不阻塞主業務 API。
-
----
-
 ## 流程術語
 
 ### CSV Import / Export
@@ -138,7 +114,7 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 - **Product** — `is_deleted = 1`，記錄保留但從預設查詢中濾除
 - **Shipment** — `is_deleted = 1`，已刪除的出貨單記錄保留供審計追蹤
 
-> Location、Transaction、Batch **目前無軟刪除機制**——若未來需要請開 ADR 討論。
+> Transaction、Batch **目前無軟刪除機制**——若未來需要請開 ADR 討論。
 
 ### Apply Update（套用更新）
 透過 `git pull origin main --rebase` 拉取最新 commit 後 `process.exit(1)` 強制重啟，倚賴 Docker `restart: always` 重新拉起服務。
@@ -149,38 +125,20 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 
 ## 前端架構
 
-### 狀態管理
-採用**中央狀態 + Mutations 規範**（見 ADR 0002）：
-- `state.js` — 單一全局狀態對象
-- `mutations.js` — 所有狀態修改必須通過此處函數
-- 設計參照 Vuex，便於未來框架遷移
+前端使用 **React + TypeScript + Vite** 構建，位於 `vite-app/`。
 
-### 模塊化組織
-業務邏輯按**領域**分為 8 個獨立模塊，對應 CONTEXT.md 的核心概念：
-- `modules/products.js`、`modules/locations.js` 等
-- 各模塊導出 API 函數，內部透過 mutations 修改狀態
-- 無模塊間的直接依賴（解耦）
+### 組件結構
+- `vite-app/src/components/` — 頁面級組件（每個功能一個 `.tsx` 檔）
+- `vite-app/src/context/` — React Context（如 `ActiveWarehouseContext`）
+- `vite-app/src/api/` — API 呼叫封裝（按領域分檔）
 
-### HTML 與 UI 層
-HTML 片段存放於 `templates/` 目錄，按邏輯區域組織：
-- `templates/sections/` — 主功能區塊（如產品列表、儲位管理）
-- `templates/modals/` — 模態框（產品編輯、異動等）
-- 主 `index.html` 只保留頂層容器
-
-此結構為**框架遷移預留**——未來換 Vue/React 時，`.html` 檔直接變成 `.vue` / `.jsx` 組件。
+### 當前倉庫（Active Warehouse）
+使用者登入後選擇倉庫，所有 API 請求帶 `X-Warehouse-Id` header，Context 由 `ActiveWarehouseContext` 管理。
 
 ### 工具鏈
-- **Vite** — 現代化打包器，零配置開發環境
-- **Tailwind + PostCSS** — 本地編譯 CSS，生產構建時體積優化
-- 部署：`npm run build` 生成靜態資源
-
-### 框架遷移路徑
-現在的架構已與 Vue 3 + Pinia / React + Zustand 相容。當遷移時：
-1. `src/modules/` 和 `src/state/` **完全不改**（業務邏輯層保持）
-2. `templates/` 改寫為框架組件（`.vue` / `.jsx`）
-3. UI 交互升級為框架提供的響應式特性
-
-見 ADR 0002 了解詳細決策。
+- **Vite** — 打包器，HMR 開發環境
+- **Tailwind + PostCSS** — CSS 工具
+- 部署：`npm run build` 生成靜態資源至 `public/`
 
 ---
 

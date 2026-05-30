@@ -14,14 +14,18 @@
 
 | 檔案 | 標籤 | 描述 |
 |------|------|------|
-| [`improve.md`](improve.md) | 📈 **優化建議** | 架構深化機會清單，列舉 6 個重構候選、優先級與實施建議 |
-| [`adr/0001-ap-no-history-tracking.md`](adr/0001-ap-no-history-tracking.md) | 📋 **架構決策紀錄** | AP (序號品) 設計決策：不追蹤歷史紀錄的理由與影響 |
+| [`improve.md`](improve.md) | 📈 **優化建議** | 架構深化機會清單，列舉重構候選、優先級與實施建議 |
+| [`adr/0001-ap-no-history-tracking.md`](adr/0001-ap-no-history-tracking.md) | 📋 **ADR** | AP (序號品) 設計決策：不追蹤歷史紀錄的理由與影響 |
+| [`adr/0001-auth-provider-abstraction.md`](adr/0001-auth-provider-abstraction.md) | 📋 **ADR** | Auth Provider 抽象層 + Role/Warehouse 存取控制設計決策 |
+| [`MVP_RBAC_AUDIT.md`](MVP_RBAC_AUDIT.md) | 📝 **歷史規劃（已完成）** | 使用者登入與 Audit Trail 的 MVP 規劃文件 |
+| [`SHIPMENT_FEATURE.md`](SHIPMENT_FEATURE.md) | 📝 **歷史規劃（已完成）** | Shipment 出貨單據功能設計規劃 |
 
-### API 與集成
+### API
 
 | 檔案 | 標籤 | 描述 |
 |------|------|------|
-| [`API.md`](API.md) | 🔗 **API 參考** | 完整 API 端點文檔（10 個路由、參數、回應範例、常見操作） |
+| [`api/README.md`](api/README.md) | 🔗 **API 端點清單** | 所有端點、HTTP 方法、所需角色（從 src/routes/ 生成） |
+| [`API_EXAMPLES.md`](API_EXAMPLES.md) | 🔗 **API 範例** | Auth、Transaction、Audit 等端點的請求/回應範例 |
 
 ### 營運與部署
 
@@ -45,11 +49,10 @@
 
 ## 文檔類型說明
 
-### 🔗 API 參考 (API.md)
-- **目的**: 列舉所有 API 端點、參數、回應格式與範例
-- **受眾**: 開發者、API 消費者、前端工程師、外部系統集成
-- **更新頻率**: 每當新增或修改 API 端點時
-- **格式**: 分類列表 + cURL 範例 + 常見操作流程
+### 🔗 API 範例 (API_EXAMPLES.md)
+- **目的**: 主要端點的請求/回應範例
+- **受眾**: 開發者、前端工程師
+- **更新頻率**: 每當新增或修改主要 API 端點時
 
 ### 📈 優化建議 (improve.md)
 - **目的**: 識別與優先化架構改進機會
@@ -90,9 +93,7 @@
 
 ### 如果你想...
 
-- **查詢 API 端點與參數** → 進入 [`API.md`](API.md)
-  - 「如何建立產品？」→ 查 POST /api/products
-  - 「出貨流程的完整步驟」→ 查「常見操作範例」
+- **查詢 API 端點範例** → [`API_EXAMPLES.md`](API_EXAMPLES.md)
 
 - **了解系統該如何改進** → 閱讀 [`improve.md`](improve.md)
   

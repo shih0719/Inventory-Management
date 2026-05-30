@@ -11,7 +11,7 @@
 | **CONTEXT.md** | 領域術語表 — 全隊每日參考，需高度可見性。Git convention 將核心文件放根目錄 |
 | **CHANGELOG.md** | 版本變更紀錄 — Semantic Versioning 與 Keep a Changelog 標準慣例：放根目錄。Release notes 與 git tag 通常參考此檔 |
 | **README.md** | 專案首頁 — 新開發者首先閱讀，放根目錄是標準 |
-| **AGENTS.md** | Agent 快速指引 — Claude Code 啟動時首先讀取 |
+| **claude-code-learning-notes.md** | Claude Code 工作流筆記 |
 
 ### 📁 移入 docs/ 的文件
 
@@ -26,7 +26,7 @@ Inventory-Management/
 ├── CHANGELOG.md              # 🏆 根目錄：版本變更紀錄
 ├── CONTEXT.md                # 🏆 根目錄：領域術語表（全隊核心參考）
 ├── README.md                 # 🏆 根目錄：專案首頁
-├── AGENTS.md                 # 🏆 根目錄：Agent 快速指引
+├── claude-code-learning-notes.md # 根目錄：Claude Code 工作流筆記
 │
 ├── docs/
 │   ├── README.md             # 📚 文檔首頁與索引
@@ -34,7 +34,8 @@ Inventory-Management/
 │   ├── improve.md            # 📈 架構優化建議
 │   │
 │   ├── adr/
-│   │   └── 0001-ap-no-history-tracking.md
+│   │   ├── 0001-ap-no-history-tracking.md
+│   │   └── 0001-auth-provider-abstraction.md
 │   │
 │   ├── agents/
 │   │   ├── domain.md
@@ -59,7 +60,7 @@ Inventory-Management/
 1. **version/changelog**: CHANGELOG.md（發布版本的歷史記錄）
 2. **domain glossary**: CONTEXT.md（全隊共用的領域術語）
 3. **project entry**: README.md（專案首頁）
-4. **ai guidance**: AGENTS.md（Claude Code agents 指引）
+4. **ai guidance**: `.claude/` 目錄（Claude Code 設定、rules、skills）
 
 **特徵**：高度可見、快速存取、面向全隊、初入專案時優先閱讀
 
