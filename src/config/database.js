@@ -172,21 +172,26 @@ function initDatabase() {
               db.run(
                 `CREATE TABLE IF NOT EXISTS audit_logs (
                   id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  user_id INTEGER NOT NULL,
-                  action TEXT NOT NULL CHECK(action IN ('CREATE', 'UPDATE', 'DELETE')),
+                  user_id INTEGER,
+                  action TEXT NOT NULL,
                   resource_type TEXT NOT NULL,
-                  resource_id INTEGER NOT NULL,
+                  resource_id INTEGER,
                   warehouse_id INTEGER,
-                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  FOREIGN KEY (user_id) REFERENCES users(id)
+                  event_category TEXT NOT NULL DEFAULT 'transaction',
+                  metadata TEXT,
+                  ip_address TEXT,
+                  timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )`,
                 (e2) => {
                   if (e2) {
                     rej(e2);
                     return;
                   }
-                  // Migrate existing audit_logs: add warehouse_id if missing
+                  // Migrate existing audit_logs: add missing columns
                   db.run("ALTER TABLE audit_logs ADD COLUMN warehouse_id INTEGER", () => {});
+                  db.run("ALTER TABLE audit_logs ADD COLUMN event_category TEXT NOT NULL DEFAULT 'transaction'", () => {});
+                  db.run("ALTER TABLE audit_logs ADD COLUMN metadata TEXT", () => {});
+                  db.run("ALTER TABLE audit_logs ADD COLUMN ip_address TEXT", () => {});
                   console.log("✅ Audit logs table ready");
 
                   // Add created_by_user to batches if needed

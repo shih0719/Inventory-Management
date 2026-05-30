@@ -1,4 +1,5 @@
 const db = require("../config/database");
+const auditService = require("../services/auditService");
 
 // Get all products with optional filtering
 async function getAll(req, res) {
@@ -173,6 +174,7 @@ async function create(req, res) {
     const newProduct = await db.get("SELECT * FROM products WHERE id = ?", [
       result.id,
     ]);
+    await auditService.logAction(req.user?.id, "CREATE", "product", result.id, newProduct.warehouse_id);
     res.status(201).json({ success: true, data: newProduct });
   } catch (error) {
     console.error("Error creating product:", error);
@@ -239,6 +241,7 @@ async function update(req, res) {
     const updatedProduct = await db.get("SELECT * FROM products WHERE id = ?", [
       id,
     ]);
+    await auditService.logAction(req.user?.id, "UPDATE", "product", parseInt(id), updatedProduct.warehouse_id);
     res.json({ success: true, data: updatedProduct });
   } catch (error) {
     console.error("Error updating product:", error);

@@ -1,4 +1,5 @@
 const userService = require("../services/userService");
+const auditService = require("../services/auditService");
 
 async function getAll(req, res) {
   try {
@@ -13,6 +14,7 @@ async function create(req, res) {
   try {
     const { username, password, role = "view", warehouse_ids = [] } = req.body;
     const data = await userService.createUser(username, password, role, warehouse_ids);
+    await auditService.logAction(req.user?.id, "USER_CREATE", "user", data.id, null, { eventCategory: "system", ipAddress: req.ip });
     res.status(201).json({ success: true, data });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, error: err.message });
@@ -24,6 +26,7 @@ async function update(req, res) {
     const { id } = req.params;
     const { role, warehouse_ids = [] } = req.body;
     const data = await userService.updateUser(id, role, warehouse_ids);
+    await auditService.logAction(req.user?.id, "USER_UPDATE", "user", parseInt(id), null, { eventCategory: "system", ipAddress: req.ip });
     res.status(200).json({ success: true, data });
   } catch (err) {
     res.status(err.status || 500).json({ success: false, error: err.message });

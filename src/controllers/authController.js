@@ -1,22 +1,25 @@
 const authService = require("../services/authService");
 const db = require("../config/database");
+const auditService = require("../services/auditService");
 
 /**
  * POST /api/auth/login
  * Login with username and password
  */
 async function login(req, res) {
+  const { username, password } = req.body;
   try {
-    const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({
-        success: false,
-        error: "username and password are required",
-      });
+      return res.status(400).json({ success: false, error: "username and password are required" });
     }
 
     const result = await authService.login(username, password);
+
+    await auditService.logAction(result.user.id, "LOGIN", "auth", result.user.id, null, {
+      eventCategory: "system",
+      ipAddress: req.ip,
+    });
 
     return res.status(200).json({
       success: true,
@@ -29,6 +32,11 @@ async function login(req, res) {
     console.error("❌ Login error:", err.message);
 
     if (err.message === "Invalid username or password") {
+      await auditService.logAction(null, "LOGIN_FAILED", "auth", 0, null, {
+        eventCategory: "system",
+        metadata: { username },
+        ipAddress: req.ip,
+      });
       return res.status(401).json({
         success: false,
         error: "Invalid username or password",

@@ -6,9 +6,13 @@ export interface AuditLog {
   id: number;
   user_id: number;
   username: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE';
-  resource_type: 'transaction' | 'batch' | 'shipment' | 'product';
+  action: string;
+  resource_type: string;
   resource_id: number;
+  warehouse_id?: number;
+  event_category: 'system' | 'transaction';
+  metadata?: string;
+  ip_address?: string;
   timestamp: string;
 }
 
@@ -22,12 +26,14 @@ export async function listAuditLogs(
   resourceId?: number,
   userId?: number,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
+  eventCategory?: 'system' | 'transaction'
 ): Promise<AuditLogsResponse> {
   const { data, pagination } = await api.get<AuditLog[]>('/api/audit-logs', {
     resource_type: resourceType,
     resource_id: resourceId,
     user_id: userId,
+    event_category: eventCategory,
     limit,
     offset,
   });

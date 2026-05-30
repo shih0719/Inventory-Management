@@ -18,6 +18,9 @@ const texts = {
     user: 'User',
     time: 'Time',
     loadError: 'Failed to load audit logs',
+    tabAll: 'All',
+    tabSystem: 'System',
+    tabTransaction: 'Transaction',
   },
   zh: {
     title: '操作日誌',
@@ -27,6 +30,9 @@ const texts = {
     user: '使用者',
     time: '時間',
     loadError: '無法加載操作日誌',
+    tabAll: '全部',
+    tabSystem: '系統事件',
+    tabTransaction: '交易事件',
   },
   ja: {
     title: '操作ログ',
@@ -36,8 +42,13 @@ const texts = {
     user: 'ユーザー',
     time: '時間',
     loadError: '操作ログを読み込めません',
+    tabAll: 'すべて',
+    tabSystem: 'システム',
+    tabTransaction: 'トランザクション',
   },
 };
+
+type CategoryFilter = 'all' | 'system' | 'transaction';
 
 export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPageProps) {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -45,6 +56,7 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
+  const [category, setCategory] = useState<CategoryFilter>('all');
 
   const t = texts[lang];
   const limit = 8;
@@ -54,7 +66,8 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
       try {
         setLoading(true);
         setError(null);
-        const res = await listAuditLogs(undefined, undefined, undefined, limit, offset);
+        const cat = category === 'all' ? undefined : category;
+        const res = await listAuditLogs(undefined, undefined, undefined, limit, offset, cat);
 
         setTotalCount(res.pagination.total);
         setLogs(res.data);
@@ -67,7 +80,12 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
     };
 
     loadLogs();
-  }, [offset, limit, t]);
+  }, [offset, limit, t, category]);
+
+  const handleCategoryChange = (cat: CategoryFilter) => {
+    setCategory(cat);
+    setOffset(0);
+  };
 
   const formatTime = (timestamp: string) => {
     const d = new Date(timestamp);
@@ -87,11 +105,21 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
   const getActionColor = (action: string) => {
     switch (action) {
       case 'CREATE':
-        return '#10b981'; // green
+      case 'USER_CREATE':
+      case 'WAREHOUSE_CREATE':
+      case 'LOGIN':
+        return '#10b981';
       case 'UPDATE':
-        return '#f59e0b'; // amber
+      case 'USER_UPDATE':
+      case 'WAREHOUSE_UPDATE':
+        return '#f59e0b';
       case 'DELETE':
-        return '#ef4444'; // red
+      case 'USER_DELETE':
+        return '#ef4444';
+      case 'LOGOUT':
+        return '#6b7280';
+      case 'LOGIN_FAILED':
+        return '#dc2626';
       default:
         return 'var(--ink)';
     }
@@ -103,6 +131,10 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
       batch: { en: 'Batch', zh: '批次', ja: 'バッチ' },
       shipment: { en: 'Shipment', zh: '出貨單據', ja: '配送' },
       product: { en: 'Product', zh: '產品', ja: '製品' },
+      user: { en: 'User', zh: '使用者', ja: 'ユーザー' },
+      warehouse: { en: 'Warehouse', zh: '倉庫', ja: '倉庫' },
+      auth: { en: 'Auth', zh: '認證', ja: '認証' },
+      csv_import: { en: 'CSV Import', zh: 'CSV 匯入', ja: 'CSVインポート' },
     };
     return labels[resourceType]?.[lang] || resourceType;
   };
@@ -112,6 +144,14 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
       CREATE: { en: 'Created', zh: '新增', ja: '作成' },
       UPDATE: { en: 'Updated', zh: '修改', ja: '更新' },
       DELETE: { en: 'Deleted', zh: '刪除', ja: '削除' },
+      LOGIN: { en: 'Login', zh: '登入', ja: 'ログイン' },
+      LOGOUT: { en: 'Logout', zh: '登出', ja: 'ログアウト' },
+      LOGIN_FAILED: { en: 'Login Failed', zh: '登入失敗', ja: 'ログイン失敗' },
+      USER_CREATE: { en: 'User Created', zh: '建立用戶', ja: 'ユーザー作成' },
+      USER_UPDATE: { en: 'User Updated', zh: '更新用戶', ja: 'ユーザー更新' },
+      USER_DELETE: { en: 'User Deleted', zh: '刪除用戶', ja: 'ユーザー削除' },
+      WAREHOUSE_CREATE: { en: 'Warehouse Created', zh: '建立倉庫', ja: '倉庫作成' },
+      WAREHOUSE_UPDATE: { en: 'Warehouse Updated', zh: '更新倉庫', ja: '倉庫更新' },
     };
     return labels[action]?.[lang] || action;
   };
@@ -126,6 +166,28 @@ export function AuditLogsPage({ lang, onResourceClick, onBack }: AuditLogsPagePr
         )}
         <h1 style={{ margin: 0, flex: 1, textAlign: onBack ? 'left' : 'center' }}>{t.title}</h1>
         {onBack && <div style={{ width: 80 }} />}
+      </div>
+
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '0' }}>
+        {(['all', 'system', 'transaction'] as CategoryFilter[]).map((cat) => (
+          <button
+            key={cat}
+            onClick={() => handleCategoryChange(cat)}
+            style={{
+              padding: '8px 16px',
+              border: 'none',
+              borderBottom: category === cat ? '2px solid var(--accent)' : '2px solid transparent',
+              background: 'none',
+              cursor: 'pointer',
+              fontWeight: category === cat ? 600 : 400,
+              color: category === cat ? 'var(--accent)' : 'var(--ink-2)',
+              fontSize: '14px',
+              marginBottom: '-1px',
+            }}
+          >
+            {cat === 'all' ? t.tabAll : cat === 'system' ? t.tabSystem : t.tabTransaction}
+          </button>
+        ))}
       </div>
 
       {error && (

@@ -1,4 +1,5 @@
 const warehouseService = require("../services/warehouseService");
+const auditService = require("../services/auditService");
 
 async function getAll(req, res) {
   try {
@@ -13,6 +14,7 @@ async function create(req, res) {
   try {
     const { name, description } = req.body;
     const data = await warehouseService.createWarehouse(name, description);
+    await auditService.logAction(req.user?.id, "WAREHOUSE_CREATE", "warehouse", data.id, null, { eventCategory: "system", ipAddress: req.ip });
     res.status(201).json({ success: true, data });
   } catch (err) {
     const status = err.status || 500;

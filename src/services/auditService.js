@@ -1,19 +1,20 @@
 const db = require("../config/database");
 
-async function logAction(userId, action, resourceType, resourceId, warehouseId) {
+async function logAction(userId, action, resourceType, resourceId, warehouseId, options = {}) {
   try {
-    if (!userId || !action || !resourceType || !resourceId) {
-      console.warn(
-        "⚠️ Incomplete audit log data:",
-        { userId, action, resourceType, resourceId }
-      );
+    const { eventCategory = "transaction", metadata = null, ipAddress = null } = options;
+
+    if (!action || !resourceType) {
+      console.warn("⚠️ Incomplete audit log data:", { userId, action, resourceType, resourceId });
       return;
     }
 
+    const metadataStr = metadata ? JSON.stringify(metadata) : null;
+
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, warehouse_id)
-       VALUES (?, ?, ?, ?, ?)`,
-      [userId, action, resourceType, resourceId, warehouseId || null]
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, warehouse_id, event_category, metadata, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId || null, action, resourceType, resourceId || null, warehouseId || null, eventCategory, metadataStr, ipAddress || null]
     );
   } catch (err) {
     console.error("❌ Failed to log audit action:", err.message);
@@ -21,7 +22,7 @@ async function logAction(userId, action, resourceType, resourceId, warehouseId) 
 }
 
 async function getAuditLogs(filters = {}) {
-  const { resourceType, resourceId, userId, warehouseId, limit = 50, offset = 0 } = filters;
+  const { resourceType, resourceId, userId, warehouseId, eventCategory, limit = 50, offset = 0 } = filters;
 
   let sql = `
     SELECT
@@ -32,6 +33,9 @@ async function getAuditLogs(filters = {}) {
       a.resource_type,
       a.resource_id,
       a.warehouse_id,
+      a.event_category,
+      a.metadata,
+      a.ip_address,
       a.timestamp
     FROM audit_logs a
     LEFT JOIN users u ON a.user_id = u.id
@@ -41,8 +45,16 @@ async function getAuditLogs(filters = {}) {
   const params = [];
 
   if (warehouseId) {
-    sql += " AND a.warehouse_id = ?";
-    params.push(warehouseId);
+    // system events have no warehouse_id; include them unless filtering by transaction category
+    if (eventCategory === "system") {
+      // no warehouse filter — system events are global
+    } else if (eventCategory === "transaction") {
+      sql += " AND a.warehouse_id = ?";
+      params.push(warehouseId);
+    } else {
+      sql += " AND (a.warehouse_id = ? OR a.event_category = 'system')";
+      params.push(warehouseId);
+    }
   }
 
   if (resourceType) {
@@ -60,6 +72,11 @@ async function getAuditLogs(filters = {}) {
     params.push(userId);
   }
 
+  if (eventCategory) {
+    sql += " AND a.event_category = ?";
+    params.push(eventCategory);
+  }
+
   sql += " ORDER BY a.timestamp DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
 
@@ -69,8 +86,15 @@ async function getAuditLogs(filters = {}) {
   const countParams = [];
 
   if (warehouseId) {
-    countSql += " AND a.warehouse_id = ?";
-    countParams.push(warehouseId);
+    if (eventCategory === "system") {
+      // no warehouse filter
+    } else if (eventCategory === "transaction") {
+      countSql += " AND a.warehouse_id = ?";
+      countParams.push(warehouseId);
+    } else {
+      countSql += " AND (a.warehouse_id = ? OR a.event_category = 'system')";
+      countParams.push(warehouseId);
+    }
   }
 
   if (resourceType) {
@@ -86,6 +110,11 @@ async function getAuditLogs(filters = {}) {
   if (userId) {
     countSql += " AND a.user_id = ?";
     countParams.push(userId);
+  }
+
+  if (eventCategory) {
+    countSql += " AND a.event_category = ?";
+    countParams.push(eventCategory);
   }
 
   const countResult = await db.get(countSql, countParams);
