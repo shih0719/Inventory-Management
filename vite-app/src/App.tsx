@@ -276,7 +276,7 @@ export function App() {
                 ...prev,
               ]);
               void refetchProducts();
-              showToast(lang === 'en' ? 'Reversed' : lang === 'zh' ? '已復原' : '取り消されました');
+              showToast(lang === 'en' ? 'Reversed' : lang.startsWith('zh') ? '已復原' : '取り消されました');
             } catch (err) {
               showToast(`❌ ${(err as Error).message}`, { kind: 'alert', duration: 6000 });
             }
@@ -304,7 +304,7 @@ export function App() {
       if (err instanceof ApiError && err.body && typeof err.body === 'object') {
         const body = err.body as any;
         if (body?.data?.failed) {
-          detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : lang === 'zh' ? '失敗' : '失敗'})`;
+          detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : lang.startsWith('zh') ? '失敗' : '失敗'})`;
 
         }
       }
@@ -359,7 +359,7 @@ export function App() {
   const handleExport = async () => {
     try {
       await exportProductsCsv();
-      showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang === 'zh' ? '項' : '製品'}`);
+      showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang.startsWith('zh') ? '項' : '製品'}`);
     } catch (err) {
       showToast((err as Error).message, { kind: 'alert' });
     }
@@ -427,9 +427,9 @@ export function App() {
           className="btn"
           onClick={() => setModal({ kind: 'create-product' })}
           disabled={bootState !== 'ready'}
-          title={lang === 'en' ? 'New Product' : lang === 'zh' ? '新增產品' : '商品追加'}
+          title={lang === 'en' ? 'New Product' : lang.startsWith('zh') ? '新增產品' : '商品追加'}
         >
-          + {lang === 'en' ? 'Product' : lang === 'zh' ? '產品' : '商品'}
+          + {lang === 'en' ? 'Product' : lang.startsWith('zh') ? '產品' : '商品'}
         </button>
       )}
       {canWrite && (
@@ -454,31 +454,31 @@ export function App() {
       <div className="tb-divider" />
 
       <Dropdown
-        trigger={lang === 'en' ? 'Manage' : lang === 'zh' ? '管理' : '管理'}
+        trigger={lang === 'en' ? 'Manage' : lang.startsWith('zh') ? '管理' : '管理'}
         disabled={bootState !== 'ready'}
       >
         <DropdownItem onClick={() => navigateTo({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
-          🏷 {lang === 'en' ? 'AP Products' : lang === 'zh' ? 'AP 序號品' : 'AP商品'}
+          🏷 {lang === 'en' ? 'AP Products' : lang.startsWith('zh') ? 'AP 序號品' : 'AP商品'}
         </DropdownItem>
         <DropdownItem onClick={() => navigateTo({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
-          📦 {lang === 'en' ? 'Shipments' : lang === 'zh' ? '出貨單據' : '配送'}
+          📦 {lang === 'en' ? 'Shipments' : lang.startsWith('zh') ? '出貨單據' : '配送'}
         </DropdownItem>
         <DropdownItem onClick={() => navigateTo({ kind: 'reports' })} disabled={bootState !== 'ready'}>
-          📊 {lang === 'en' ? 'Inventory Report' : lang === 'zh' ? '庫存報表' : '在庫レポート'}
+          📊 {lang === 'en' ? 'Inventory Report' : lang.startsWith('zh') ? '庫存報表' : '在庫レポート'}
         </DropdownItem>
         {isAdmin && (
           <DropdownItem onClick={() => navigateTo({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
-            📋 {lang === 'en' ? 'Audit Logs' : lang === 'zh' ? '操作日誌' : '操作ログ'}
+            📋 {lang === 'en' ? 'Audit Logs' : lang.startsWith('zh') ? '操作日誌' : '操作ログ'}
           </DropdownItem>
         )}
         {isAdmin && (
           <DropdownItem onClick={() => navigateTo({ kind: 'users' })} disabled={bootState !== 'ready'}>
-            👥 {lang === 'en' ? 'Users' : lang === 'zh' ? '使用者管理' : 'ユーザー管理'}
+            👥 {lang === 'en' ? 'Users' : lang.startsWith('zh') ? '使用者管理' : 'ユーザー管理'}
           </DropdownItem>
         )}
         {isAdmin && (
           <DropdownItem onClick={() => navigateTo({ kind: 'warehouses' })} disabled={bootState !== 'ready'}>
-            🏭 {lang === 'en' ? 'Warehouses' : lang === 'zh' ? '倉庫管理' : '倉庫管理'}
+            🏭 {lang === 'en' ? 'Warehouses' : lang.startsWith('zh') ? '倉庫管理' : '倉庫管理'}
           </DropdownItem>
         )}
       </Dropdown>
@@ -505,23 +505,28 @@ export function App() {
 
       <div className="tb-divider" />
 
-      <div className="lang-seg" role="group" aria-label="Language">
-        <button className={lang === 'en' ? 'on' : ''} onClick={() => setLang('en')}>
-          EN
-        </button>
-        <button className={lang === 'zh' ? 'on' : ''} onClick={() => setLang('zh')}>
-          中
-        </button>
-        <button className={lang === 'ja' ? 'on' : ''} onClick={() => setLang('ja')}>
-          日
-        </button>
-      </div>
+      <Dropdown
+        trigger={<span style={{ fontSize: 14 }}>🌐</span>}
+        align="right"
+      >
+        {(['en', 'zh', 'zh-cn', 'ja'] as const).map((l) => (
+          <DropdownItem key={l} onClick={() => setLang(l)}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-3)', minWidth: 28 }}>
+                {l === 'en' ? 'EN' : l === 'zh' ? '繁' : l === 'zh-cn' ? '简' : 'JP'}
+              </span>
+              <span>{l === 'en' ? 'English' : l === 'zh' ? '繁體中文' : l === 'zh-cn' ? '简体中文' : '日本語'}</span>
+              {lang === l && <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>✓</span>}
+            </span>
+          </DropdownItem>
+        ))}
+      </Dropdown>
 
       {activeWarehouse && (
         <button
           className="btn ghost"
           onClick={handleSwitchWarehouse}
-          title={lang === 'en' ? 'Switch warehouse' : lang === 'zh' ? '切換倉庫' : '倉庫を切り替え'}
+          title={lang === 'en' ? 'Switch warehouse' : lang.startsWith('zh') ? '切換倉庫' : '倉庫を切り替え'}
           style={{ fontSize: 12, gap: 4 }}
         >
           🏭 <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeWarehouse.name}</span>
@@ -531,9 +536,9 @@ export function App() {
       <Dropdown trigger={currentUser?.username?.[0]?.toUpperCase() || 'A'} align="right">
         <DropdownItem disabled>{currentUser?.username}</DropdownItem>
         {currentUser?.provider === 'local' && (
-          <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang === 'zh' ? '修改密碼' : 'パスワード変更'}</DropdownItem>
+          <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang.startsWith('zh') ? '修改密碼' : 'パスワード変更'}</DropdownItem>
         )}
-        <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang === 'zh' ? '登出' : 'ログアウト'}</DropdownItem>
+        <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang.startsWith('zh') ? '登出' : 'ログアウト'}</DropdownItem>
       </Dropdown>
     </div>
   );
@@ -658,7 +663,7 @@ export function App() {
               if (product) {
                 setModal({ kind: 'adjust', product });
               } else {
-                showToast(`${lang === 'en' ? 'Product not found' : lang === 'zh' ? '產品未找到' : '製品が見つかりません'}`, { kind: 'alert' });
+                showToast(`${lang === 'en' ? 'Product not found' : lang.startsWith('zh') ? '產品未找到' : '製品が見つかりません'}`, { kind: 'alert' });
               }
             }
           }}
@@ -727,7 +732,7 @@ export function App() {
           onClose={() => setModal(null)}
           onSuccess={() => {
             setModal(null);
-            showToast(lang === 'zh' ? '密碼已更新' : lang === 'ja' ? 'パスワードを変更しました' : 'Password updated');
+            showToast(lang.startsWith('zh') ? '密碼已更新' : lang === 'ja' ? 'パスワードを変更しました' : 'Password updated');
           }}
         />
       )}
@@ -738,7 +743,7 @@ export function App() {
           onClose={() => setModal(null)}
           onCreated={() => {
             void refetchProducts();
-            showToast(lang === 'zh' ? '產品已建立' : lang === 'ja' ? '商品を作成しました' : 'Product created');
+            showToast(lang.startsWith('zh') ? '產品已建立' : lang === 'ja' ? '商品を作成しました' : 'Product created');
           }}
         />
       )}

@@ -1,6 +1,6 @@
 // src/lib/i18n.ts — labels + tag-name translation.
 
-export type Lang = 'en' | 'zh' | 'ja';
+export type Lang = 'en' | 'zh' | 'zh-cn' | 'ja';
 
 export const L = {
   en: {
@@ -348,6 +348,124 @@ export const L = {
     quickSellSubmit: '出荷確定',
     quickSellSuccess: '件が正常に出荷されました。',
     quickSellErrors: '以下の型番が失敗しました：',
+  },
+  'zh-cn': {
+    appName: '小仓库存',
+    search: '搜索 SKU、名称、型号…',
+    inbound: '+ 入库',
+    outbound: '+ 出库',
+
+    kProducts: '品项总数',
+    kLowStock: '低库存',
+    kToday: '今日异动',
+    kApStock: 'AP 在库',
+
+    apOf: 'AP',
+    units: '件',
+    inboundN: '入',
+    outboundN: '出',
+
+    lowStockTitle: '低库存',
+    lowStockHint: '点击任一行可调整库存',
+    recentTitle: '最近异动',
+    recentHint: '新→旧 · 全部标签',
+
+    onHand: '现有',
+    accountable: '有账',
+    nonAccountable: '无账',
+    acctShort: '有账',
+    nonAcctShort: '无账',
+    min: '下限',
+    apInStock: 'AP 在库',
+    out: '缺货',
+    low: '低量',
+    ok: '正常',
+    status: '状态',
+
+    adjustTitle: '调整库存',
+    adjustQty: '数量变化',
+    adjustHint: '正数 = 入库 · 负数 = 出库',
+    quantityType: '账别',
+    tag: '标签',
+    location: '位置（选填）',
+    remarks: '备注',
+    remarksPh: '选填',
+    cancel: '取消',
+    save: '建立异动',
+    none: '— 无 —',
+
+    batchInTitle: '新增入库批次',
+    batchOutTitle: '新增出库批次',
+    batchName: '批次名称（选填）',
+    batchNamePh: '例：5/22 入库',
+    batchLines: '品项',
+    addLine: '+ 加入品项',
+    product: '产品',
+    qty: '数量',
+    type: '账别',
+    submit: '提交批次',
+    saveDraft: '取消',
+    back: '← 返回',
+    total: '总计',
+    lines: '项',
+    summary: '摘要',
+
+    txSaved: '异动已建立',
+    batchSaved: '批次已完成',
+    of: '/',
+    valid: '有效项目',
+    invalidQty: '数量不可为 0。',
+    stockShort: '此项目会让库存变负 — 请调整数量或拆成多项。',
+
+    inboundLbl: '入库',
+    outboundLbl: '出库',
+    adjustLbl: '调整',
+    returnLbl: '退货',
+    internalLbl: '内部',
+
+    apNoteForBatch: 'AP 序号品 · 在 AP 面板中管理',
+    apNote: 'AP 品 · 序号独立追踪',
+
+    today: '今日',
+    yesterday: '昨日',
+
+    importCsv: '导入 CSV',
+    exportCsv: '导出 CSV',
+    importMissing: '缺少栏位',
+    importDone: '已导入',
+    rows: '笔',
+    updated: '更新',
+    added: '新增',
+    exported: '已导出',
+
+    loading: '加载中…',
+    loadFailed: '加载失败',
+    retry: '重试',
+
+    locations: '位置管理',
+    locationTag: '位置标签',
+    locationName: '位置名称',
+    createLocation: '+ 新增位置',
+    noLocations: '尚无位置',
+    addLocation: '新增位置',
+    products: '产品',
+    noProducts: '此位置没有产品',
+    removeProduct: '移除',
+
+    markedAssoldTitle: '已标记为售出',
+    markedAsoldMsg: '已成功标记为售出。',
+    failedToMarkTitle: '标记为售出失败',
+
+    quickSellTitle: '快速出库',
+    quickSellSerialLabel: '序号清单（每行一个）',
+    quickSellSerialPh: '扫描或粘贴序号…',
+    quickSellProjectCase: '案子',
+    quickSellProjectCasePh: '必填',
+    quickSellSoldTo: '客户 / 收件人（选填）',
+    quickSellSoldToPh: '选填',
+    quickSellSubmit: '确认出库',
+    quickSellSuccess: '台已成功出库。',
+    quickSellErrors: '以下序号失败：',
   },
 } as const;
 

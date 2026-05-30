@@ -97,28 +97,6 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   flex-shrink: 0;
 }
 
-.lang-seg {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.lang-seg button {
-  border: none;
-  background: var(--surface);
-  padding: 5px 10px;
-  font: 600 11px var(--sans);
-  color: var(--ink-3);
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  border-right: 1px solid var(--border);
-  min-width: 32px;
-  white-space: nowrap;
-}
-.lang-seg button:last-child { border-right: none; }
-.lang-seg button.on { background: var(--ink); color: var(--bg); }
-.lang-seg button:not(.on):hover { background: var(--surface-2); color: var(--ink); }
 .tb .avatar {
   width: 30px; height: 30px; border: 1px solid var(--border);
   border-radius: 50%; background: var(--surface-2);
