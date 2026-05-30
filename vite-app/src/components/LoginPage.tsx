@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import { login, getProvider } from '../api/auth';
 import { ApiError } from '../api/client';
 import type { User } from '../api/auth';
+import type { Lang } from '../lib/i18n';
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
-  lang: 'en' | 'zh' | 'ja';
+  lang: Lang;
 }
 
 const texts = {

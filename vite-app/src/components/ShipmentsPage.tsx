@@ -11,9 +11,10 @@ import { listTransactions } from '../api/transactions';
 import { listAllProducts } from '../api/products';
 import { ConfirmModal } from './modals/ConfirmModal';
 import { TransactionDetailModal } from './modals/TransactionDetailModal';
+import type { Lang } from '../lib/i18n';
 
 export interface ShipmentsPageProps {
-  lang?: 'en' | 'zh' | 'ja';
+  lang?: Lang;
 }
 
 export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
