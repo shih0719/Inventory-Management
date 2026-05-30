@@ -25,6 +25,7 @@ const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
 // Token storage
 const TOKEN_KEY = 'inv.token';
+const WAREHOUSE_KEY = 'inv.warehouseId';
 
 // Token change listeners
 const tokenListeners = new Set<(token: string | null) => void>();
@@ -95,12 +96,14 @@ function buildUrl(path: string, query?: RequestOpts['query']): string {
 async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data: T; pagination?: Pagination }> {
   const { body, query, headers, ...rest } = opts;
   const token = getToken();
+  const warehouseId = (() => { try { return localStorage.getItem(WAREHOUSE_KEY); } catch { return null; } })();
   const init: RequestInit = {
     ...rest,
     headers: {
       Accept: 'application/json',
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(warehouseId ? { 'X-Warehouse-Id': warehouseId } : {}),
       ...(headers || {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -167,9 +170,13 @@ export const api = {
 /** Raw fetch wrapper that automatically injects the auth token. Useful for file uploads, downloads, etc. */
 export async function fetchWithAuth(url: string, opts: RequestInit = {}): Promise<Response> {
   const token = getToken();
+  const warehouseId = (() => { try { return localStorage.getItem(WAREHOUSE_KEY); } catch { return null; } })();
   const headers = new Headers(opts.headers);
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (warehouseId && !headers.has('X-Warehouse-Id')) {
+    headers.set('X-Warehouse-Id', warehouseId);
   }
   return fetch(url, { ...opts, headers });
 }

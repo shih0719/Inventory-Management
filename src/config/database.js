@@ -148,7 +148,10 @@ function initDatabase() {
             `CREATE TABLE IF NOT EXISTS users (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               username TEXT NOT NULL UNIQUE,
-              password_hash TEXT NOT NULL,
+              password_hash TEXT,
+              role TEXT NOT NULL DEFAULT 'view' CHECK(role IN ('admin','manager','view')),
+              provider TEXT NOT NULL DEFAULT 'local',
+              email TEXT,
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`,
             (e1) => {
@@ -156,6 +159,13 @@ function initDatabase() {
                 rej(e1);
                 return;
               }
+              // Migrate existing users table: add missing columns
+              db.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'view' CHECK(role IN ('admin','manager','view'))", () => {});
+              db.run("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'local'", () => {});
+              db.run("ALTER TABLE users ADD COLUMN email TEXT", () => {});
+              // Promote first user (eric) to admin if they got the default 'view' role from migration
+              db.run("UPDATE users SET role = 'admin' WHERE username = 'eric' AND role = 'view'", () => {});
+
               console.log("✅ Users table ready");
 
               // Create audit_logs table if not exists
@@ -166,6 +176,7 @@ function initDatabase() {
                   action TEXT NOT NULL CHECK(action IN ('CREATE', 'UPDATE', 'DELETE')),
                   resource_type TEXT NOT NULL,
                   resource_id INTEGER NOT NULL,
+                  warehouse_id INTEGER,
                   timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                   FOREIGN KEY (user_id) REFERENCES users(id)
                 )`,
@@ -174,6 +185,8 @@ function initDatabase() {
                     rej(e2);
                     return;
                   }
+                  // Migrate existing audit_logs: add warehouse_id if missing
+                  db.run("ALTER TABLE audit_logs ADD COLUMN warehouse_id INTEGER", () => {});
                   console.log("✅ Audit logs table ready");
 
                   // Add created_by_user to batches if needed
@@ -207,18 +220,180 @@ function initDatabase() {
                 return;
               }
               const hasCreatedByUser = shipColumns.some((c) => c.name === "created_by_user");
-              if (hasCreatedByUser) {
-                res();
-              } else {
-                db.run(
-                  "ALTER TABLE shipments ADD COLUMN created_by_user TEXT",
-                  (e) => {
-                    if (e) rej(e);
-                    else { console.log("✅ Added created_by_user to shipments"); res(); }
-                  }
-                );
-              }
+              const addCol = hasCreatedByUser
+                ? Promise.resolve()
+                : new Promise((r, j) => {
+                    db.run("ALTER TABLE shipments ADD COLUMN created_by_user TEXT", (e) => {
+                      if (e) j(e);
+                      else { console.log("✅ Added created_by_user to shipments"); r(); }
+                    });
+                  });
+
+              addCol.then(() => ensureWarehouseTables()).then(res).catch(rej);
             });
+          }
+
+          function ensureWarehouseTables() {
+            return new Promise((r, j) => {
+              db.run(
+                `CREATE TABLE IF NOT EXISTS warehouses (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  name TEXT NOT NULL UNIQUE,
+                  description TEXT,
+                  created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+                )`,
+                (e) => {
+                  if (e) { j(e); return; }
+                  db.run(
+                    `CREATE TABLE IF NOT EXISTS user_warehouses (
+                      user_id INTEGER NOT NULL,
+                      warehouse_id INTEGER NOT NULL,
+                      PRIMARY KEY (user_id, warehouse_id),
+                      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                      FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
+                    )`,
+                    (e2) => {
+                      if (e2) { j(e2); return; }
+                      console.log("✅ Warehouses tables ready");
+                      ensureDefaultWarehouse().then(r).catch(j);
+                    }
+                  );
+                }
+              );
+            });
+          }
+
+          function ensureDefaultWarehouse() {
+            return new Promise((r, j) => {
+              // Default warehouse is always id=1 and cannot be deleted
+              db.run(
+                "INSERT OR IGNORE INTO warehouses (id, name, description) VALUES (1, 'default', '預設倉庫（不可刪除）')",
+                (e0) => {
+                  if (e0) { j(e0); return; }
+                  db.get("SELECT id FROM warehouses WHERE id = 1", (e2, row) => {
+                    if (e2) { j(e2); return; }
+                    const defaultId = row.id;
+                    // Add warehouse_id column to products if missing
+                    db.all("PRAGMA table_info(products)", (e3, cols) => {
+                      if (e3) { j(e3); return; }
+                      const hasWarehouseId = cols.some(c => c.name === "warehouse_id");
+                      const addCol = hasWarehouseId
+                        ? Promise.resolve()
+                        : new Promise((res, rej) => {
+                            db.run("ALTER TABLE products ADD COLUMN warehouse_id INTEGER", (e) => {
+                              if (e) rej(e);
+                              else { console.log("✅ Added warehouse_id to products"); res(); }
+                            });
+                          });
+                      addCol
+                        .then(() => new Promise((res, rej) => {
+                          db.run(
+                            `UPDATE products SET warehouse_id = ? WHERE warehouse_id IS NULL`,
+                            [defaultId],
+                            (e) => { if (e) rej(e); else res(); }
+                          );
+                        }))
+                        .then(() => ensureWarehouseIdOnTables(defaultId))
+                        .then(() => fixProductsUniqueConstraint())
+                        .then(() => { console.log("✅ Default warehouse ready"); r(); })
+                        .catch(j);
+                    });
+                  });
+                });
+            });
+          }
+
+          // Fix: old databases have UNIQUE(sku) instead of UNIQUE(sku, warehouse_id).
+          // SQLite can't ALTER a constraint, so we recreate the table if needed.
+          function fixProductsUniqueConstraint() {
+            return new Promise((r, j) => {
+              db.all("PRAGMA index_list(products)", (e, indexes) => {
+                if (e) { j(e); return; }
+                // Look for a unique index on exactly one column (the old UNIQUE(sku))
+                const oldUniqueIdx = indexes.find(idx => idx.unique === 1 && idx.origin === 'u');
+                if (!oldUniqueIdx) { r(); return; }
+
+                // Check if that index is on sku alone (not sku+warehouse_id)
+                db.all(`PRAGMA index_info(${oldUniqueIdx.name})`, (e2, cols) => {
+                  if (e2) { j(e2); return; }
+                  const colNames = cols.map(c => c.name);
+                  if (colNames.length !== 1 || colNames[0] !== 'sku') { r(); return; }
+
+                  console.log("⚠️  Detected old UNIQUE(sku) constraint — migrating to UNIQUE(sku, warehouse_id)...");
+                  db.run("PRAGMA foreign_keys = OFF", (eFk) => {
+                    if (eFk) { j(eFk); return; }
+                    doMigration();
+                  });
+
+                  function doMigration() {
+                    const fail = (err) => {
+                      db.run("ROLLBACK", () => {
+                        db.run("PRAGMA foreign_keys = ON", () => j(err));
+                      });
+                    };
+                    db.run("BEGIN TRANSACTION", (e3) => {
+                      if (e3) { db.run("PRAGMA foreign_keys = ON"); j(e3); return; }
+                      db.run(`
+                        CREATE TABLE products_new (
+                          id INTEGER PRIMARY KEY AUTOINCREMENT,
+                          warehouse_id INTEGER,
+                          type TEXT NOT NULL,
+                          sku TEXT NOT NULL,
+                          name TEXT NOT NULL,
+                          model TEXT,
+                          accountable_quantity INTEGER NOT NULL DEFAULT 0,
+                          non_accountable_quantity INTEGER NOT NULL DEFAULT 0,
+                          min_stock INTEGER NOT NULL DEFAULT 0,
+                          track_serial INTEGER NOT NULL DEFAULT 0,
+                          is_deleted BOOLEAN NOT NULL DEFAULT 0,
+                          created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                          updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                          UNIQUE(sku, warehouse_id)
+                        )
+                      `, (e4) => {
+                        if (e4) { fail(e4); return; }
+                        db.run("INSERT INTO products_new SELECT id, warehouse_id, type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial, is_deleted, created_at, updated_at FROM products", (e5) => {
+                          if (e5) { fail(e5); return; }
+                          db.run("DROP TABLE products", (e6) => {
+                            if (e6) { fail(e6); return; }
+                            db.run("ALTER TABLE products_new RENAME TO products", (e7) => {
+                              if (e7) { fail(e7); return; }
+                              db.run("COMMIT", (e8) => {
+                                if (e8) { fail(e8); return; }
+                                db.run("PRAGMA foreign_keys = ON", () => {
+                                  console.log("✅ Migrated products to UNIQUE(sku, warehouse_id)");
+                                  r();
+                                });
+                              });
+                            });
+                          });
+                        });
+                      });
+                    });
+                  } // doMigration
+                });
+              });
+            });
+          }
+
+          function ensureWarehouseIdOnTables(defaultId) {
+            const tables = ["transactions", "batches", "shipments"];
+            return tables.reduce((chain, table) => {
+              return chain.then(() => new Promise((r, j) => {
+                db.all(`PRAGMA table_info(${table})`, (e, cols) => {
+                  if (e) { j(e); return; }
+                  const has = cols.some(c => c.name === "warehouse_id");
+                  if (has) { r(); return; }
+                  db.run(`ALTER TABLE ${table} ADD COLUMN warehouse_id INTEGER`, (e2) => {
+                    if (e2) { j(e2); return; }
+                    console.log(`✅ Added warehouse_id to ${table}`);
+                    db.run(`UPDATE ${table} SET warehouse_id = ? WHERE warehouse_id IS NULL`, [defaultId], (e3) => {
+                      if (e3) j(e3); else r();
+                    });
+                  });
+                });
+              }));
+            }, Promise.resolve());
           }
         });
       }
@@ -261,7 +436,7 @@ function initDatabase() {
             }
 
             db.run(
-              "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+              "INSERT INTO users (username, password_hash, role, provider) VALUES (?, ?, 'admin', 'local')",
               ["eric", passwordHash],
               function (insertErr) {
                 if (insertErr) {

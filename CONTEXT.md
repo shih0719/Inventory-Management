@@ -186,34 +186,48 @@ HTML 片段存放於 `templates/` 目錄，按邏輯區域組織：
 
 ## 認証與授權
 
+### Auth Provider（認証提供者）
+系統層級設定，管理員選擇一個 provider，全員走同一條路。切換 provider 時舊帳號直接失效。
+
+目前支援的 provider：
+- **`local`** — username/password，bcrypt 驗証，帳號由 admin 手動建立
+- **`microsoft`** — Azure AD OAuth2/OIDC，使用者第一次登入時自動建立帳號
+
+Provider 透過 `AuthProvider` interface 抽象，未來可新增 Google 等 provider 而不改動核心邏輯。
+
+### User（使用者）
+系統操作者。每個 User 有：
+- **Role**（系統層級）：`admin` / `manager` / `view`
+- **Warehouses**（可存取倉庫清單）：多對多，決定能操作哪些倉庫
+- **Provider**：`local` 或 `microsoft`，決定登入方式
+
+Local User 由 admin 手動建立並設定密碼。SSO User 在第一次登入時自動建立，需 admin 事後指派 role 和倉庫。
+
+### Role（角色）
+系統層級，決定使用者能執行的動作：
+
+| 動作 | admin | manager | view |
+|---|---|---|---|
+| 查看庫存、交易紀錄 | ✅ | ✅ | ✅ |
+| 新增/修改產品 | ✅ | ✅ | ❌ |
+| 新增交易（入庫/出庫） | ✅ | ✅ | ❌ |
+| 管理使用者 | ✅ | ❌ | ❌ |
+| 系統設定（切換 auth provider） | ✅ | ❌ | ❌ |
+
+### Warehouse（倉庫）
+庫存管理的空間隔離單位。每個 Warehouse 維護**完全獨立**的商品清單——同一個 SKU 在不同倉庫是不同的 Product 記錄，可以有不同的名稱、min_stock、track_serial 等設定。倉庫之間的資料互不可見，使用者只能看到當前選定倉庫的資料。
+
+**Active Warehouse（當前倉庫）**：使用者登入後必須選擇一個倉庫（即使只有一個選項也要明確選擇），選定後所有操作皆限定在該倉庫範圍內。前端透過 `X-Warehouse-Id` request header 傳遞當前倉庫 ID，後端 middleware 驗證使用者確實有該倉庫的存取權限。
+
 ### 驗証策略
-系統採用 **JWT Bearer Token** 認証。所有 API 端點預設要求有效的 JWT token（透過 `Authorization: Bearer <token>` header），除非明確豁免。
+系統採用 **JWT Bearer Token** 認証，token payload 包含 `id`、`username`、`role`、`warehouses`（id 陣列）。
 
-**豁免的端點**（無認証存取）：
-- `POST /api/auth/login` — 使用者登入
-- `POST /api/auth/logout` — 登出（無狀態，不檢查 token）
-- `GET /api/products` — 查詢所有商品清單（公開無認証查詢）
-- `GET /api/products/:id` — 查詢單個商品詳情（公開無認証查詢）
+三層 middleware：
+1. **`verifyAuth`** — 驗証 token 有效，掛載 `req.user`（含 role 和 warehouses）
+2. **`requireRole(roles)`** — 檢查 `req.user.role` 是否在允許清單內
+3. **`requireWarehouse`** — 檢查 `req.user.warehouses` 是否包含操作對象（第二階段實作）
 
-**受保護的端點**（需要有效 JWT）：
-所有其他 API 端點，包括：
-- 所有修改操作（POST、PUT、DELETE）
-- 其他業務 API（locations、transactions、shipments、product-units、batches、webhooks、audit、CSV、system、updates 等）的所有讀寫操作
-
-### 公開查詢模式（Public Inventory View）
-出於外部利益相關者（客戶、廠商）查詢當前庫存的需求，系統提供兩種方式：
-
-**方式 1：靜態頁面（推薦）**
-- **URL**：`/inventory-view.html`
-- **特色**：簡潔的表格展示，自動每 30 秒刷新
-- **訪問**：無認証，可直接分享 URL 給客戶/廠商
-
-**方式 2：API 端點（供程式整合）**
-- `GET /api/products` — 查詢所有商品清單
-- `GET /api/products/:id` — 查詢單個商品詳情
-- **無認証存取**，可由外部系統或行動 App 調用
-
-**部署注意**：系統**不提供特殊的「公開鏈接」或 token**，僅透過網路可達性控制存取（例如防火牆、IP 白名單由部署層處理）。
+所有端點預設需要登入，無公開 API。
 
 ---
 

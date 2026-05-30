@@ -1,9 +1,6 @@
 const db = require("../config/database");
 
-/**
- * Log an action to audit_logs table
- */
-async function logAction(userId, action, resourceType, resourceId) {
+async function logAction(userId, action, resourceType, resourceId, warehouseId) {
   try {
     if (!userId || !action || !resourceType || !resourceId) {
       console.warn(
@@ -14,20 +11,17 @@ async function logAction(userId, action, resourceType, resourceId) {
     }
 
     await db.run(
-      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id)
-       VALUES (?, ?, ?, ?)`,
-      [userId, action, resourceType, resourceId]
+      `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, warehouse_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, action, resourceType, resourceId, warehouseId || null]
     );
   } catch (err) {
     console.error("❌ Failed to log audit action:", err.message);
   }
 }
 
-/**
- * Get audit logs with optional filtering
- */
 async function getAuditLogs(filters = {}) {
-  const { resourceType, resourceId, userId, limit = 50, offset = 0 } = filters;
+  const { resourceType, resourceId, userId, warehouseId, limit = 50, offset = 0 } = filters;
 
   let sql = `
     SELECT
@@ -37,6 +31,7 @@ async function getAuditLogs(filters = {}) {
       a.action,
       a.resource_type,
       a.resource_id,
+      a.warehouse_id,
       a.timestamp
     FROM audit_logs a
     LEFT JOIN users u ON a.user_id = u.id
@@ -44,6 +39,11 @@ async function getAuditLogs(filters = {}) {
   `;
 
   const params = [];
+
+  if (warehouseId) {
+    sql += " AND a.warehouse_id = ?";
+    params.push(warehouseId);
+  }
 
   if (resourceType) {
     sql += " AND a.resource_type = ?";
@@ -65,9 +65,13 @@ async function getAuditLogs(filters = {}) {
 
   const logs = await db.all(sql, params);
 
-  // Get total count for pagination
   let countSql = "SELECT COUNT(*) as total FROM audit_logs a WHERE 1=1";
   const countParams = [];
+
+  if (warehouseId) {
+    countSql += " AND a.warehouse_id = ?";
+    countParams.push(warehouseId);
+  }
 
   if (resourceType) {
     countSql += " AND a.resource_type = ?";
@@ -89,15 +93,8 @@ async function getAuditLogs(filters = {}) {
 
   return {
     data: logs || [],
-    pagination: {
-      total,
-      offset,
-      limit,
-    },
+    pagination: { total, offset, limit },
   };
 }
 
-module.exports = {
-  logAction,
-  getAuditLogs,
-};
+module.exports = { logAction, getAuditLogs };

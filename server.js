@@ -1,94 +1,16 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const os = require("os");
 const { initDatabase } = require("./src/config/database");
 const logger = require("./src/config/logger");
+const { createApp } = require("./src/app");
 
-const app = express();
+const app = createApp();
 const PORT = process.env.PORT || 3030;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-
-// Import routes
-const authRoutes = require("./src/routes/auth");
-const auditRoutes = require("./src/routes/audit");
-const productsRoutes = require("./src/routes/products");
-const transactionsRoutes = require("./src/routes/transactions");
-const tagsRoutes = require("./src/routes/tags");
-const csvRoutes = require("./src/routes/csv");
-const batchesRoutes = require("./src/routes/batches");
-const productUnitsRoutes = require("./src/routes/productUnits");
-const updatesRoutes = require("./src/routes/updates");
-const shipmentsRoutes = require("./src/routes/shipments");
 
 // Import update service
 const updateService = require("./src/services/updateService");
 
 // Import backup service
 const { startBackupDaemon } = require("./src/services/backupService");
-
-// API Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/audit-logs", auditRoutes);
-app.use("/api/products", productsRoutes);
-app.use("/api/transactions", transactionsRoutes);
-app.use("/api/tags", tagsRoutes);
-app.use("/api/csv", csvRoutes);
-app.use("/api/batches", batchesRoutes);
-app.use("/api/product-units", productUnitsRoutes);
-app.use("/api/updates", updatesRoutes);
-app.use("/api/shipments", shipmentsRoutes);
-
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({ status: "OK", timestamp: new Date().toISOString() });
-});
-
-// Server info endpoint (for IP detection)
-app.get("/api/info", (req, res) => {
-  const interfaces = os.networkInterfaces();
-  let ip = "localhost";
-  
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      // Skip internal and non-IPv4 addresses
-      if (iface.family === "IPv4" && !iface.internal) {
-        ip = iface.address;
-        break;
-      }
-    }
-    if (ip !== "localhost") break;
-  }
-  
-  res.json({
-    ip,
-    port: PORT,
-    url: `http://${ip}:${PORT}`
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  logger.error(`Error: ${err.message}`, { service: 'SERVER' });
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || "Internal Server Error",
-      status: err.status || 500,
-    },
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: { message: "Not Found", status: 404 } });
-});
 
 // Initialize database and start server
 initDatabase()

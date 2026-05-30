@@ -53,25 +53,31 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
     if (isOutbound && inboundTag && tagIdRef.current === inboundTag.id && outboundTag) setTagId(outboundTag.id);
   }, [isInbound, isOutbound, inboundTag, outboundTag]);
 
+  const newMinStock = typeof minStock === 'number' ? minStock : product.min_stock;
+  const hasMetaChanges =
+    newMinStock !== product.min_stock || productType !== product.type;
+  const canSubmit = (!isZero || hasMetaChanges) && !stockShort && !submitting;
+
+
   const handleSubmit = async () => {
-    if (isZero || stockShort || submitting) return;
+    if (!canSubmit) return;
     setSubmitting(true);
     try {
-      await onSubmit({
-        product_id: product.id,
-        sku: product.sku,
-        quantity_change: Number(qty),
-        quantity_type: quantityType,
-        tag_id: tagId,
-        remarks: remarks || '',
-      });
+      if (!isZero) {
+        await onSubmit({
+          product_id: product.id,
+          sku: product.sku,
+          quantity_change: Number(qty),
+          quantity_type: quantityType,
+          tag_id: tagId,
+          remarks: remarks || '',
+        });
+      }
 
-      const newMinStock = typeof minStock === 'number' ? minStock : product.min_stock;
       const updates: Partial<Product> = {};
       if (newMinStock !== product.min_stock) updates.min_stock = newMinStock;
       if (productType !== product.type) {
         updates.type = productType;
-        // Auto-enable track_serial when switching to AP type
         if (productType === 'ap') {
           (updates as any).track_serial = true;
         }
@@ -79,6 +85,8 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
       if (Object.keys(updates).length > 0) {
         await updateProduct(product.id, updates);
       }
+
+      if (isZero) onClose();
     } finally {
       setSubmitting(false);
     }
@@ -250,7 +258,7 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
             </button>
             <button
               className="btn-lg primary"
-              disabled={isZero || stockShort || submitting}
+              disabled={!canSubmit}
               onClick={handleSubmit}
             >
               {submitting ? t.loading : t.save}

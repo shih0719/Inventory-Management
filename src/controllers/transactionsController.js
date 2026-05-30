@@ -85,12 +85,12 @@ async function create(req, res) {
         ],
       );
 
-      // Log audit action
       auditService.logAction(
         req.user?.id,
         "CREATE",
         "transaction",
-        result.id
+        result.id,
+        req.warehouseId
       );
 
       // Update product quantity

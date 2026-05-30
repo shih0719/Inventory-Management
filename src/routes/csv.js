@@ -3,16 +3,14 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const { verifyAuth } = require("../middleware/authMiddleware");
+const { requireRole } = require("../middleware/authMiddleware");
 const csvController = require("../controllers/csvController");
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, "../../uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
@@ -32,13 +30,13 @@ const upload = multer({
     cb(null, true);
   },
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 5 * 1024 * 1024,
   },
 });
 
-router.post("/import", verifyAuth, upload.single("file"), csvController.importCSV);
-router.get("/export", verifyAuth, csvController.exportCSV);
-router.get("/template", verifyAuth, csvController.downloadTemplate);
+router.post("/import", requireRole(["manager", "admin"]), upload.single("file"), csvController.importCSV);
+router.get("/export", csvController.exportCSV);
+router.get("/template", csvController.downloadTemplate);
 router.get("/imports", csvController.getImportHistory);
 router.get("/imports/:importId", csvController.getImportDetail);
 

@@ -104,12 +104,12 @@ async function createBatch(req, res) {
       );
       const batchId = batchResult.id;
 
-      // Log batch creation
       auditService.logAction(
         req.user?.id,
         "CREATE",
         "batch",
-        batchId
+        batchId,
+        req.warehouseId
       );
 
       for (const item of validatedItems) {

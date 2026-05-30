@@ -99,9 +99,15 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\" -Directory)",
       "Bash(Select-Object -First 10)",
       "Bash(Format-Table Name)",
-      "Bash(codegraph init *)"
+      "Bash(codegraph init *)",
+      "Bash(npx jest *)",
+      "Bash(node -e ' *)"
     ]
   },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "codegraph"
+  ],
   "hooks": {
     "Stop": [
       {
@@ -114,9 +120,5 @@
         ]
       }
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "codegraph"
-  ]
+  }
 }

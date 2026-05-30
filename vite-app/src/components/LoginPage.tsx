@@ -1,6 +1,6 @@
 // src/components/LoginPage.tsx
-import { useState } from 'react';
-import { login } from '../api/auth';
+import { useState, useEffect } from 'react';
+import { login, getProvider } from '../api/auth';
 import { ApiError } from '../api/client';
 import type { User } from '../api/auth';
 
@@ -18,7 +18,7 @@ const texts = {
     loginError: 'Login failed',
     loginErrorDetail: 'Invalid username or password',
     loading: 'Logging in...',
-    guestInventory: 'View Product Count',
+    microsoftLogin: 'Sign in with Microsoft',
   },
   zh: {
     title: '庫存管理',
@@ -28,7 +28,7 @@ const texts = {
     loginError: '登入失敗',
     loginErrorDetail: '使用者名稱或密碼不正確',
     loading: '登入中...',
-    guestInventory: '不登入查看產品數量',
+    microsoftLogin: '使用 Microsoft 登入',
   },
   ja: {
     title: 'インベントリ管理',
@@ -38,7 +38,7 @@ const texts = {
     loginError: 'ログイン失敗',
     loginErrorDetail: 'ユーザー名またはパスワードが正しくありません',
     loading: 'ログイン中...',
-    guestInventory: 'ログインなしで製品数を表示',
+    microsoftLogin: 'Microsoft でサインイン',
   },
 };
 
@@ -47,8 +47,13 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<'local' | 'microsoft' | null>(null);
 
   const t = texts[lang];
+
+  useEffect(() => {
+    getProvider().then(setProvider).catch(() => setProvider('local'));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +70,10 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
     }
   };
 
+  const handleMicrosoftLogin = () => {
+    window.location.href = '/api/auth/microsoft/redirect';
+  };
+
   return (
     <div className="login-page">
       <div className="login-container">
@@ -73,46 +82,52 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
           <h1>{t.title}</h1>
         </div>
 
-        <a href="/inventory" className="btn-guest">
-          {t.guestInventory}
-        </a>
+        {provider === 'local' && (
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="form-group">
+              <label htmlFor="username">{t.username}</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                placeholder="eric"
+                required
+                autoFocus
+                autoComplete="username"
+              />
+            </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">{t.username}</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-              placeholder="eric"
-              required
-              autoFocus
-              autoComplete="username"
-            />
+            <div className="form-group">
+              <label htmlFor="password">{t.password}</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                placeholder="password123"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            {error && <div className="form-error">{error}</div>}
+
+            <button type="submit" disabled={loading} className="btn-lg">
+              {loading ? t.loading : t.login}
+            </button>
+          </form>
+        )}
+
+        {provider === 'microsoft' && (
+          <div className="login-form">
+            <button onClick={handleMicrosoftLogin} className="btn-lg btn-microsoft">
+              {t.microsoftLogin}
+            </button>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="password">{t.password}</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              placeholder="password123"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-
-          {error && <div className="form-error">{error}</div>}
-
-          <button type="submit" disabled={loading} className="btn-lg">
-            {loading ? t.loading : t.login}
-          </button>
-        </form>
+        )}
       </div>
 
       <style>{`
@@ -241,6 +256,21 @@ export function LoginPage({ onLoginSuccess, lang }: LoginPageProps) {
         .login-form .btn-lg {
           padding: 8px 16px;
           font-size: 13px;
+        }
+
+        .btn-microsoft {
+          background: #0078d4;
+          color: white;
+          border: none;
+          width: 100%;
+          cursor: pointer;
+          border-radius: 4px;
+          font-family: inherit;
+          font-weight: 500;
+        }
+
+        .btn-microsoft:hover {
+          background: #106ebe;
         }
       `}</style>
     </div>

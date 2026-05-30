@@ -10,6 +10,7 @@ async function getAuditLogs(req, res) {
     const { resource_type, resource_id, user_id, limit, offset } = req.query;
 
     const filters = {
+      warehouseId: req.warehouseId,
       resourceType: resource_type,
       resourceId: resource_id ? parseInt(resource_id) : undefined,
       userId: user_id ? parseInt(user_id) : undefined,

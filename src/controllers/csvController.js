@@ -93,6 +93,7 @@ async function importCSV(req, res) {
         results.push(data);
       })
       .on("end", async () => {
+        const warehouseId = req.warehouseId;
         try {
           // Check if file is empty
           if (isEmptyFile || results.length === 0) {
@@ -194,10 +195,10 @@ async function importCSV(req, res) {
                 }
               }
 
-              // Check if product exists
+              // Check if product exists in this warehouse
               const existing = await db.get(
-                "SELECT id, min_stock FROM products WHERE sku = ?",
-                [trimmedSku],
+                "SELECT id, min_stock FROM products WHERE sku = ? AND warehouse_id = ?",
+                [trimmedSku, warehouseId],
               );
 
               if (existing) {
@@ -205,7 +206,7 @@ async function importCSV(req, res) {
                 await db.run(
                   `UPDATE products SET name = ?, type = ?, model = ?,
                    accountable_quantity = ?, non_accountable_quantity = ?, min_stock = ?
-                   WHERE sku = ?`,
+                   WHERE sku = ? AND warehouse_id = ?`,
                   [
                     Name.trim(),
                     Type.trim(),
@@ -214,13 +215,14 @@ async function importCSV(req, res) {
                     nonAccountableQty,
                     finalMinStock,
                     trimmedSku,
+                    warehouseId,
                   ],
                 );
                 updated++;
               } else {
                 await db.run(
-                  `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                  `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock, warehouse_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                   [
                     trimmedSku,
                     Name.trim(),
@@ -229,6 +231,7 @@ async function importCSV(req, res) {
                     accountableQty,
                     nonAccountableQty,
                     hasMinStock ? minStockVal : 0,
+                    warehouseId,
                   ],
                 );
                 imported++;
@@ -301,12 +304,12 @@ async function importCSV(req, res) {
 
             const importId = importResult.id;
 
-            // Record audit log for CSV import
             await logAction(
               req.user?.id || null,
-              'IMPORT',
-              'CSV_IMPORT',
-              importId
+              'CREATE',
+              'csv_import',
+              importId,
+              warehouseId
             );
 
             // Partial success

@@ -6,21 +6,23 @@ async function getAll(req, res) {
     const { sku, name, model, tag, low_stock, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    const warehouseId = req.warehouseId;
+
     let countSql = `
             SELECT COUNT(DISTINCT p.id) as total
             FROM products p
             LEFT JOIN transactions t ON p.id = t.product_id
-            WHERE p.is_deleted = 0
+            WHERE p.is_deleted = 0 AND p.warehouse_id = ?
         `;
     let sql = `
             SELECT DISTINCT p.*,
               (SELECT COUNT(*) FROM product_units pu WHERE pu.product_id = p.id AND pu.status = 'in_stock') AS ap_in_stock_count
             FROM products p
             LEFT JOIN transactions t ON p.id = t.product_id
-            WHERE p.is_deleted = 0
+            WHERE p.is_deleted = 0 AND p.warehouse_id = ?
         `;
-    const params = [];
-    const countParams = [];
+    const params = [warehouseId];
+    const countParams = [warehouseId];
 
     // If both sku and name are provided with the same value (from search),
     // use OR logic to search in both fields
@@ -122,6 +124,7 @@ async function create(req, res) {
       non_accountable_quantity,
       min_stock,
       track_serial,
+      warehouse_id: bodyWarehouseId,
     } = req.body;
 
     if (!type || !sku || !name) {
@@ -131,23 +134,31 @@ async function create(req, res) {
       });
     }
 
-    // Check if SKU already exists
+    // Resolve warehouse_id: from body, or header (Phase 2), or Default warehouse
+    let warehouse_id = bodyWarehouseId || (req.warehouseId) || null;
+    if (!warehouse_id) {
+      const defaultWh = await db.get("SELECT id FROM warehouses WHERE name = 'Default'");
+      warehouse_id = defaultWh ? defaultWh.id : null;
+    }
+
+    // Check if SKU already exists in same warehouse
     const existing = await db.get(
-      "SELECT id FROM products WHERE sku = ? AND is_deleted = 0",
-      [sku],
+      "SELECT id FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
+      [sku, warehouse_id],
     );
 
     if (existing) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         error: "此 SKU 已存在",
       });
     }
 
     const result = await db.run(
-      `INSERT INTO products (type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (warehouse_id, type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        warehouse_id,
         type,
         sku,
         name,

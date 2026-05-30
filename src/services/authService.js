@@ -23,24 +23,35 @@ async function comparePassword(password, hash) {
  * Login user and return JWT token
  */
 async function login(username, password) {
-  // Find user by username
-  const user = await db.get("SELECT * FROM users WHERE username = ?", [username]);
+  const user = await db.get("SELECT * FROM users WHERE username = ? AND provider = 'local'", [username]);
 
   if (!user) {
     throw new Error("Invalid username or password");
   }
 
-  // Compare password
   const isPasswordValid = await comparePassword(password, user.password_hash);
   if (!isPasswordValid) {
     throw new Error("Invalid username or password");
   }
 
-  // Generate JWT token
+  const warehouseRows = await db.all(
+    "SELECT warehouse_id FROM user_warehouses WHERE user_id = ?",
+    [user.id]
+  );
+  const assignedWarehouses = warehouseRows.map((r) => r.warehouse_id);
+
+  // Default warehouse is accessible to all users regardless of explicit assignment
+  const defaultWh = await db.get("SELECT id FROM warehouses WHERE name LIKE 'default' COLLATE NOCASE LIMIT 1");
+  const warehouses = defaultWh && !assignedWarehouses.includes(defaultWh.id)
+    ? [defaultWh.id, ...assignedWarehouses]
+    : assignedWarehouses;
+
   const token = jwt.sign(
     {
       id: user.id,
       username: user.username,
+      role: user.role,
+      warehouses,
     },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRE }
@@ -51,7 +62,10 @@ async function login(username, password) {
     user: {
       id: user.id,
       username: user.username,
+      role: user.role,
+      provider: user.provider,
       created_at: user.created_at,
+      warehouses,
     },
   };
 }

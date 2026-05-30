@@ -21,12 +21,16 @@ import { importProductsCsv, exportProductsCsv, downloadCsvTemplate } from './api
 import { ApiError, getToken } from './api/client';
 import { logout, getCurrentUser, type User } from './api/auth';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
+import { CreateProductModal } from './components/modals/CreateProductModal';
 import { L, type Lang } from './lib/i18n';
 import { Dashboard } from './components/Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './components/BatchFlow';
 import { APProductsPage } from './components/APProductsPage';
 import { ShipmentsPage } from './components/ShipmentsPage';
 import { AuditLogsPage } from './components/AuditLogsPage';
+import { ReportsPage } from './components/ReportsPage';
+import { WarehousesPage } from './components/WarehousesPage';
+import { UsersPage } from './components/UsersPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { Dropdown, DropdownItem } from './components/Dropdown';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
@@ -37,6 +41,8 @@ import { BatchDetailModal } from './components/modals/BatchDetailModal';
 import { ShipmentDetailModal } from './components/modals/ShipmentDetailModal';
 import { Toast, type ToastState } from './components/Toast';
 import { LoginPage } from './components/LoginPage';
+import { WarehouseSelector } from './components/WarehouseSelector';
+import { getActiveWarehouseId, type ActiveWarehouse } from './context/ActiveWarehouseContext';
 
 // ---- recent SKU memory (localStorage) -------------------------------------
 
@@ -61,7 +67,10 @@ type View =
   | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
   | { kind: 'ap-products' }
   | { kind: 'shipments' }
-  | { kind: 'audit-logs' };
+  | { kind: 'audit-logs' }
+  | { kind: 'reports' }
+  | { kind: 'warehouses' }
+  | { kind: 'users' };
 
 type Modal =
   | null
@@ -71,7 +80,8 @@ type Modal =
   | { kind: 'transaction-detail'; transactionId: number }
   | { kind: 'batch-detail'; batchId: number }
   | { kind: 'shipment-detail'; shipmentId: number }
-  | { kind: 'change-password' };
+  | { kind: 'change-password' }
+  | { kind: 'create-product' };
 
 // ---- App ------------------------------------------------------------------
 
@@ -79,6 +89,11 @@ export function App() {
   const [lang, setLang] = useState<Lang>('en');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
+  const [activeWarehouse, setActiveWarehouse] = useState<ActiveWarehouse | null>(() => {
+    const id = getActiveWarehouseId();
+    const name = (() => { try { return localStorage.getItem('inv.warehouseName'); } catch { return null; } })();
+    return id && name ? { id, name } : null;
+  });
 
   const [products, setProducts] = useState<Product[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -294,8 +309,27 @@ export function App() {
     } finally {
       setIsAuthenticated(false);
       setCurrentUser(null);
-      // Don't call loadAll() on logout — just go back to login
+      setActiveWarehouse(null);
+      localStorage.removeItem('inv.warehouseId');
+      localStorage.removeItem('inv.warehouseName');
     }
+  };
+
+  const handleWarehouseSelect = (wh: ActiveWarehouse) => {
+    localStorage.setItem('inv.warehouseId', String(wh.id));
+    localStorage.setItem('inv.warehouseName', wh.name);
+    setActiveWarehouse(wh);
+    setView({ kind: 'dashboard' });
+    void loadAll();
+  };
+
+  const handleSwitchWarehouse = () => {
+    setActiveWarehouse(null);
+    localStorage.removeItem('inv.warehouseId');
+    localStorage.removeItem('inv.warehouseName');
+    setView({ kind: 'dashboard' });
+    setProducts([]);
+    setTransactions([]);
   };
 
   // ---- CSV import / export ----------------------------------------------
@@ -333,6 +367,11 @@ export function App() {
     }
   };
 
+  // ---- role helpers -------------------------------------------------------
+
+  const canWrite = currentUser?.role === 'manager' || currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin';
+
   // ---- Topbar -----------------------------------------------------------
 
   const Topbar = () => (
@@ -359,20 +398,34 @@ export function App() {
         />
       </div>
 
-      <button
-        className="btn"
-        onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
-        disabled={bootState !== 'ready'}
-      >
-        <span style={{ color: 'var(--ok)', fontWeight: 700 }}>↑</span> {t.inbound}
-      </button>
-      <button
-        className="btn"
-        onClick={() => setView({ kind: 'batch', batchKind: 'outbound' })}
-        disabled={bootState !== 'ready'}
-      >
-        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>↓</span> {t.outbound}
-      </button>
+      {canWrite && (
+        <button
+          className="btn"
+          onClick={() => setModal({ kind: 'create-product' })}
+          disabled={bootState !== 'ready'}
+          title={lang === 'en' ? 'New Product' : lang === 'zh' ? '新增產品' : '商品追加'}
+        >
+          + {lang === 'en' ? 'Product' : lang === 'zh' ? '產品' : '商品'}
+        </button>
+      )}
+      {canWrite && (
+        <button
+          className="btn"
+          onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
+          disabled={bootState !== 'ready'}
+        >
+          <span style={{ color: 'var(--ok)', fontWeight: 700 }}>↑</span> {t.inbound}
+        </button>
+      )}
+      {canWrite && (
+        <button
+          className="btn"
+          onClick={() => setView({ kind: 'batch', batchKind: 'outbound' })}
+          disabled={bootState !== 'ready'}
+        >
+          <span style={{ color: 'var(--accent)', fontWeight: 700 }}>↓</span> {t.outbound}
+        </button>
+      )}
 
       <div className="tb-divider" />
 
@@ -386,17 +439,34 @@ export function App() {
         <DropdownItem onClick={() => setView({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
           📦 {lang === 'en' ? 'Shipments' : lang === 'zh' ? '出貨單據' : '配送'}
         </DropdownItem>
-        <DropdownItem onClick={() => setView({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
-          📋 {lang === 'en' ? 'Audit Logs' : lang === 'zh' ? '操作日誌' : '操作ログ'}
+        <DropdownItem onClick={() => setView({ kind: 'reports' })} disabled={bootState !== 'ready'}>
+          📊 {lang === 'en' ? 'Inventory Report' : lang === 'zh' ? '庫存報表' : '在庫レポート'}
         </DropdownItem>
+        {isAdmin && (
+          <DropdownItem onClick={() => setView({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
+            📋 {lang === 'en' ? 'Audit Logs' : lang === 'zh' ? '操作日誌' : '操作ログ'}
+          </DropdownItem>
+        )}
+        {isAdmin && (
+          <DropdownItem onClick={() => setView({ kind: 'users' })} disabled={bootState !== 'ready'}>
+            👥 {lang === 'en' ? 'Users' : lang === 'zh' ? '使用者管理' : 'ユーザー管理'}
+          </DropdownItem>
+        )}
+        {isAdmin && (
+          <DropdownItem onClick={() => setView({ kind: 'warehouses' })} disabled={bootState !== 'ready'}>
+            🏭 {lang === 'en' ? 'Warehouses' : lang === 'zh' ? '倉庫管理' : '倉庫管理'}
+          </DropdownItem>
+        )}
       </Dropdown>
 
       <div className="tb-divider" />
 
-      <button className="btn ghost" onClick={handleImportClick} title={t.importCsv}>
-        <span style={{ fontSize: 13, lineHeight: 1 }}>⤴</span>
-        <span>CSV</span>
-      </button>
+      {canWrite && (
+        <button className="btn ghost" onClick={handleImportClick} title={t.importCsv}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>⤴</span>
+          <span>CSV</span>
+        </button>
+      )}
       <button className="btn ghost" onClick={handleExport} title={t.exportCsv}>
         <span style={{ fontSize: 13, lineHeight: 1 }}>⤵</span>
         <span>CSV</span>
@@ -423,9 +493,22 @@ export function App() {
         </button>
       </div>
 
+      {activeWarehouse && (
+        <button
+          className="btn ghost"
+          onClick={handleSwitchWarehouse}
+          title={lang === 'en' ? 'Switch warehouse' : lang === 'zh' ? '切換倉庫' : '倉庫を切り替え'}
+          style={{ fontSize: 12, gap: 4 }}
+        >
+          🏭 <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeWarehouse.name}</span>
+        </button>
+      )}
+
       <Dropdown trigger={currentUser?.username?.[0]?.toUpperCase() || 'A'} align="right">
         <DropdownItem disabled>{currentUser?.username}</DropdownItem>
-        <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang === 'zh' ? '修改密碼' : 'パスワード変更'}</DropdownItem>
+        {currentUser?.provider === 'local' && (
+          <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang === 'zh' ? '修改密碼' : 'パスワード変更'}</DropdownItem>
+        )}
         <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang === 'zh' ? '登出' : 'ログアウト'}</DropdownItem>
       </Dropdown>
     </div>
@@ -437,8 +520,18 @@ export function App() {
     return <LoginPage onLoginSuccess={(user) => {
       setCurrentUser(user);
       setIsAuthenticated(true);
-      void loadAll();
+      // Don't loadAll yet — wait for warehouse selection
     }} lang={lang} />;
+  }
+
+  if (!activeWarehouse) {
+    return (
+      <WarehouseSelector
+        userWarehouseIds={currentUser?.warehouses ?? []}
+        onSelect={handleWarehouseSelect}
+        lang={lang}
+      />
+    );
   }
 
   if (bootState === 'loading') {
@@ -518,6 +611,12 @@ export function App() {
           onBack={() => setView({ kind: 'dashboard' })}
         />
       )}
+      {view.kind === 'reports' && (
+        <ReportsPage
+          lang={lang}
+          onBack={() => setView({ kind: 'dashboard' })}
+        />
+      )}
       {view.kind === 'audit-logs' && (
         <AuditLogsPage
           lang={lang}
@@ -539,6 +638,12 @@ export function App() {
             }
           }}
         />
+      )}
+      {view.kind === 'warehouses' && (
+        <WarehousesPage lang={lang} onBack={() => setView({ kind: 'dashboard' })} />
+      )}
+      {view.kind === 'users' && (
+        <UsersPage lang={lang} onBack={() => setView({ kind: 'dashboard' })} />
       )}
 
       {modal && modal.kind === 'adjust' && (
@@ -598,6 +703,17 @@ export function App() {
           onSuccess={() => {
             setModal(null);
             showToast(lang === 'zh' ? '密碼已更新' : lang === 'ja' ? 'パスワードを変更しました' : 'Password updated');
+          }}
+        />
+      )}
+
+      {modal && modal.kind === 'create-product' && (
+        <CreateProductModal
+          lang={lang}
+          onClose={() => setModal(null)}
+          onCreated={() => {
+            void refetchProducts();
+            showToast(lang === 'zh' ? '產品已建立' : lang === 'ja' ? '商品を作成しました' : 'Product created');
           }}
         />
       )}

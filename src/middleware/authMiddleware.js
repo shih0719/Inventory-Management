@@ -37,6 +37,46 @@ function verifyAuth(req, res, next) {
   }
 }
 
+function requireRole(roles) {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: "Forbidden: Insufficient permissions",
+      });
+    }
+    next();
+  };
+}
+
+function requireWarehouse(req, res, next) {
+  const warehouseId = req.headers["x-warehouse-id"];
+  if (!warehouseId) {
+    return res.status(403).json({
+      success: false,
+      error: "Forbidden: X-Warehouse-Id header required",
+    });
+  }
+  const id = parseInt(warehouseId, 10);
+  if (isNaN(id)) {
+    return res.status(403).json({
+      success: false,
+      error: "Forbidden: Invalid warehouse ID",
+    });
+  }
+  const allowedWarehouses = req.user?.warehouses || [];
+  if (!allowedWarehouses.includes(id)) {
+    return res.status(403).json({
+      success: false,
+      error: "Forbidden: No access to this warehouse",
+    });
+  }
+  req.warehouseId = id;
+  next();
+}
+
 module.exports = {
   verifyAuth,
+  requireRole,
+  requireWarehouse,
 };

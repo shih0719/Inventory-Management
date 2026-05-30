@@ -1,4 +1,5 @@
 const authService = require("../services/authService");
+const db = require("../config/database");
 
 /**
  * POST /api/auth/login
@@ -66,11 +67,27 @@ async function logout(req, res) {
  */
 async function getCurrentUser(req, res) {
   try {
+    const row = await db.get(
+      "SELECT provider, role FROM users WHERE id = ?",
+      [req.user.id]
+    );
+    const whRows = await db.all(
+      "SELECT warehouse_id FROM user_warehouses WHERE user_id = ?",
+      [req.user.id]
+    );
+    const assigned = whRows.map((r) => r.warehouse_id);
+    const defaultWh = await db.get("SELECT id FROM warehouses WHERE name LIKE 'default' COLLATE NOCASE LIMIT 1");
+    const warehouses = defaultWh && !assigned.includes(defaultWh.id)
+      ? [defaultWh.id, ...assigned]
+      : assigned;
     return res.status(200).json({
       success: true,
       data: {
         id: req.user.id,
         username: req.user.username,
+        role: row ? row.role : req.user.role,
+        provider: row ? row.provider : null,
+        warehouses,
       },
     });
   } catch (err) {

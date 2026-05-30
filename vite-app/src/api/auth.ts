@@ -10,7 +10,16 @@ export interface LoginRequest {
 export interface User {
   id: number;
   username: string;
+  role: 'admin' | 'manager' | 'view';
   created_at: string;
+  provider: 'local' | 'microsoft';
+  warehouses: number[];
+}
+
+export async function getProvider(): Promise<'local' | 'microsoft'> {
+  const res = await fetch('/api/auth/provider');
+  const data = await res.json();
+  return data.provider;
 }
 
 export interface LoginResponse {

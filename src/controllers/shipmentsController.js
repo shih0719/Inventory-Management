@@ -85,12 +85,12 @@ async function create(req, res) {
 
       const shipmentId = result.id;
 
-      // Log shipment creation
       auditService.logAction(
         req.user?.id,
         "CREATE",
         "shipment",
-        shipmentId
+        shipmentId,
+        req.warehouseId
       );
 
       // Insert shipment-transaction relationships

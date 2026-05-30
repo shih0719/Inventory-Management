@@ -46,3 +46,29 @@ When you edit code in a specific directory, module-specific rules from `.claude/
 - **`database/`, `src/config/`** → [[database-layer]]
 
 See [`.claude/rules/README.md`](rules/README.md) for how the hierarchical rules system works.
+
+---
+
+## 🧠 Behavioral Guidelines
+
+These reduce common LLM coding mistakes. Apply them to all work.
+
+### 1. Think Before Coding
+- **Don't assume.** Explicitly state assumptions and ask for clarification.
+- **If multiple interpretations exist,** present them—don't pick silently.
+- **Push back** if a simpler approach exists. Stop and ask if confused.
+
+### 2. Simplicity First
+- **Implement the minimum code** that solves the problem.
+- **No speculative features, flexibility, or config options** beyond the request.
+- **If 200 lines could be 50,** rewrite it. Prefer direct solutions.
+
+### 3. Surgical Changes
+- **Touch only what you must.** Match existing style and patterns.
+- **Never "improve" adjacent code,** comments, or formatting unless explicitly asked.
+- **Every changed line should trace directly to the request.**
+
+### 4. Goal-Driven Execution
+- **Define success criteria first.** Loop until verified.
+- **Write a test that reproduces the bug,** then make it pass.
+- **For multi-step tasks,** state a brief plan with verification steps before implementing.

@@ -4,8 +4,9 @@
 -- Products Table
 CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    warehouse_id INTEGER,
     type TEXT NOT NULL,
-    sku TEXT NOT NULL UNIQUE,
+    sku TEXT NOT NULL,
     name TEXT NOT NULL,
     model TEXT,
     accountable_quantity INTEGER NOT NULL DEFAULT 0,
@@ -14,7 +15,8 @@ CREATE TABLE IF NOT EXISTS products (
     track_serial INTEGER NOT NULL DEFAULT 0,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(sku, warehouse_id)
 );
 
 -- Tags Table (Predefined transaction categories)
