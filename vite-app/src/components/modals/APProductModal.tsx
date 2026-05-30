@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { Product, ProductUnit } from '../../types';
 import { L, type Lang } from '../../lib/i18n';
-import { listProductUnits } from '../../api/product-units';
+import { listProductUnits, transferUnits } from '../../api/product-units';
+import { listWarehouses, type Warehouse } from '../../api/warehouses';
+import { lookupProduct } from '../../api/products';
+import { ApiError } from '../../api/client';
+import type { Product as ProductType } from '../../types';
 import { CreateProductUnitsModal } from './CreateProductUnitsModal';
-import { ProductUnitsModal } from './ProductUnitsModal';
 
 export interface APProductModalProps {
   product: Product;
@@ -12,7 +15,7 @@ export interface APProductModalProps {
   onProductUpdated?: () => Promise<void>;
 }
 
-type SubModal = null | 'create' | 'sell';
+type SubModal = null | 'create' | 'transfer';
 
 export function APProductModal({
   product,
@@ -24,9 +27,16 @@ export function APProductModal({
   const [units, setUnits] = useState<ProductUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [subModal, setSubModal] = useState<SubModal>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [transferSerialInput, setTransferSerialInput] = useState('');
+  const [targetWarehouseId, setTargetWarehouseId] = useState<number | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const [transferErrors, setTransferErrors] = useState<Array<{ serial_number: string; reason: string }> | string | null>(null);
+  const [targetProduct, setTargetProduct] = useState<ProductType | null | undefined>(undefined);
 
   useEffect(() => {
     loadUnits();
+    listWarehouses().then(setWarehouses).catch(() => {});
   }, [product.id]);
 
   const loadUnits = async () => {
@@ -51,11 +61,51 @@ export function APProductModal({
     await onProductUpdated?.();
   };
 
-  const handleSellConfirm = (items: Array<{ id: number; sold_to: string; project_case: string }>) => {
-    setSubModal(null);
-    void loadUnits();
-    void onProductUpdated?.();
+  const serialList = transferSerialInput
+    .split('\n')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const openTransfer = () => {
+    setTransferSerialInput('');
+    setTargetWarehouseId(null);
+    setTargetProduct(undefined);
+    setTransferErrors(null);
+    setSubModal('transfer');
   };
+
+  useEffect(() => {
+    if (!targetWarehouseId) { setTargetProduct(undefined); return; }
+    setTargetProduct(undefined);
+    lookupProduct(product.sku, targetWarehouseId)
+      .then(setTargetProduct)
+      .catch(() => setTargetProduct(null));
+  }, [targetWarehouseId, product.sku]);
+
+  const handleTransfer = async () => {
+    if (!targetWarehouseId || serialList.length === 0) return;
+    setTransferring(true);
+    setTransferErrors(null);
+    try {
+      await transferUnits(serialList, targetWarehouseId);
+      setSubModal(null);
+      await loadUnits();
+    } catch (err) {
+      if (err instanceof ApiError && err.body && typeof err.body === 'object') {
+        const body = err.body as any;
+        if (Array.isArray(body.errors)) {
+          setTransferErrors(body.errors);
+        } else {
+          setTransferErrors(body.error || err.message);
+        }
+      } else {
+        setTransferErrors(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      setTransferring(false);
+    }
+  };
+
 
   return (
     <>
@@ -113,20 +163,16 @@ export function APProductModal({
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <button
-                className="btn"
-                onClick={() => setSubModal('create')}
-                style={{ flex: 1 }}
-              >
-                {lang === 'en' ? '+ Create Serial Numbers' : '+ 建立序號品'}
+              <button className="btn" onClick={() => setSubModal('create')} style={{ flex: 1 }}>
+                {lang === 'en' ? '+ Serial Number Inbound' : '+ 序號入庫'}
               </button>
               <button
-                className="btn"
-                onClick={() => setSubModal('sell')}
+                className="btn ghost"
+                onClick={openTransfer}
                 disabled={inStockCount === 0}
-                style={{ flex: 1, opacity: inStockCount === 0 ? 0.5 : 1, cursor: inStockCount === 0 ? 'not-allowed' : 'pointer' }}
+                style={{ flex: 1 }}
               >
-                {lang === 'en' ? '✓ Mark as Sold' : '✓ 標記出售'}
+                {lang === 'en' ? '⇄ Transfer Warehouse' : '⇄ 移倉'}
               </button>
             </div>
 
@@ -237,13 +283,132 @@ export function APProductModal({
         />
       )}
 
-      {subModal === 'sell' && (
-        <ProductUnitsModal
-          product={product}
-          lang={lang}
-          onClose={() => setSubModal(null)}
-          onConfirm={handleSellConfirm}
-        />
+      {subModal === 'transfer' && (
+        <div className="modal-scrim" onClick={() => setSubModal(null)}>
+          <div
+            className="modal"
+            style={{ width: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <h3>{lang === 'en' ? 'Transfer to Warehouse' : '移倉'}</h3>
+              <button className="close" onClick={() => setSubModal(null)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {transferErrors && (
+                <div style={{ fontSize: 12, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 6, padding: '8px 12px' }}>
+                  {Array.isArray(transferErrors) ? (
+                    <>
+                      <div style={{ fontWeight: 600, marginBottom: 6 }}>
+                        {lang === 'en' ? 'Transfer failed:' : '移倉失敗：'}
+                      </div>
+                      {transferErrors.map((e, i) => (
+                        <div key={i} style={{ fontFamily: 'var(--mono)', marginBottom: 2 }}>
+                          {e.serial_number} — {e.reason}
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    transferErrors
+                  )}
+                </div>
+              )}
+              <div style={{ padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 6, fontSize: 12 }}>
+                <div style={{ display: 'flex', gap: 24 }}>
+                  <div>
+                    <div style={{ color: 'var(--ink-2)', marginBottom: 2 }}>
+                      {lang === 'en' ? 'From (current)' : '來源'}
+                    </div>
+                    <div style={{ fontWeight: 600 }}>{product.sku}</div>
+                    <div style={{ color: 'var(--ink-2)' }}>{product.name}{product.model ? ` · ${product.model}` : ''}</div>
+                  </div>
+                  {targetWarehouseId && (
+                    <div>
+                      <div style={{ color: 'var(--ink-2)', marginBottom: 2 }}>
+                        {lang === 'en' ? 'To (target warehouse)' : '目標倉庫'}
+                      </div>
+                      {targetProduct === undefined ? (
+                        <div style={{ color: 'var(--ink-3)' }}>{lang === 'en' ? 'Looking up...' : '查詢中...'}</div>
+                      ) : targetProduct === null ? (
+                        <div style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                          {lang === 'en' ? '✕ SKU not found in target warehouse' : '✕ 目標倉庫無此 SKU'}
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 600 }}>{targetProduct.sku}</div>
+                          <div style={{ color: 'var(--ink-2)' }}>{targetProduct.name}{targetProduct.model ? ` · ${targetProduct.model}` : ''}</div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div style={{ color: 'var(--accent)', marginTop: 8, fontSize: 11, fontWeight: 600 }}>
+                  ⚠ {lang === 'en'
+                    ? 'Same SKU in target warehouse must refer to the same product'
+                    : '目標倉庫的相同 SKU 必須是同一商品，請人工確認'}
+                </div>
+              </div>
+              <div className="field">
+                <label>{lang === 'en' ? 'Target Warehouse' : '目標倉庫'}</label>
+                <select
+                  value={targetWarehouseId ?? ''}
+                  onChange={(e) => setTargetWarehouseId(e.target.value ? Number(e.target.value) : null)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="">{lang === 'en' ? '— Select warehouse —' : '— 選擇倉庫 —'}</option>
+                  {warehouses.map((wh) => (
+                    <option key={wh.id} value={wh.id}>{wh.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label style={{ marginBottom: 8 }}>
+                  {lang === 'en' ? 'Serial Numbers to Transfer (one per line)' : '移倉序號（一行一個）'}
+                </label>
+                <textarea
+                  value={transferSerialInput}
+                  onChange={(e) => setTransferSerialInput(e.target.value)}
+                  placeholder={'SN-001\nSN-002\nSN-003'}
+                  style={{
+                    width: '100%',
+                    minHeight: 160,
+                    padding: '10px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    fontFamily: 'var(--mono)',
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    resize: 'vertical',
+                  }}
+                />
+                <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 6 }}>
+                  {lang === 'en'
+                    ? `Ready to transfer: ${serialList.length} serial number${serialList.length !== 1 ? 's' : ''}`
+                    : `準備移倉：${serialList.length} 筆序號`}
+                </div>
+              </div>
+            </div>
+            <div className="modal-foot">
+              <div />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn ghost" onClick={() => setSubModal(null)}>
+                  {lang === 'en' ? 'Cancel' : '取消'}
+                </button>
+                <button
+                  className="btn"
+                  onClick={handleTransfer}
+                  disabled={!targetWarehouseId || serialList.length === 0 || transferring || !targetProduct}
+                >
+                  {transferring
+                    ? lang === 'en' ? 'Transferring...' : '移倉中...'
+                    : lang === 'en'
+                      ? `Transfer ${serialList.length} Unit${serialList.length !== 1 ? 's' : ''}`
+                      : `移倉 ${serialList.length} 筆`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

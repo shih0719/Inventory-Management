@@ -67,6 +67,7 @@ export interface ProductUnit {
   status: ProductUnitStatus;
   sold_to?: string | null;
   project_case?: string | null;
+  warehouse_id?: number | null;
   created_at: string;
 }
 

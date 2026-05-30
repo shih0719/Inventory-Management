@@ -13,14 +13,27 @@ export async function listProductUnits(productId: number, status?: string): Prom
 export async function bulkCreateUnits(
   productId: number,
   serialNumbers: string[],
+  warehouseId?: number,
 ): Promise<{ inserted: number; failed: number; errors: unknown[]; message: string }> {
   const res = await api.post<{ inserted: number; failed: number; errors: unknown[]; message: string }>(
     '/api/product-units/bulk',
     {
       product_id: productId,
       serial_numbers: serialNumbers,
+      ...(warehouseId && { warehouse_id: warehouseId }),
     },
   );
+  return res.data;
+}
+
+export async function transferUnits(
+  serialNumbers: string[],
+  targetWarehouseId: number,
+): Promise<{ transferred: number }> {
+  const res = await api.post<{ transferred: number }>('/api/product-units/transfer', {
+    serial_numbers: serialNumbers,
+    target_warehouse_id: targetWarehouseId,
+  });
   return res.data;
 }
 

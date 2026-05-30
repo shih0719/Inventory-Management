@@ -13,11 +13,10 @@ import { ConfirmModal } from './modals/ConfirmModal';
 import { TransactionDetailModal } from './modals/TransactionDetailModal';
 
 export interface ShipmentsPageProps {
-  onBack: () => void;
   lang?: 'en' | 'zh' | 'ja';
 }
 
-export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
+export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -164,9 +163,6 @@ export function ShipmentsPage({ onBack, lang = 'en' }: ShipmentsPageProps) {
     <div className="batch-flow">
       <div className="flow-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="back" onClick={onBack}>
-            {lang === 'en' ? '← Back' : '← 返回'}
-          </button>
           <div>
             <h2>{lang === 'en' ? 'Shipments' : '出貨單據'}</h2>
             <div className="sub">

@@ -6,7 +6,6 @@ import type { Lang } from '../lib/i18n';
 
 interface UsersPageProps {
   lang: Lang;
-  onBack: () => void;
 }
 
 const texts = {
@@ -120,7 +119,7 @@ function Badge({ label, colors }: { label: string; colors: { bg: string; color: 
   );
 }
 
-export function UsersPage({ lang, onBack }: UsersPageProps) {
+export function UsersPage({ lang }: UsersPageProps) {
   const t = texts[lang];
 
   const [users, setUsers] = useState<WarehouseUser[]>([]);
@@ -299,7 +298,6 @@ export function UsersPage({ lang, onBack }: UsersPageProps) {
     <div style={{ padding: '24px' }}>
       {/* Header */}
       <div className="page-header" style={{ marginBottom: '24px' }}>
-        <button className="btn ghost" onClick={onBack}>{t.back}</button>
         <h1 style={{ margin: 0, flex: 1 }}>{t.title}</h1>
         <div style={{ width: 80 }} />
       </div>

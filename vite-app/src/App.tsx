@@ -101,6 +101,7 @@ export function App() {
   const [recentSkus, setRecentSkus] = useState<string[]>(loadRecent);
 
   const [view, setView] = useState<View>({ kind: 'dashboard' });
+  const [viewHistory, setViewHistory] = useState<View[]>([]);
   const [modal, setModal] = useState<Modal>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -133,6 +134,25 @@ export function App() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  const navigateTo = useCallback((newView: View) => {
+    setViewHistory((prev) => [...prev, view]);
+    setView(newView);
+    window.history.pushState({}, '');
+  }, [view]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setViewHistory((prev) => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        setView(last);
+        return prev.slice(0, -1);
+      });
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Restore current user info on page refresh (if logged in but currentUser is null)
   useEffect(() => {
@@ -275,7 +295,7 @@ export function App() {
       await createBatch({ name: payload.name, tag_id: payload.tagId, items });
       // Server state has changed — refetch both lists.
       await Promise.all([refetchProducts(), refetchTransactions()]);
-      setView({ kind: 'dashboard' });
+      navigateTo({ kind: 'dashboard' });
       showToast(`${t.batchSaved} · ${items.length} ${t.lines}`);
     } catch (err) {
       const message = err instanceof ApiError ? err.message : (err as Error).message;
@@ -376,10 +396,14 @@ export function App() {
 
   const Topbar = () => (
     <div className="tb">
-      <div className="logo">
+      <button
+        className="logo"
+        onClick={() => navigateTo({ kind: 'dashboard' })}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+      >
         <span className="mark">S</span>
         {t.appName}
-      </div>
+      </button>
       <div style={{ flex: 1, maxWidth: 340, minWidth: 180 }}>
         <ProductCombobox
           products={products}
@@ -411,7 +435,7 @@ export function App() {
       {canWrite && (
         <button
           className="btn"
-          onClick={() => setView({ kind: 'batch', batchKind: 'inbound' })}
+          onClick={() => navigateTo({ kind: 'batch', batchKind: 'inbound' })}
           disabled={bootState !== 'ready'}
         >
           <span style={{ color: 'var(--ok)', fontWeight: 700 }}>↑</span> {t.inbound}
@@ -420,7 +444,7 @@ export function App() {
       {canWrite && (
         <button
           className="btn"
-          onClick={() => setView({ kind: 'batch', batchKind: 'outbound' })}
+          onClick={() => navigateTo({ kind: 'batch', batchKind: 'outbound' })}
           disabled={bootState !== 'ready'}
         >
           <span style={{ color: 'var(--accent)', fontWeight: 700 }}>↓</span> {t.outbound}
@@ -433,27 +457,27 @@ export function App() {
         trigger={lang === 'en' ? 'Manage' : lang === 'zh' ? '管理' : '管理'}
         disabled={bootState !== 'ready'}
       >
-        <DropdownItem onClick={() => setView({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
+        <DropdownItem onClick={() => navigateTo({ kind: 'ap-products' })} disabled={bootState !== 'ready'}>
           🏷 {lang === 'en' ? 'AP Products' : lang === 'zh' ? 'AP 序號品' : 'AP商品'}
         </DropdownItem>
-        <DropdownItem onClick={() => setView({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
+        <DropdownItem onClick={() => navigateTo({ kind: 'shipments' })} disabled={bootState !== 'ready'}>
           📦 {lang === 'en' ? 'Shipments' : lang === 'zh' ? '出貨單據' : '配送'}
         </DropdownItem>
-        <DropdownItem onClick={() => setView({ kind: 'reports' })} disabled={bootState !== 'ready'}>
+        <DropdownItem onClick={() => navigateTo({ kind: 'reports' })} disabled={bootState !== 'ready'}>
           📊 {lang === 'en' ? 'Inventory Report' : lang === 'zh' ? '庫存報表' : '在庫レポート'}
         </DropdownItem>
         {isAdmin && (
-          <DropdownItem onClick={() => setView({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
+          <DropdownItem onClick={() => navigateTo({ kind: 'audit-logs' })} disabled={bootState !== 'ready'}>
             📋 {lang === 'en' ? 'Audit Logs' : lang === 'zh' ? '操作日誌' : '操作ログ'}
           </DropdownItem>
         )}
         {isAdmin && (
-          <DropdownItem onClick={() => setView({ kind: 'users' })} disabled={bootState !== 'ready'}>
+          <DropdownItem onClick={() => navigateTo({ kind: 'users' })} disabled={bootState !== 'ready'}>
             👥 {lang === 'en' ? 'Users' : lang === 'zh' ? '使用者管理' : 'ユーザー管理'}
           </DropdownItem>
         )}
         {isAdmin && (
-          <DropdownItem onClick={() => setView({ kind: 'warehouses' })} disabled={bootState !== 'ready'}>
+          <DropdownItem onClick={() => navigateTo({ kind: 'warehouses' })} disabled={bootState !== 'ready'}>
             🏭 {lang === 'en' ? 'Warehouses' : lang === 'zh' ? '倉庫管理' : '倉庫管理'}
           </DropdownItem>
         )}
@@ -591,7 +615,7 @@ export function App() {
           tags={tags}
           recentSkus={recentSkus}
           lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
+
           onSubmit={handleBatchSubmit}
           onOpenPicker={openPicker}
           onPickProduct={trackRecent}
@@ -601,26 +625,27 @@ export function App() {
         <APProductsPage
           products={products}
           lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
+
           onSelectProduct={(product) => setModal({ kind: 'ap-product', product })}
+          onRefresh={() => void refetchProducts()}
         />
       )}
       {view.kind === 'shipments' && (
         <ShipmentsPage
           lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
+
         />
       )}
       {view.kind === 'reports' && (
         <ReportsPage
           lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
+
         />
       )}
       {view.kind === 'audit-logs' && (
         <AuditLogsPage
           lang={lang}
-          onBack={() => setView({ kind: 'dashboard' })}
+
           onResourceClick={(resourceType, resourceId) => {
             if (resourceType === 'transaction') {
               setModal({ kind: 'transaction-detail', transactionId: resourceId });
@@ -640,10 +665,10 @@ export function App() {
         />
       )}
       {view.kind === 'warehouses' && (
-        <WarehousesPage lang={lang} onBack={() => setView({ kind: 'dashboard' })} />
+        <WarehousesPage lang={lang} />
       )}
       {view.kind === 'users' && (
-        <UsersPage lang={lang} onBack={() => setView({ kind: 'dashboard' })} />
+        <UsersPage lang={lang} />
       )}
 
       {modal && modal.kind === 'adjust' && (

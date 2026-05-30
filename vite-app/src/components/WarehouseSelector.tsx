@@ -55,7 +55,7 @@ export function WarehouseSelector({ userWarehouseIds, onSelect, lang }: Warehous
     <div className="warehouse-selector-page">
       <div className="warehouse-selector-container">
         <div className="warehouse-selector-header">
-          <div className="logo-large">S</div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--ink)', color: 'var(--bg)', display: 'grid', placeItems: 'center', fontSize: 18, fontWeight: 700, margin: '0 auto' }}>S</div>
           <h1>{t.title}</h1>
           <p>{t.subtitle}</p>
         </div>
@@ -76,11 +76,11 @@ export function WarehouseSelector({ userWarehouseIds, onSelect, lang }: Warehous
                 className="warehouse-item"
                 onClick={() => onSelect(wh)}
               >
+                <div className="warehouse-item-mark">{wh.name[0]?.toUpperCase()}</div>
                 <span className="warehouse-item-name">{wh.name}</span>
                 {wh.description && (
                   <span className="warehouse-item-desc">{wh.description}</span>
                 )}
-                <span className="warehouse-item-arrow">→</span>
               </button>
             ))}
           </div>
@@ -94,25 +94,26 @@ export function WarehouseSelector({ userWarehouseIds, onSelect, lang }: Warehous
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 100%);
+          background: var(--bg);
           position: fixed;
           top: 0;
           left: 0;
         }
         .warehouse-selector-container {
           width: 100%;
-          max-width: 400px;
-          padding: 0 16px;
+          max-width: 900px;
+          padding: 0 24px;
         }
         .warehouse-selector-header {
           text-align: center;
-          margin-bottom: 24px;
+          margin-bottom: 28px;
         }
         .warehouse-selector-header h1 {
           font-size: 20px;
           font-weight: 600;
-          color: var(--ink-0);
-          margin: 8px 0 4px;
+          color: var(--ink);
+          margin: 10px 0 4px;
+          letter-spacing: -0.01em;
         }
         .warehouse-selector-header p {
           font-size: 13px;
@@ -120,57 +121,69 @@ export function WarehouseSelector({ userWarehouseIds, onSelect, lang }: Warehous
           margin: 0;
         }
         .warehouse-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 16px;
         }
         .warehouse-item {
           display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 14px 16px;
-          background: white;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 20px;
+          padding: 32px 28px;
+          background: var(--surface);
           border: 1px solid var(--border);
-          border-radius: 8px;
+          border-radius: 12px;
           cursor: pointer;
           text-align: left;
           font-family: inherit;
-          transition: all 0.15s;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+          transition: border-color .15s, background .15s;
+          min-height: 160px;
         }
         .warehouse-item:hover {
-          border-color: var(--accent);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          border-color: var(--ink);
+          background: var(--surface-2);
+        }
+        .warehouse-item-mark {
+          width: 56px;
+          height: 56px;
+          border-radius: 12px;
+          background: var(--ink);
+          color: var(--bg);
+          display: grid;
+          place-items: center;
+          font-size: 24px;
+          font-weight: 700;
+          flex-shrink: 0;
         }
         .warehouse-item-name {
-          font-size: 14px;
+          font-size: 17px;
           font-weight: 600;
-          color: var(--ink-0);
-          flex: 1;
+          color: var(--ink);
+          line-height: 1.3;
+          letter-spacing: -0.01em;
         }
         .warehouse-item-desc {
-          font-size: 12px;
-          color: var(--ink-2);
-        }
-        .warehouse-item-arrow {
-          font-size: 16px;
+          font-size: 13px;
           color: var(--ink-3);
+          line-height: 1.5;
+          margin-top: -10px;
         }
         .warehouse-selector-loading,
-        .warehouse-selector-error,
         .warehouse-selector-empty {
           padding: 24px 16px;
           text-align: center;
           font-size: 13px;
           color: var(--ink-2);
-          background: white;
-          border-radius: 8px;
-          border: 1px solid var(--border);
         }
         .warehouse-selector-error {
-          color: #d32f2f;
-          background: #ffebee;
-          border-color: #d32f2f;
+          padding: 12px 16px;
+          text-align: center;
+          font-size: 13px;
+          color: var(--accent);
+          background: var(--accent-soft);
+          border: 1px solid var(--accent);
+          border-radius: 8px;
         }
       `}</style>
     </div>

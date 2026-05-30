@@ -3,6 +3,7 @@ const router = express.Router();
 const { requireRole } = require("../middleware/authMiddleware");
 const productsController = require("../controllers/productsController");
 
+router.get("/lookup", productsController.lookup);
 router.get("/", productsController.getAll);
 router.get("/:id", productsController.getById);
 router.post("/", requireRole(["manager", "admin"]), productsController.create);

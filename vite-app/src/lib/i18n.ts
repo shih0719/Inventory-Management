@@ -109,6 +109,17 @@ export const L = {
     markedAssoldTitle: 'Marked as Sold',
     markedAsoldMsg: 'marked as sold successfully.',
     failedToMarkTitle: 'Failed to Mark as Sold',
+
+    quickSellTitle: 'Quick Outbound',
+    quickSellSerialLabel: 'Serial numbers (one per line)',
+    quickSellSerialPh: 'Scan or paste serial numbers…',
+    quickSellProjectCase: 'Project / Case',
+    quickSellProjectCasePh: 'Required',
+    quickSellSoldTo: 'Customer / Recipient (optional)',
+    quickSellSoldToPh: 'Optional',
+    quickSellSubmit: 'Confirm Outbound',
+    quickSellSuccess: 'units shipped out successfully.',
+    quickSellErrors: 'The following serials failed:',
   },
   zh: {
     appName: '小倉庫存',
@@ -212,6 +223,17 @@ export const L = {
     products: '產品',
     noProducts: '此位置沒有產品',
     removeProduct: '移除',
+
+    quickSellTitle: '快速出庫',
+    quickSellSerialLabel: '序號清單（每行一個）',
+    quickSellSerialPh: '掃描或貼上序號…',
+    quickSellProjectCase: '案子',
+    quickSellProjectCasePh: '必填',
+    quickSellSoldTo: '客戶 / 收件人（選填）',
+    quickSellSoldToPh: '選填',
+    quickSellSubmit: '確認出庫',
+    quickSellSuccess: '台已成功出庫。',
+    quickSellErrors: '以下序號失敗：',
   },
   ja: {
     appName: '在庫管理室',
@@ -315,6 +337,17 @@ export const L = {
     products: '商品',
     noProducts: 'このロケーションに商品がありません',
     removeProduct: '削除',
+
+    quickSellTitle: 'クイック出荷',
+    quickSellSerialLabel: '型番リスト（1行1件）',
+    quickSellSerialPh: '型番をスキャンまたは貼り付け…',
+    quickSellProjectCase: '案件',
+    quickSellProjectCasePh: '必須',
+    quickSellSoldTo: '顧客 / 受取人（オプション）',
+    quickSellSoldToPh: 'オプション',
+    quickSellSubmit: '出荷確定',
+    quickSellSuccess: '件が正常に出荷されました。',
+    quickSellErrors: '以下の型番が失敗しました：',
   },
 } as const;
 

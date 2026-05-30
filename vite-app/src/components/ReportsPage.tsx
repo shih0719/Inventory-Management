@@ -4,7 +4,6 @@ import type { Lang } from '../lib/i18n';
 
 interface ReportsPageProps {
   lang: Lang;
-  onBack: () => void;
 }
 
 const texts = {
@@ -61,7 +60,7 @@ const texts = {
   },
 };
 
-export function ReportsPage({ lang, onBack }: ReportsPageProps) {
+export function ReportsPage({ lang }: ReportsPageProps) {
   const [report, setReport] = useState<InventoryReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,84 +77,82 @@ export function ReportsPage({ lang, onBack }: ReportsPageProps) {
   const isLow = (p: InventoryProduct) => p.min_stock > 0 && totalQty(p) < p.min_stock;
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-        <button className="btn ghost" onClick={onBack}>{t.back}</button>
-        <h1 style={{ margin: 0, flex: 1 }}>{t.title}</h1>
+    <div className="locations-page">
+      <div className="flow-head">
+        <h2 style={{ margin: 0, flex: 1 }}>{t.title}</h2>
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-2)' }}>{t.loading}</div>
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-2)', fontSize: 13 }}>{t.loading}</div>
       )}
 
       {error && (
-        <div style={{ padding: '12px 16px', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 6, color: '#dc2626', marginBottom: 16 }}>
-          {error}
-        </div>
+        <div className="card alert" style={{ fontSize: 13 }}>{error}</div>
       )}
 
       {report && (
         <>
-          {/* Summary cards */}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '20px 16px' }}>
-              <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--ink)' }}>{report.summary.total}</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 4 }}>{t.total}</div>
+          <div className="kpis" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+            <div className="card kpi">
+              <span className="lbl">{t.total}</span>
+              <div className="v">{report.summary.total}</div>
             </div>
-            <div className="card" style={{ flex: 1, textAlign: 'center', padding: '20px 16px', borderColor: report.summary.low_stock_count > 0 ? '#fca5a5' : undefined }}>
-              <div style={{ fontSize: 32, fontWeight: 700, color: report.summary.low_stock_count > 0 ? '#ef4444' : 'var(--ok)' }}>
+            <div className={'card kpi' + (report.summary.low_stock_count > 0 ? ' alert' : '')}>
+              <span className="lbl" style={report.summary.low_stock_count > 0 ? { color: 'var(--accent)' } : undefined}>
+                {t.lowStock}
+              </span>
+              <div className={'v' + (report.summary.low_stock_count > 0 ? ' alert' : '')}>
                 {report.summary.low_stock_count}
               </div>
-              <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 4 }}>{t.lowStock}</div>
             </div>
           </div>
 
-          {/* Low stock alert */}
           {report.summary.low_stock_count > 0 ? (
-            <div style={{ marginBottom: 24, padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
-              <div style={{ fontWeight: 600, color: '#dc2626', marginBottom: 8 }}>⚠ {t.lowStockAlert}</div>
+            <div className="card alert" style={{ fontSize: 13 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>⚠ {t.lowStockAlert}</div>
               {report.summary.low_stock_items.map(p => (
-                <div key={p.sku} style={{ display: 'flex', gap: 12, fontSize: 13, padding: '4px 0', color: '#7f1d1d' }}>
-                  <span style={{ fontWeight: 600, minWidth: 100 }}>{p.sku}</span>
+                <div key={p.sku} style={{ display: 'flex', gap: 12, padding: '4px 0' }}>
+                  <span className="sku" style={{ minWidth: 100 }}>{p.sku}</span>
                   <span style={{ flex: 1 }}>{p.name}</span>
                   <span>{totalQty(p)} / {p.min_stock}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ marginBottom: 24, padding: '10px 16px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#15803d' }}>
+            <div className="card" style={{ fontSize: 13, color: 'var(--ok)', borderColor: 'var(--ok)', background: 'var(--ok-soft)' }}>
               ✓ {t.allNormal}
             </div>
           )}
 
-          {/* Product table */}
           {report.products.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-2)' }}>{t.noProducts}</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-3)', fontSize: 12 }}>{t.noProducts}</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--surface)', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                    {[t.sku, t.name, t.type, t.accountable, t.nonAccountable, t.minStock].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, fontSize: 13, color: 'var(--ink-1)', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.products.map(p => (
-                    <tr key={p.sku} style={{ borderBottom: '1px solid var(--border)', background: isLow(p) ? '#fff5f5' : undefined }}>
-                      <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--ok)' }}>{p.sku}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13 }}>{p.name}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--ink-2)' }}>{p.type}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right' }}>{p.accountable_quantity}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right' }}>{p.non_accountable_quantity}</td>
-                      <td style={{ padding: '10px 14px', fontSize: 13, textAlign: 'right', color: isLow(p) ? '#ef4444' : 'var(--ink-2)' }}>
-                        {p.min_stock > 0 ? p.min_stock : '—'}
-                      </td>
+            <div className="card panel" style={{ flex: 1, minHeight: 0, padding: 0, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto', flex: 1 }}>
+                <table className="picker-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      {[t.sku, t.name, t.type, t.accountable, t.nonAccountable, t.minStock].map(h => (
+                        <th key={h}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {report.products.map(p => (
+                      <tr key={p.sku} style={isLow(p) ? { background: 'var(--accent-soft)' } : undefined}>
+                        <td className="sku">{p.sku}</td>
+                        <td>{p.name}</td>
+                        <td style={{ color: 'var(--ink-2)' }}>{p.type}</td>
+                        <td className="num">{p.accountable_quantity}</td>
+                        <td className="num">{p.non_accountable_quantity}</td>
+                        <td className={'num' + (isLow(p) ? ' alert' : '')} style={{ color: isLow(p) ? 'var(--accent)' : 'var(--ink-2)' }}>
+                          {p.min_stock > 0 ? p.min_stock : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>

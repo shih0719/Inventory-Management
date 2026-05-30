@@ -5,7 +5,6 @@ import type { Lang } from '../lib/i18n';
 
 interface WarehousesPageProps {
   lang: Lang;
-  onBack: () => void;
 }
 
 const texts = {
@@ -68,7 +67,7 @@ const texts = {
   },
 };
 
-export function WarehousesPage({ lang, onBack }: WarehousesPageProps) {
+export function WarehousesPage({ lang }: WarehousesPageProps) {
   const t = texts[lang];
 
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -200,7 +199,6 @@ export function WarehousesPage({ lang, onBack }: WarehousesPageProps) {
     <div style={{ padding: '24px' }}>
       {/* Header */}
       <div className="page-header" style={{ marginBottom: '24px' }}>
-        <button className="btn ghost" onClick={onBack}>{t.back}</button>
         <h1 style={{ margin: 0, flex: 1 }}>{t.title}</h1>
         <div style={{ width: 80 }} />
       </div>

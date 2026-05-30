@@ -1,31 +1,31 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Product } from '../types';
 import { L, type Lang } from '../lib/i18n';
+import { QuickSellModal } from './modals/QuickSellModal';
 
 export interface APProductsPageProps {
   products: Product[];
   lang: Lang;
-  onBack: () => void;
   onSelectProduct: (product: Product) => void;
+  onRefresh?: () => void;
 }
 
 export function APProductsPage({
   products,
   lang,
-  onBack,
   onSelectProduct,
+  onRefresh,
 }: APProductsPageProps) {
   const t = L[lang];
+  const [showQuickSell, setShowQuickSell] = useState(false);
 
   const apProducts = useMemo(() => products.filter((p) => p.type === 'ap'), [products]);
 
   return (
     <div className="locations-page">
       <div className="flow-head">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="back" onClick={onBack}>
-            {t.back}
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div>
             <h2 style={{ margin: '0 0 4px' }}>{lang === 'en' ? 'AP Products' : 'AP 序號品'}</h2>
             <div className="sub">
@@ -34,8 +34,23 @@ export function APProductsPage({
                 : '管理所有序號品產品'}
             </div>
           </div>
+          </div>
+          <button className="btn-lg primary" onClick={() => setShowQuickSell(true)}>
+            {t.quickSellTitle}
+          </button>
         </div>
       </div>
+
+      {showQuickSell && (
+        <QuickSellModal
+          lang={lang}
+          onClose={() => setShowQuickSell(false)}
+          onSuccess={() => {
+            setShowQuickSell(false);
+            onRefresh?.();
+          }}
+        />
+      )}
 
       <div className="card panel">
         <h3>
@@ -65,7 +80,7 @@ export function APProductsPage({
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ok)' }}>{product.sku}</div>
+                    <div className="sku">{product.sku}</div>
                     <span className="pill">AP</span>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 500, marginTop: 4 }}>{product.name}</div>
@@ -76,7 +91,7 @@ export function APProductsPage({
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>
                     {lang === 'en' ? 'In Stock: ' : '在庫: '}
-                    <span style={{ fontWeight: 600, color: 'var(--ok)' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--ink)' }}>
                       {product.ap_in_stock_count ?? 0}
                     </span>
                   </div>

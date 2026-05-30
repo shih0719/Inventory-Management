@@ -90,7 +90,7 @@ async function create(req, res) {
 // POST /api/product-units/bulk
 async function bulkCreate(req, res) {
   try {
-    const { product_id, serial_numbers, remarks } = req.body;
+    const { product_id, serial_numbers, remarks, warehouse_id } = req.body;
 
     if (!product_id || !Array.isArray(serial_numbers) || serial_numbers.length === 0) {
       return res.status(400).json({ success: false, error: "product_id 和 serial_numbers 陣列為必填" });
@@ -118,8 +118,8 @@ async function bulkCreate(req, res) {
       seenInBatch.add(sn);
       try {
         await db.run(
-          "INSERT INTO product_units (product_id, serial_number, remarks) VALUES (?, ?, ?)",
-          [product_id, sn, remarks || null],
+          "INSERT INTO product_units (product_id, serial_number, remarks, warehouse_id) VALUES (?, ?, ?, ?)",
+          [product_id, sn, remarks || null, warehouse_id || null],
         );
         inserted++;
       } catch (e) {
@@ -276,6 +276,130 @@ async function bulkSell(req, res) {
   }
 }
 
+// POST /api/product-units/transfer
+async function transfer(req, res) {
+  try {
+    const { serial_numbers, target_warehouse_id } = req.body;
+
+    if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
+      return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
+    }
+    if (!target_warehouse_id) {
+      return res.status(400).json({ success: false, error: "target_warehouse_id 為必填" });
+    }
+
+    const warehouse = await db.get("SELECT id, name FROM warehouses WHERE id = ?", [target_warehouse_id]);
+    if (!warehouse) return res.status(400).json({ success: false, error: "目標倉庫不存在" });
+
+    const errors = [];
+    const validUnits = [];
+
+    for (const raw of serial_numbers) {
+      const sn = normalizeSerial(raw);
+      const unit = await db.get(
+        "SELECT pu.*, p.sku, p.warehouse_id AS src_warehouse_id FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.serial_number = ?",
+        [sn]
+      );
+      if (!unit) {
+        errors.push({ serial_number: sn, reason: "序號不存在" });
+      } else if (unit.status !== "in_stock") {
+        errors.push({ serial_number: sn, reason: "非在庫狀態" });
+      } else if (unit.src_warehouse_id === Number(target_warehouse_id)) {
+        errors.push({ serial_number: sn, reason: "已在目標倉庫" });
+      } else {
+        // Find the same SKU product in the target warehouse
+        const targetProduct = await db.get(
+          "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
+          [unit.sku, target_warehouse_id]
+        );
+        if (!targetProduct) {
+          errors.push({ serial_number: sn, reason: `目標倉庫無此 SKU (${unit.sku})` });
+        } else {
+          // Ensure target product is AP type with serial tracking enabled
+          if (!targetProduct.track_serial || targetProduct.type !== 'ap') {
+            await db.run(
+              "UPDATE products SET type = 'ap', track_serial = 1 WHERE id = ?",
+              [targetProduct.id]
+            );
+            targetProduct.type = 'ap';
+            targetProduct.track_serial = 1;
+          }
+          validUnits.push({ ...unit, targetProduct });
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    // Group by source product for quantity adjustments
+    const bySourceProduct = {};
+    const byTargetProduct = {};
+    for (const unit of validUnits) {
+      if (!bySourceProduct[unit.product_id]) bySourceProduct[unit.product_id] = [];
+      bySourceProduct[unit.product_id].push(unit);
+      if (!byTargetProduct[unit.targetProduct.id]) byTargetProduct[unit.targetProduct.id] = [];
+      byTargetProduct[unit.targetProduct.id].push(unit);
+    }
+
+    // Update each unit to new product + warehouse
+    for (const unit of validUnits) {
+      await db.run(
+        "UPDATE product_units SET product_id = ?, warehouse_id = ? WHERE id = ?",
+        [unit.targetProduct.id, target_warehouse_id, unit.id]
+      );
+    }
+
+    // Adjust accountable_quantity on both sides
+    for (const [productId, units] of Object.entries(bySourceProduct)) {
+      await db.run(
+        "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
+        [units.length, productId]
+      );
+    }
+    for (const [productId, units] of Object.entries(byTargetProduct)) {
+      await db.run(
+        "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
+        [units.length, productId]
+      );
+    }
+
+    // Create TRANSFER transactions on both sides
+    const transferTag = await db.get("SELECT id FROM tags WHERE name = 'TRANSFER'");
+    if (transferTag) {
+      // Collect unique source warehouse IDs and fetch their names
+      const srcWarehouseIds = [...new Set(validUnits.map(u => u.src_warehouse_id))];
+      const srcWarehouseNames = {};
+      for (const wid of srcWarehouseIds) {
+        const wh = await db.get("SELECT name FROM warehouses WHERE id = ?", [wid]);
+        srcWarehouseNames[wid] = wh ? wh.name : String(wid);
+      }
+
+      for (const [productId, units] of Object.entries(bySourceProduct)) {
+        const unitIds = units.map(u => u.id);
+        await db.run(
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, -units.length, `移倉至 ${warehouse.name}`, JSON.stringify(unitIds), units[0].src_warehouse_id],
+        );
+      }
+      for (const [productId, units] of Object.entries(byTargetProduct)) {
+        const unitIds = units.map(u => u.id);
+        const srcName = srcWarehouseNames[units[0].src_warehouse_id];
+        await db.run(
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, units.length, `從 ${srcName} 移入`, JSON.stringify(unitIds), target_warehouse_id],
+        );
+      }
+    }
+
+    res.json({ success: true, data: { transferred: validUnits.length } });
+  } catch (error) {
+    console.error("Error transferring product units:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // PUT /api/product-units/:id
 async function update(req, res) {
   try {
@@ -398,4 +522,4 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { getAll, getById, create, bulkCreate, bulkSell, update, remove, exportCSV };
+module.exports = { getAll, getById, create, bulkCreate, bulkSell, transfer, update, remove, exportCSV };

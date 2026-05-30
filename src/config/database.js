@@ -382,7 +382,7 @@ function initDatabase() {
           }
 
           function ensureWarehouseIdOnTables(defaultId) {
-            const tables = ["transactions", "batches", "shipments"];
+            const tables = ["transactions", "batches", "shipments", "product_units"];
             return tables.reduce((chain, table) => {
               return chain.then(() => new Promise((r, j) => {
                 db.all(`PRAGMA table_info(${table})`, (e, cols) => {

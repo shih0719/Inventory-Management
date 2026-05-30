@@ -6,9 +6,6 @@ const { createApp } = require("./src/app");
 const app = createApp();
 const PORT = process.env.PORT || 3030;
 
-// Import update service
-const updateService = require("./src/services/updateService");
-
 // Import backup service
 const { startBackupDaemon } = require("./src/services/backupService");
 

@@ -18,7 +18,6 @@ export interface BatchFlowProps {
   tags: Tag[];
   recentSkus?: string[];
   lang: Lang;
-  onBack: () => void;
   onSubmit: (payload: BatchSubmitPayload) => void | Promise<void>;
   onOpenPicker?: (onPick: (p: Product) => void) => void;
   onPickProduct?: (p: Product) => void;
@@ -37,7 +36,6 @@ export function BatchFlow({
   products,
   tags,
   lang,
-  onBack,
   onSubmit,
   recentSkus,
   onOpenPicker,
@@ -130,9 +128,6 @@ export function BatchFlow({
     <div className="batch-flow">
       <div className="flow-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="back" onClick={onBack}>
-            {t.back}
-          </button>
           <div>
             <h2>{isInbound ? t.batchInTitle : t.batchOutTitle}</h2>
             <div className="sub">
@@ -297,9 +292,6 @@ export function BatchFlow({
           </span>
         </div>
         <div className="actions">
-          <button className="btn-lg" onClick={onBack} disabled={submitting}>
-            {t.saveDraft}
-          </button>
           <button className="btn-lg primary" disabled={!canSubmit} onClick={handleSubmit}>
             {submitting ? t.loading : t.submit}
           </button>

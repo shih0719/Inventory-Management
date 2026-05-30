@@ -1,6 +1,23 @@
 const db = require("../config/database");
 const auditService = require("../services/auditService");
 
+// GET /api/products/lookup?sku=X&warehouse_id=Y
+async function lookup(req, res) {
+  try {
+    const { sku, warehouse_id } = req.query;
+    if (!sku || !warehouse_id) {
+      return res.status(400).json({ success: false, error: "sku 和 warehouse_id 為必填" });
+    }
+    const product = await db.get(
+      "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
+      [sku.trim().toUpperCase(), warehouse_id]
+    );
+    res.json({ success: true, data: product || null });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // Get all products with optional filtering
 async function getAll(req, res) {
   try {
@@ -312,6 +329,7 @@ async function getProductLocations(req, res) {
 }
 
 module.exports = {
+  lookup,
   getAll,
   getById,
   create,

@@ -2,6 +2,11 @@
 import { api } from './client';
 import type { Product } from '../types';
 
+export async function lookupProduct(sku: string, warehouseId: number): Promise<Product | null> {
+  const res = await api.get<Product | null>('/api/products/lookup', { sku, warehouse_id: warehouseId });
+  return res.data;
+}
+
 export interface ListProductsParams {
   page?: number;
   limit?: number;
