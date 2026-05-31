@@ -31,6 +31,7 @@ import { AuditLogsPage } from './components/AuditLogsPage';
 import { ReportsPage } from './components/ReportsPage';
 import { WarehousesPage } from './components/WarehousesPage';
 import { UsersPage } from './components/UsersPage';
+import { BackupSettingsPage } from './components/BackupSettingsPage';
 import { ProductCombobox } from './components/ProductCombobox';
 import { Dropdown, DropdownItem } from './components/Dropdown';
 import { AdjustStockModal } from './components/modals/AdjustStockModal';
@@ -70,7 +71,8 @@ type View =
   | { kind: 'audit-logs' }
   | { kind: 'reports' }
   | { kind: 'warehouses' }
-  | { kind: 'users' };
+  | { kind: 'users' }
+  | { kind: 'backup-settings' };
 
 type Modal =
   | null
@@ -481,6 +483,11 @@ export function App() {
             🏭 {lang === 'en' ? 'Warehouses' : lang.startsWith('zh') ? '倉庫管理' : '倉庫管理'}
           </DropdownItem>
         )}
+        {isAdmin && (
+          <DropdownItem onClick={() => navigateTo({ kind: 'backup-settings' })} disabled={bootState !== 'ready'}>
+            💾 {lang === 'en' ? 'Backup Settings' : lang.startsWith('zh') ? '備份設定' : 'バックアップ設定'}
+          </DropdownItem>
+        )}
       </Dropdown>
 
       <div className="tb-divider" />
@@ -674,6 +681,9 @@ export function App() {
       )}
       {view.kind === 'users' && (
         <UsersPage lang={lang} />
+      )}
+      {view.kind === 'backup-settings' && (
+        <BackupSettingsPage lang={lang} />
       )}
 
       {modal && modal.kind === 'adjust' && (

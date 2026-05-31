@@ -37,6 +37,7 @@ function createApp() {
   app.use("/api/auth",       require("./routes/auth"));
   app.use("/api/warehouses", verifyAuth, require("./routes/warehouses"));
   app.use("/api/users",      verifyAuth, require("./routes/users"));
+  app.use("/api/backup",     require("./routes/backup"));
 
   // ── 需要倉庫 context 的路由 ──────────────────────────────────────────────
   // 新增路由只要在這裡掛一行，verifyAuth + requireWarehouse 自動套用

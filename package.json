@@ -22,9 +22,13 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "testTimeout": 15000,
-    "setupFiles": ["./tests/setup.js"]
+    "setupFiles": [
+      "./tests/setup.js"
+    ]
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -36,6 +40,7 @@
     "iconv-lite": "^0.7.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^8.0.10",
     "sqlite3": "^5.1.6",
     "winston": "^3.19.0"
   },
