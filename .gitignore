@@ -15,6 +15,9 @@ database/*.db-shm
 database/*.db-wal
 database/backups/
 
+# Sensitive configuration
+database/backup-settings.json
+
 
 # Uploads
 uploads/*
