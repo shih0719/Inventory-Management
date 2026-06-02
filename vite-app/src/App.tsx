@@ -555,7 +555,7 @@ export function App() {
         {currentUser?.provider === 'local' && (
           <DropdownItem onClick={() => setModal({ kind: 'change-password' })}>{lang === 'en' ? 'Change Password' : lang.startsWith('zh') ? '修改密碼' : 'パスワード変更'}</DropdownItem>
         )}
-        <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Logout' : lang.startsWith('zh') ? '登出' : 'ログアウト'}</DropdownItem>
+        <DropdownItem onClick={handleLogout}>{lang === 'en' ? 'Sign out' : lang.startsWith('zh') ? '登出' : 'ログアウト'}</DropdownItem>
       </Dropdown>
     </div>
   );
