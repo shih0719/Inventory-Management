@@ -18,7 +18,7 @@ import { listTransactions, createTransaction } from './api/transactions';
 import { createBatch } from './api/batches';
 import { listTags } from './api/tags';
 import { importProductsCsv, exportProductsCsv, downloadCsvTemplate } from './api/csv';
-import { ApiError, getToken } from './api/client';
+import { ApiError, getToken, clearToken } from './api/client';
 import { logout, getCurrentUser, type User } from './api/auth';
 import { ChangePasswordModal } from './components/modals/ChangePasswordModal';
 import { CreateProductModal } from './components/modals/CreateProductModal';
@@ -128,6 +128,16 @@ export function App() {
       setTags(tagList);
       setBootState('ready');
     } catch (err) {
+      // Token expired (401) — logout + redirect to login
+      if (err instanceof ApiError && err.status === 401) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        setActiveWarehouse(null);
+        clearToken();
+        localStorage.removeItem('inv.warehouseId');
+        localStorage.removeItem('inv.warehouseName');
+        return;
+      }
       setBootError(err instanceof Error ? err.message : String(err));
       setBootState('error');
     }
