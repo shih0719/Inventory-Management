@@ -114,26 +114,39 @@ export function useAppState(): AppState {
 
   // ---- initial fetch
   const loadAll = useCallback(async () => {
+    console.log('[loadAll] Starting...');
     setBootState('loading');
     setBootError(null);
     try {
+      console.log('[loadAll] Fetching products, transactions, tags...');
+      const startTime = performance.now();
       const [productList, txRes, tagList] = await Promise.all([
         listAllProducts(),
         listTransactions({ limit: 50, page: 1 }),
         listTags(),
       ]);
+      const duration = performance.now() - startTime;
+      console.log(`[loadAll] Data fetched in ${duration.toFixed(0)}ms`, {
+        productsCount: productList.length,
+        transactionsCount: txRes.data.length,
+        tagsCount: tagList.length,
+      });
       setProducts(productList);
       setTransactions(txRes.data);
       setTags(tagList);
+      console.log('[loadAll] Setting bootState to ready');
       setBootState('ready');
     } catch (err) {
+      console.error('[loadAll] Error:', err);
       if (err instanceof Error && 'status' in err && (err as any).status === 401) {
+        console.log('[loadAll] 401 Unauthorized - clearing auth');
         setIsAuthenticated(false);
         setCurrentUser(null);
         setActiveWarehouse(null);
         clearToken();
         localStorage.removeItem('inv.warehouseId');
         localStorage.removeItem('inv.warehouseName');
+        setBootState('ready');
         return;
       }
       setBootError(err instanceof Error ? err.message : String(err));
@@ -142,8 +155,16 @@ export function useAppState(): AppState {
   }, []);
 
   useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
+    // Load data when authenticated and warehouse is selected
+    if (isAuthenticated && activeWarehouse) {
+      console.log('[useEffect] Triggering loadAll - auth & warehouse ready');
+      void loadAll();
+    } else if (isAuthenticated && !activeWarehouse) {
+      // If authenticated but no warehouse, just mark as ready to show warehouse selector
+      console.log('[useEffect] Authenticated but no warehouse selected');
+      setBootState('ready');
+    }
+  }, [isAuthenticated, activeWarehouse, loadAll]);
 
   // ---- navigation
   useEffect(() => {
