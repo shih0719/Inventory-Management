@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
 import type {
   Product,
   Transaction,
@@ -50,7 +50,7 @@ export interface AppState {
   products: Product[];
   setProducts: (products: Product[]) => void;
   transactions: Transaction[];
-  setTransactions: (txs: Transaction[]) => void;
+  setTransactions: Dispatch<SetStateAction<Transaction[]>>;
   tags: Tag[];
   setTags: (tags: Tag[]) => void;
   recentSkus: string[];
@@ -58,7 +58,7 @@ export interface AppState {
   view: View;
   setView: (view: View) => void;
   viewHistory: View[];
-  setViewHistory: (history: View[]) => void;
+  setViewHistory: Dispatch<SetStateAction<View[]>>;
   modal: Modal;
   setModal: (modal: Modal) => void;
   toast: ToastState | null;

@@ -152,16 +152,12 @@ export function App() {
         onUsers={() => navigateTo({ kind: 'users' })}
         onWarehouses={() => navigateTo({ kind: 'warehouses' })}
         onBackupSettings={() => navigateTo({ kind: 'backup-settings' })}
-        onImportClick={handleImportClick}
-        onExport={handleExport}
         onLanguageChange={setLang}
         onSwitchWarehouse={handleSwitchWarehouse}
         onChangePassword={() => setModal({ kind: 'change-password' })}
         onLogout={handleLogout}
         onProductPick={handleTopbarPick}
         onOpenPicker={openPicker}
-        fileInputRef={fileInputRef}
-        onImportFile={handleImportFile}
         t={t}
       />
       <AppContent
@@ -190,6 +186,11 @@ export function App() {
         onShowToast={showToast}
         onDismissToast={dismissToast}
         tourSteps={tourSteps}
+        canWrite={canWrite}
+        onImportClick={handleImportClick}
+        onExport={handleExport}
+        fileInputRef={fileInputRef}
+        onImportFile={handleImportFile}
       />
     </div>
   );

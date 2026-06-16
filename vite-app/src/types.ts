@@ -1,3 +1,8 @@
+// ---- Re-exports for types defined in sub-modules ---------------------------
+export type { Lang } from './lib/i18n';
+export type { User } from './api/auth';
+export type { ToastState } from './components/Toast';
+
 // ---- Core domain types (matches the backend API shape) ---------------------
 
 export type ProductType = 'normal' | 'ap';

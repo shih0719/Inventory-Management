@@ -66,7 +66,7 @@ const reportsTourSteps = (lang: Lang): TourStep[] => [
       : lang.startsWith('zh')
       ? '使用「管理」菜單導出報表或追蹤產品。使用頂部搜尋欄快速查找特定項目。'
       : '管理メニューを使用してエクスポートできます。',
-    selector: '.tb-divider',
+    selector: '.tb-divider:nth-of-type(2)',
     position: 'bottom',
   },
 ];

@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Product, Lang, ToastState } from '../types';
 import { ProductCombobox } from './ProductCombobox';
 import { Dropdown, DropdownItem } from './Dropdown';
@@ -23,16 +22,12 @@ interface TopbarProps {
   onUsers: () => void;
   onWarehouses: () => void;
   onBackupSettings: () => void;
-  onImportClick: () => void;
-  onExport: () => void;
   onLanguageChange: (lang: Lang) => void;
   onSwitchWarehouse: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
   onProductPick: (id: number | '', product: Product | null) => void;
   onOpenPicker: (callback: (p: Product) => void) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   t: Record<string, string>;
 }
 
@@ -56,16 +51,12 @@ export function Topbar({
   onUsers,
   onWarehouses,
   onBackupSettings,
-  onImportClick,
-  onExport,
   onLanguageChange,
   onSwitchWarehouse,
   onChangePassword,
   onLogout,
   onProductPick,
   onOpenPicker,
-  fileInputRef,
-  onImportFile,
   t,
 }: TopbarProps) {
   return (
@@ -118,6 +109,14 @@ export function Topbar({
 
       <div className="tb-divider" />
 
+      <button
+        className="btn ghost"
+        onClick={onReports}
+        disabled={bootState !== 'ready'}
+      >
+        📊 {lang === 'en' ? 'Inventory Report' : lang.startsWith('zh') ? '庫存報表' : '在庫レポート'}
+      </button>
+
       <Dropdown
         trigger={lang === 'en' ? 'Manage' : lang.startsWith('zh') ? '管理' : '管理'}
         disabled={bootState !== 'ready'}
@@ -132,9 +131,6 @@ export function Topbar({
         )}
         <DropdownItem onClick={onShipments} disabled={bootState !== 'ready'}>
           📦 {lang === 'en' ? 'Shipments' : lang.startsWith('zh') ? '出貨單據' : '配送'}
-        </DropdownItem>
-        <DropdownItem onClick={onReports} disabled={bootState !== 'ready'}>
-          📊 {lang === 'en' ? 'Inventory Report' : lang.startsWith('zh') ? '庫存報表' : '在庫レポート'}
         </DropdownItem>
         {isAdmin && (
           <DropdownItem onClick={onAuditLogs} disabled={bootState !== 'ready'}>
@@ -157,26 +153,6 @@ export function Topbar({
           </DropdownItem>
         )}
       </Dropdown>
-
-      <div className="tb-divider" />
-
-      {canWrite && (
-        <button className="btn ghost" onClick={onImportClick} title={t.importCsv}>
-          <span style={{ fontSize: 13, lineHeight: 1 }}>⤴</span>
-          <span>CSV</span>
-        </button>
-      )}
-      <button className="btn ghost" onClick={onExport} title={t.exportCsv}>
-        <span style={{ fontSize: 13, lineHeight: 1 }}>⤵</span>
-        <span>CSV</span>
-      </button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv,text/csv"
-        style={{ display: 'none' }}
-        onChange={onImportFile}
-      />
 
       <div className="tb-divider" />
 

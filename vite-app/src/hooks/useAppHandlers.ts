@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import type {
   Product,
   Transaction,
@@ -50,7 +50,7 @@ export function useAppHandlers(
   setCurrentUser: (user: any) => void,
   setActiveWarehouse: (wh: ActiveWarehouse | null) => void,
   setProducts: (products: Product[]) => void,
-  setTransactions: (txs: Transaction[]) => void,
+  setTransactions: Dispatch<SetStateAction<Transaction[]>>,
   trackRecent: (product: Product | null | undefined) => void,
   showToast: (text: string, opts?: Partial<ToastState>) => void,
   refetchProducts: () => Promise<void>,

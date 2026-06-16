@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Product, Transaction, Tag, Lang, ToastState } from '../types';
 import { Dashboard } from './Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './BatchFlow';
@@ -70,6 +71,11 @@ interface AppContentProps {
   onShowToast: (text: string, opts?: Partial<ToastState>) => void;
   onDismissToast: (id: number) => void;
   tourSteps: TourStep[];
+  canWrite: boolean;
+  onImportClick: () => void;
+  onExport: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function AppContent({
@@ -98,6 +104,11 @@ export function AppContent({
   onShowToast,
   onDismissToast,
   tourSteps,
+  canWrite,
+  onImportClick,
+  onExport,
+  fileInputRef,
+  onImportFile,
 }: AppContentProps) {
   if (bootState === 'loading') {
     return (
@@ -180,7 +191,16 @@ export function AppContent({
         </div>
       )}
       {view.kind === 'shipments' && <ShipmentsPage lang={lang} />}
-      {view.kind === 'reports' && <ReportsPage lang={lang} />}
+      {view.kind === 'reports' && (
+        <ReportsPage
+          lang={lang}
+          canWrite={canWrite}
+          onImportClick={onImportClick}
+          onExport={onExport}
+          fileInputRef={fileInputRef}
+          onImportFile={onImportFile}
+        />
+      )}
       {view.kind === 'audit-logs' && (
         <AuditLogsPage
           lang={lang}

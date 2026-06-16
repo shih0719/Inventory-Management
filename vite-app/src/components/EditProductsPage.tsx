@@ -547,7 +547,8 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
           message={t.deleteConfirm}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleting(null)}
-          destructive
+          isDangerous
+          lang={lang}
         />
       )}
     </div>

@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getInventoryReport, type InventoryProduct, type InventoryReportData } from '../api/reports';
 import type { Lang } from '../lib/i18n';
 
 interface ReportsPageProps {
   lang: Lang;
+  canWrite: boolean;
+  onImportClick: () => void;
+  onExport: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 const texts = {
@@ -60,7 +65,7 @@ const texts = {
   },
 };
 
-export function ReportsPage({ lang }: ReportsPageProps) {
+export function ReportsPage({ lang, canWrite, onImportClick, onExport, fileInputRef, onImportFile }: ReportsPageProps) {
   const [report, setReport] = useState<InventoryReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +85,23 @@ export function ReportsPage({ lang }: ReportsPageProps) {
     <div className="locations-page">
       <div className="flow-head">
         <h2 style={{ margin: 0, flex: 1 }}>{t.title}</h2>
+        {canWrite && (
+          <button className="btn ghost" onClick={onImportClick} title={t.importCsv ?? 'Import CSV'}>
+            <span style={{ fontSize: 13, lineHeight: 1 }}>⤴</span>
+            <span>CSV</span>
+          </button>
+        )}
+        <button className="btn ghost" onClick={onExport} title={t.exportCsv ?? 'Export CSV'}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>⤵</span>
+          <span>CSV</span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          style={{ display: 'none' }}
+          onChange={onImportFile}
+        />
       </div>
 
       {loading && (

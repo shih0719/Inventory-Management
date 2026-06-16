@@ -103,7 +103,9 @@
       "Bash(npx jest *)",
       "Bash(node -e ' *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\eyeye\\\\Documents\\\\code_test\\\\Inventory-Management\\\\.claude\\\\skills\" -ErrorAction SilentlyContinue)",
-      "Bash(Get-ChildItem -Filter \"SKILL.md\")"
+      "Bash(Get-ChildItem -Filter \"SKILL.md\")",
+      "Bash(cat vite-app/vite.config.ts)",
+      "Bash(cat vite-app/vite.config.js)"
     ]
   },
   "enableAllProjectMcpServers": true,
