@@ -55,6 +55,12 @@ function createApp() {
   warehouseRouter.use("/reports",       require("./routes/reports"));
   app.use("/api", warehouseRouter);
 
+  // SPA fallback — /login and other frontend routes serve index.html
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+  });
+
   app.use((err, req, res, next) => {
     logger.error(`Error: ${err.message}`, { service: "SERVER" });
     res.status(err.status || 500).json({

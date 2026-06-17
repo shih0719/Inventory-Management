@@ -114,6 +114,9 @@ export function App() {
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          if (window.location.pathname === '/login') {
+            window.history.replaceState({}, '', '/');
+          }
         }}
         lang={lang}
       />

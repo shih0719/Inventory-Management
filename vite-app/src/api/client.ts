@@ -128,6 +128,13 @@ async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data:
   }
 
   if (!res.ok) {
+    if (res.status === 401) {
+      const hadToken = !!getToken();
+      clearToken();
+      if (hadToken) {
+        window.location.href = '/login';
+      }
+    }
     const message =
       (payload && 'error' in payload && payload.error) ||
       (payload && 'message' in payload && payload.message) ||
