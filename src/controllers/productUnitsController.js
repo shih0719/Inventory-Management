@@ -154,8 +154,8 @@ async function bulkCreate(req, res) {
           const productUnitIds = JSON.stringify(newUnits.map(u => u.id));
 
           await db.run(
-            "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?)",
-            [product_id, inboundTag.id, inserted, "accountable", "系統自動", productUnitIds],
+            "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [product_id, inboundTag.id, inserted, "accountable", product.accountable_quantity, validation.newQuantity, "ap-bulk", "系統自動", productUnitIds],
           );
           await db.run(
             "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
@@ -249,8 +249,8 @@ async function bulkSell(req, res) {
           if (validation.ok) {
             const productUnitIdsJson = JSON.stringify(unitIds);
             await db.run(
-              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?)",
-              [productId, outboundTag.id, -count, "accountable", "系統自動", productUnitIdsJson],
+              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [productId, outboundTag.id, -count, "accountable", productForValidation.accountable_quantity, validation.newQuantity, "ap-sell", "系統自動", productUnitIdsJson],
             );
             await db.run(
               "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
@@ -351,14 +351,22 @@ async function transfer(req, res) {
       );
     }
 
-    // Adjust accountable_quantity on both sides
+    // Adjust accountable_quantity on both sides and capture snapshots
+    const sourceSnapshots = {};
     for (const [productId, units] of Object.entries(bySourceProduct)) {
+      const srcProduct = await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [productId]);
+      const before = srcProduct ? srcProduct.accountable_quantity : 0;
+      sourceSnapshots[productId] = { before, after: before - units.length };
       await db.run(
         "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
         [units.length, productId]
       );
     }
+    const targetSnapshots = {};
     for (const [productId, units] of Object.entries(byTargetProduct)) {
+      const tgtProduct = await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [productId]);
+      const before = tgtProduct ? tgtProduct.accountable_quantity : 0;
+      targetSnapshots[productId] = { before, after: before + units.length };
       await db.run(
         "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
         [units.length, productId]
@@ -378,17 +386,19 @@ async function transfer(req, res) {
 
       for (const [productId, units] of Object.entries(bySourceProduct)) {
         const unitIds = units.map(u => u.id);
+        const snap = sourceSnapshots[productId] || { before: null, after: null };
         await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?)",
-          [productId, transferTag.id, -units.length, `移倉至 ${warehouse.name}`, JSON.stringify(unitIds), units[0].src_warehouse_id],
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, -units.length, "accountable", snap.before, snap.after, "ap-transfer", `移倉至 ${warehouse.name}`, JSON.stringify(unitIds), units[0].src_warehouse_id],
         );
       }
       for (const [productId, units] of Object.entries(byTargetProduct)) {
         const unitIds = units.map(u => u.id);
         const srcName = srcWarehouseNames[units[0].src_warehouse_id];
+        const snap = targetSnapshots[productId] || { before: null, after: null };
         await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?)",
-          [productId, transferTag.id, units.length, `從 ${srcName} 移入`, JSON.stringify(unitIds), target_warehouse_id],
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, units.length, "accountable", snap.before, snap.after, "ap-transfer", `從 ${srcName} 移入`, JSON.stringify(unitIds), target_warehouse_id],
         );
       }
     }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import type { Transaction, Tag, Lang } from '../types';
 import { listTransactions } from '../api/transactions';
-import { tagLabel } from '../lib/i18n';
+import { tagLabel, L } from '../lib/i18n';
 import { fmtDateTime } from '../lib/format';
 
 interface TransactionsPageProps {
@@ -155,16 +155,18 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
               <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Tag' : '標籤'}</th>
               <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Type' : '帳別'}</th>
               <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Qty' : '數量'}</th>
+              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Before/After' : '異動前後'}</th>
+              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Source' : '來源'}</th>
               <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Operator' : '操作者'}</th>
               <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Remarks' : '備註'}</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>{lang === 'en' ? 'Loading…' : '載入中…'}</td></tr>
+              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: 'var(--ink-2)' }}>{lang === 'en' ? 'Loading…' : '載入中…'}</td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>{lang === 'en' ? 'No transactions.' : '無交易紀錄。'}</td></tr>
+              <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>{lang === 'en' ? 'No transactions.' : '無交易紀錄。'}</td></tr>
             )}
             {!loading && rows.map((tx) => {
               const isIn = tx.quantity_change > 0;
@@ -184,6 +186,14 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
                   </td>
                   <td style={{ padding: '8px 10px', fontWeight: 600, color: isIn ? 'var(--ok)' : 'var(--accent)' }}>
                     {isIn ? '+' : ''}{tx.quantity_change}
+                  </td>
+                  <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--ink-2)' }}>
+                    {tx.quantity_before != null || tx.quantity_after != null
+                      ? `${tx.quantity_before ?? '—'} → ${tx.quantity_after ?? '—'}`
+                      : '—'}
+                  </td>
+                  <td style={{ padding: '8px 10px' }}>
+                    {sourceShortLabel(tx.source, lang)}
                   </td>
                   <td style={{ padding: '8px 10px' }}>{tx.created_by_user || '-'}</td>
                   <td style={{ padding: '8px 10px', color: 'var(--ink-2)' }}>{tx.remarks}</td>
@@ -210,4 +220,23 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
       </div>
     </div>
   );
+}
+
+const SOURCE_KEY: Record<string, string> = {
+  manual: 'sourceManual',
+  adjust: 'sourceAdjust',
+  batch: 'sourceBatch',
+  'ap-bulk': 'sourceApBulk',
+  'ap-sell': 'sourceApSell',
+  'ap-transfer': 'sourceApTransfer',
+  'csv-import': 'sourceCsvImport',
+  shipment: 'sourceShipment',
+};
+
+function sourceShortLabel(source: string | undefined, lang: Lang): string {
+  if (!source) return '—';
+  const t = L[lang];
+  const key = SOURCE_KEY[source];
+  if (key && key in t) return t[key];
+  return source;
 }

@@ -141,6 +141,41 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
             </div>
           </div>
 
+          {/* Quantity snapshot (before/after) */}
+          {(transaction.quantity_before != null || transaction.quantity_after != null) && (
+            <div className="field" style={{ marginBottom: 20 }}>
+              <label>{lang === 'en' ? 'Quantity Snapshot' : '數量快照'}</label>
+              <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                <div>
+                  <span style={{ color: 'var(--ink-3)', marginRight: 6 }}>
+                    {t.qtyBefore || (lang === 'en' ? 'Before' : '異動前')}:
+                  </span>
+                  <strong>{transaction.quantity_before ?? '—'}</strong>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--ink-3)', marginRight: 6 }}>
+                    {t.qtyAfter || (lang === 'en' ? 'After' : '異動後')}:
+                  </span>
+                  <strong>{transaction.quantity_after ?? '—'}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Source */}
+          <div className="field" style={{ marginBottom: 20 }}>
+            <label>{lang === 'en' ? 'Source' : '來源'}</label>
+            <div style={{ fontSize: 13 }}>
+              {sourceLabel(transaction.source, t, lang)}
+            </div>
+          </div>
+
+          {/* Location */}
+          <div className="field" style={{ marginBottom: 20 }}>
+            <label>{lang === 'en' ? 'Location' : '位置'}</label>
+            <div style={{ fontSize: 13 }}>{transaction.location_tag || '—'}</div>
+          </div>
+
           {/* Date */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label>{lang === 'en' ? 'Created' : '建立時間'}</label>
@@ -242,4 +277,22 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
       </div>
     </div>
   );
+}
+
+const SOURCE_KEY: Record<string, string> = {
+  manual: 'sourceManual',
+  adjust: 'sourceAdjust',
+  batch: 'sourceBatch',
+  'ap-bulk': 'sourceApBulk',
+  'ap-sell': 'sourceApSell',
+  'ap-transfer': 'sourceApTransfer',
+  'csv-import': 'sourceCsvImport',
+  shipment: 'sourceShipment',
+};
+
+function sourceLabel(source: string | undefined, t: Record<string, string>, lang: Lang): string {
+  if (!source) return '—';
+  const key = SOURCE_KEY[source];
+  if (key && key in t) return t[key];
+  return source;
 }

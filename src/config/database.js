@@ -100,6 +100,9 @@ function initDatabase() {
               }
               const hasProductUnitIds = trxColumns.some((c) => c.name === "product_unit_ids");
               const hasCreatedByUser = trxColumns.some((c) => c.name === "created_by_user");
+              const hasQuantityBefore = trxColumns.some((c) => c.name === "quantity_before");
+              const hasQuantityAfter = trxColumns.some((c) => c.name === "quantity_after");
+              const hasSource = trxColumns.some((c) => c.name === "source");
 
               const addProductUnitIds = hasProductUnitIds
                 ? Promise.resolve()
@@ -125,8 +128,47 @@ function initDatabase() {
                     );
                   });
 
+              const addQuantityBefore = hasQuantityBefore
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    db.run(
+                      "ALTER TABLE transactions ADD COLUMN quantity_before INTEGER",
+                      (e) => {
+                        if (e) rej(e);
+                        else { console.log("✅ Added quantity_before column to transactions"); res(); }
+                      }
+                    );
+                  });
+
+              const addQuantityAfter = hasQuantityAfter
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    db.run(
+                      "ALTER TABLE transactions ADD COLUMN quantity_after INTEGER",
+                      (e) => {
+                        if (e) rej(e);
+                        else { console.log("✅ Added quantity_after column to transactions"); res(); }
+                      }
+                    );
+                  });
+
+              const addSource = hasSource
+                ? Promise.resolve()
+                : new Promise((res, rej) => {
+                    db.run(
+                      "ALTER TABLE transactions ADD COLUMN source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'adjust', 'batch', 'ap-bulk', 'ap-sell', 'ap-transfer', 'csv-import', 'shipment'))",
+                      (e) => {
+                        if (e) rej(e);
+                        else { console.log("✅ Added source column to transactions"); res(); }
+                      }
+                    );
+                  });
+
               addProductUnitIds
                 .then(() => addCreatedByUser)
+                .then(() => addQuantityBefore)
+                .then(() => addQuantityAfter)
+                .then(() => addSource)
                 .then(() => ensureAuthAndAuditTables())
                 .then(loadSeeds)
                 .catch((e) => {

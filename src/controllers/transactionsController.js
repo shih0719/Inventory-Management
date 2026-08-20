@@ -6,7 +6,7 @@ const { formatTimestamps } = require("../utils/formatTimestamps");
 // Create new transaction and update product quantity
 async function create(req, res) {
   try {
-    const { product_id, tag_id, quantity_change, quantity_type, remarks } =
+    const { product_id, tag_id, quantity_change, quantity_type, remarks, location_id, source = 'manual' } =
       req.body;
 
     if (
@@ -69,16 +69,20 @@ async function create(req, res) {
     await db.run("BEGIN TRANSACTION");
 
     try {
-      // Insert transaction record with created_by_user
+      // Insert transaction record with created_by_user, quantity snapshot & source
       const createdByUser = req.user?.username || "unknown";
       const result = await db.run(
-        `INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, created_by_user)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, location_id, remarks, created_by_user)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           product_id,
           tag_id,
           quantity_change,
             quantity_type,
+          currentQuantity,
+          newQuantity,
+          source,
+          location_id ?? null,
           `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
             remarks || ""
           }`,
@@ -130,11 +134,13 @@ async function getByProduct(req, res) {
               p.sku,
               tg.display_name as tag_name,
               tg.color as tag_color,
-              b.batch_number
+              b.batch_number,
+              loc.name as location_tag
        FROM transactions t
        JOIN products p ON t.product_id = p.id
        JOIN tags tg ON t.tag_id = tg.id
        LEFT JOIN batches b ON t.batch_id = b.id
+       LEFT JOIN locations loc ON t.location_id = loc.id
        WHERE t.product_id = ?
        ORDER BY t.created_at DESC`,
       [productId],
@@ -194,11 +200,13 @@ async function getAll(req, res) {
              p.sku, 
              tg.display_name as tag_name, 
              tg.color as tag_color,
-             b.batch_number
+             b.batch_number,
+             loc.name as location_tag
       FROM transactions t
       JOIN products p ON t.product_id = p.id
       JOIN tags tg ON t.tag_id = tg.id
       LEFT JOIN batches b ON t.batch_id = b.id
+      LEFT JOIN locations loc ON t.location_id = loc.id
       WHERE 1=1
     `;
       
@@ -364,11 +372,13 @@ async function getById(req, res) {
               p.type as product_type,
               tg.display_name as tag_name,
               tg.color as tag_color,
-              b.batch_number
+              b.batch_number,
+              loc.name as location_tag
        FROM transactions t
        JOIN products p ON t.product_id = p.id
        JOIN tags tg ON t.tag_id = tg.id
        LEFT JOIN batches b ON t.batch_id = b.id
+       LEFT JOIN locations loc ON t.location_id = loc.id
        WHERE t.id = ?`,
       [id],
     );

@@ -31,6 +31,12 @@ export interface Transaction {
   sku: string;
   quantity_change: number;
   quantity_type: QuantityType;
+  /** Quantity of this transaction's quantity_type before the change. */
+  quantity_before?: number | null;
+  /** Quantity of this transaction's quantity_type after the change. */
+  quantity_after?: number | null;
+  /** How the transaction was created: manual/adjust/batch/ap-bulk/ap-sell/ap-transfer/csv-import/shipment. */
+  source?: string;
   tag_id: number;
   tag_name: string;
   /** API field — integer id (preferred for writes). */
