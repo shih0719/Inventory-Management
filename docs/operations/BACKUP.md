@@ -15,11 +15,12 @@
 
 | 項目 | 配置 |
 |------|------|
-| **備份頻率** | 每小時 (3600000ms) |
+| **備份頻率** | 每 6 小時 (21600000ms) |
 | **保留時間** | 7 天 |
-| **備份方式** | SQLite `.backup` 命令 |
+| **備份方式** | 檔案複製（`fs.copyFileSync`） |
 | **文件命名** | `inventory.backup_YYYYMMDDTHHMMSS.db` |
 | **自動清理** | 超過 7 天的備份自動刪除 |
+| **Email 寄送** | 每週寄送備份附件（可透過後端 UI 設定 SMTP） |
 
 ## 工作原理
 
@@ -54,14 +55,14 @@ initDatabase()
 
 ### 3. 定期備份
 
-之後每小時自動執行一次：
+之後每 6 小時自動執行一次：
 
 ```
-定時器 (BACKUP_INTERVAL = 3600000ms)
+定時器 (BACKUP_INTERVAL = 21600000ms)
   ↓
 執行 performBackup()
   ↓
-建立新備份文件
+複製 database/inventory.db 為新備份檔
   ↓
 清理舊備份 (> 7天)
   ↓
@@ -70,22 +71,22 @@ initDatabase()
 
 ## 備份機制詳解
 
-### SQLite `.backup` 命令
+### 檔案複製（fs.copyFileSync）
 
-```bash
-sqlite3 "database/inventory.db" ".backup 'database/backups/inventory.backup_TIMESTAMP.db'"
+```javascript
+fs.copyFileSync(DB_PATH, backupFile);
 ```
 
 **優勢：**
-- ✅ 一致性備份 — 不會備份到不完整的狀態
-- ✅ 在線備份 — 無需停止應用或鎖定數據庫
-- ✅ 完整副本 — 包括所有數據和 WAL 日誌
+- ✅ 簡單可靠，完全相容 Windows
+- ✅ 無需外部 sqlite3 工具
+- ✅ 不阻塞應用（SQLite WAL 模式）
 
 **vs 其他方式：**
 | 方式 | 優點 | 缺點 |
 |------|------|------|
+| 複製檔案 | 簡單、相容 Windows | 需搭配 WAL 確保一致性 |
 | `.backup` 命令 | 一致、在線 | 需要 sqlite3 工具 |
-| 複製文件 | 簡單 | 可能備份不完整 |
 | 導出 SQL | 可搜索 | 速度慢、體積大 |
 
 ## 代碼詳解
@@ -113,13 +114,11 @@ async function performBackup() {
     return;
   }
 
-  // 2. 生成時間戳（格式：20260514T0608）
-  const timestamp = new Date().toISOString()
-    .replace(/[:.]/g, '')
-    .slice(0, 15);
+  // 2. 生成時間戳（格式：YYYYMMDDTHHMMSS）
+  const timestamp = new Date().toISOString().replace(/[:-]/g, '').slice(0, 15);
 
-  // 3. 執行 SQLite 備份
-  await execAsync(`sqlite3 "${DB_PATH}" ".backup '${backupFile}'"`);
+  // 3. 複製資料庫檔案
+  fs.copyFileSync(DB_PATH, backupFile);
 
   // 4. 記錄成功日誌
   console.log(`[BACKUP] ✓ 備份成功: ${filename} (${sizeMB}MB)`);
@@ -332,11 +331,11 @@ docker-compose up -d --build
 編輯 `src/services/backupService.js`：
 
 ```javascript
+// 目前為每 6 小時備份一次
+const BACKUP_INTERVAL = 6 * 3600000;  // 6 小時
+
 // 改為每 30 分鐘備份一次
 const BACKUP_INTERVAL = 1800000;  // 30 分鐘
-
-// 或改為每 6 小時備份一次
-const BACKUP_INTERVAL = 21600000;  // 6 小時
 ```
 
 ### 改變備份保留時間

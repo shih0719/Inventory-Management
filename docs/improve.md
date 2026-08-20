@@ -7,9 +7,10 @@
 系統目前採用 **Transaction Script 模式**，所有業務邏輯集中在 Controllers 中：
 - 控制器直接操作資料庫 (無 Repository Pattern)
 - 數量管理邏輯散落在 4 個 Controllers 中 (重複 6+ 次)
-- Webhook 交付是 Fire-and-Forget，無交付狀態可見性
 - 驗證邏輯分散且重複
 - 難以獨立測試業務邏輯 (Express 耦合)
+
+> ℹ️ 本文部分章節以 **Webhook** 為例說明重構動機；Webhook 功能目前**尚未實作**（無對應 route/service），僅作為假想情境。
 
 ---
 
@@ -369,7 +370,7 @@ const transaction = await createTransactionUseCase.execute(dto);
 
 ## 決策記錄
 
-- **為何不用 ORM?** 現有 `better-sqlite3` 同步 API 便於控制流程。ORM 改進可後續逐步採納 (Repository 層會隱藏細節)。
+- **為何不用 ORM?** 現有 `sqlite3` API 便於控制流程。ORM 改進可後續逐步採納 (Repository 層會隱藏細節)。
 - **為何不立即 refactor?** 系統運作良好，重構應由實際維護成本驅動。建議先監測哪些深化機會帶來最大回報。
 - **為何先做 Product Model?** 數量邏輯是全系統最重複、最易出錯的部分。集中它會立即提升測試與變更信心。
 

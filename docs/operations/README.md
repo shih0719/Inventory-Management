@@ -19,13 +19,13 @@
 
 ```bash
 # 檢查備份狀態
-cat /backup/latest.log
+ls -lt database/backups/
 
 # 查看近期日誌
-tail -f /var/log/inventory-app.log
+tail -f logs/app.log
 
 # 檢查服務健康狀態
-curl http://localhost:3000/health
+curl http://localhost:3000/api/health
 ```
 
 ### 應急回應
@@ -44,9 +44,9 @@ curl http://localhost:3000/health
 ### 監控重點
 
 - **資料庫連線池**: 若耗盡，應用無法執行查詢
-- **備份狀態**: 每日備份應於指定時間完成
+- **備份狀態**: 定期備份應依排程完成
 - **API 響應時間**: 若 p95 > 500ms，檢查慢查詢
-- **webhook 交付率**: 失敗率 > 5% 時調查
+- **資料庫大小**: 確認 `database/inventory.db` 未異常膨脹
 
 詳細設定見各文檔。
 
@@ -87,9 +87,9 @@ docker-compose restart app
 
 ## 文檔版本
 
-- **最後更新**: 2026-05-14
-- **適用版本**: v1.x
-- **下次審查**: 2026-08-14
+- **最後更新**: 2026-05-30
+- **適用版本**: v2.x
+- **下次審查**: 2026-08-30
 
 ---
 

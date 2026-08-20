@@ -26,16 +26,36 @@ Inventory-Management/
 ├── CHANGELOG.md              # 🏆 根目錄：版本變更紀錄
 ├── CONTEXT.md                # 🏆 根目錄：領域術語表（全隊核心參考）
 ├── README.md                 # 🏆 根目錄：專案首頁
+├── DOCKER.md                 # 根目錄：Docker 部署指南
+├── docker-compose.yml        # Docker Compose 服務定義
+├── Dockerfile                # 多階段建置（前端 + 後端）
 ├── claude-code-learning-notes.md # 根目錄：Claude Code 工作流筆記
+│
+├── vite-app/                 # 前端（React + TS + Vite）
+│   └── src/
+│       ├── components/
+│       ├── api/
+│       ├── hooks/
+│       ├── context/
+│       └── lib/
 │
 ├── docs/
 │   ├── README.md             # 📚 文檔首頁與索引
 │   ├── ORGANIZATION.md       # 📚 本檔案：文檔組織說明
 │   ├── improve.md            # 📈 架構優化建議
+│   ├── DEPLOYMENT_VITE.md    # 前端 Vite 建置流程
+│   ├── API_EXAMPLES.md       # API 請求/回應範例
+│   ├── SHIPMENT_FEATURE.md   # Shipment 功能需求（歷史規劃）
+│   ├── MVP_RBAC_AUDIT.md     # MVP 規劃（已實作）
+│   ├── BUG-FIX-loading-issue.md
 │   │
 │   ├── adr/
 │   │   ├── 0001-ap-no-history-tracking.md
-│   │   └── 0001-auth-provider-abstraction.md
+│   │   ├── 0001-auth-provider-abstraction.md
+│   │   └── 0002-frontend-modularization-with-vite.md
+│   │
+│   ├── api/
+│   │   └── README.md         # API 端點清單
 │   │
 │   ├── agents/
 │   │   ├── domain.md

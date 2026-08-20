@@ -24,7 +24,7 @@
 
 | 檔案 | 標籤 | 描述 |
 |------|------|------|
-| [`api/README.md`](api/README.md) | 🔗 **API 端點清單** | 所有端點、HTTP 方法、所需角色（從 src/routes/ 生成） |
+| [`api/README.md`](api/README.md) | 🔗 **API 端點清單** | 所有端點、HTTP 方法、所需角色（手動維護） |
 | [`API_EXAMPLES.md`](API_EXAMPLES.md) | 🔗 **API 範例** | Auth、Transaction、Audit 等端點的請求/回應範例 |
 
 ### 營運與部署
@@ -35,7 +35,10 @@
 |------|------|------|
 | [`operations/BACKUP.md`](operations/BACKUP.md) | 🔄 **備份與復原** | 資料庫備份策略、備份位置、手動復原步驟 |
 | [`operations/LOGGING.md`](operations/LOGGING.md) | 📝 **日誌系統** | 日誌架構、日誌等級、日誌查詢與分析 |
-| [`operations/UPDATE.md`](operations/UPDATE.md) | 🚀 **更新部署** | 應用更新機制、部署流程、重啟策略 |
+| [`operations/UPDATE.md`](operations/UPDATE.md) | 🚀 **更新部署** | 版本更新與部署流程、回滾步驟 |
+| [`operations/DEPLOYMENT.md`](operations/DEPLOYMENT.md) | 🚀 **部署** | 本地開發、Docker 生產部署、環境變數 |
+
+另見根目錄的 [`DOCKER.md`](../DOCKER.md)（Docker 部署指南）與 [`DEPLOYMENT_VITE.md`](DEPLOYMENT_VITE.md)（前端 Vite 建置流程）。
 
 ### Agent 配置文檔
 

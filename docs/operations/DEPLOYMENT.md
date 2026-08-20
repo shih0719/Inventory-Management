@@ -1,69 +1,70 @@
 # 部署指南
 
-## 本地开发
+## 本地開發
 
 ```bash
+# 後端
 npm install
 npm run dev
+
+# 前端（另一終端）
+cd vite-app && npm install && npm run dev
 ```
 
-## 生产环境（使用 PM2）
+## 生產環境（Docker Compose）
 
-### 1. 安装 PM2
+### 1. 建置並啟動
 ```bash
-npm install -g pm2
+# 建置前端並複製到 public/，再建置 Docker 映像
+npm run build
+docker-compose up -d --build
 ```
 
-### 2. 启动应用
+### 2. 查看應用狀態
 ```bash
-# 方式一：使用 npm 脚本
-npm run pm2:start
-
-# 方式二：使用 PM2 配置文件
-pm2 start ecosystem.config.js
+docker-compose ps
+docker-compose logs -f app
 ```
 
-### 3. 查看应用状态
+### 3. 停止/重啟
 ```bash
-pm2 status
-pm2 logs inventory-api
+docker-compose down       # 停止
+docker-compose restart app # 重啟
 ```
 
-### 4. 停止/重启应用
+### 4. 健康檢查
 ```bash
-npm run pm2:stop      # 停止
-npm run pm2:restart   # 重启
-npm run pm2:delete    # 删除
+curl http://localhost:3000/api/health
 ```
 
-### 5. 开机自启（可选）
+## 環境變數
+
+設定 `.env`（見 `.env.example`）：
+```
+JWT_SECRET=<your-secret>
+LOG_LEVEL=info
+NODE_ENV=production
+DB_PATH=/app/data/inventory.db
+```
+
+## 前端建置
+
+前端（React/TS/Vite）位於 `vite-app/`。建置流程：
 ```bash
-pm2 startup
-pm2 save
+npm run build:frontend   # 在 vite-app/ 執行 tsc + vite build
+npm run copy:frontend    # 將 vite-app/dist 複製到 public/
 ```
+`npm run build` 一次完成上述兩步。
 
-## 自动更新流程
+## 資料持久化
 
-1. 用户在网页 UI 点击"更新"按钮
-2. 应用执行以下步骤：
-   - `git fetch` 和 `git reset --hard origin/main`
-   - `npm install --production`
-   - 重新加载版本信息
-3. 应用重启（PM2 自动重启）
-4. 用户刷新页面看到新版本
+資料庫檔案透過 Docker volume 掛載於 `./data`（`DB_PATH=/app/data/inventory.db`），容器重啟不會遺失資料。
 
-## 日志文件
+## 備份
 
-- 应用日志：`logs/out.log`
-- 错误日志：`logs/error.log`
+每 6 小時自動備份至 `database/backups/`，保留 7 天。可透過後端 UI 設定每週 Email 寄送。
 
-## 手动更新（备选）
+## 日誌檔案
 
-如果网页 UI 更新失败，可以手动执行：
-
-```bash
-git fetch origin
-git reset --hard origin/main
-npm install --production
-npm run pm2:restart
-```
+- 應用日誌：`logs/app.log`
+- 錯誤日誌：`logs/error.log`

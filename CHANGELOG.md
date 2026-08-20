@@ -2,6 +2,23 @@
 
 本檔案遵循 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 格式，版本遵循 [Semantic Versioning](https://semver.org/lang/zh_TW/)。
 
+## [Unreleased]
+
+### 重構與清理
+- **移除大量 dead code**：
+  - 後端：刪除未使用的 `getOutboundQuantity` / `getInboundQuantity`（quantityStateService）、`authService.createUser` 與未使用的 export（`hashPassword` / `comparePassword` / `performBackup` / `weeklyBackupAndEmail`）、`database.getDb`、csvController 未使用變數、batchesController 未使用欄位
+  - 前端：刪除未使用的 `ProductUnitsModal`、`lib/csv.ts`、多個未使用的 API export（`getProduct`、`getProductLocations`、`listProductTransactions`、`listBatches`、`listAllShipments`、`updateShipment`、`downloadCsvTemplate`、`getImportHistory`、`getImportDetail`、`onTokenChange`、`api.patch`、`LoginResponse`）、未使用的 import / 變數 / types
+- **修正 `transactionsController.js` 語法錯誤**：`getAll` 的 try/catch 曾被註解破壞，導致整個檔案無法解析
+- **修正 `Dashboard.tsx`**：移除 `useMemo` 內呼叫 `setState` 的副作用
+- **接上 App 的 retry 載入**：boot 失敗時的 Retry 按鈕原本是 no-op，現已接上真正的 `loadAll`
+
+### 新增
+- **審計日誌支援 `action` 過濾**（`GET /api/audit-logs?action=...`）
+
+### 修正
+- 修正 `auditLog.test.js` / `csv.test.js` 過時的測試期望，全部測試（83 個）通過
+- 將 build 產物（`public/`、`*.tsbuildinfo`）加入 `.gitignore` 並移除 git 追蹤
+
 ## [2.0.0] - 2026-05-14
 
 ### 重大變更（Breaking Changes）

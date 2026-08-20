@@ -11,7 +11,7 @@
 ### 全局路由（無倉庫限制）
 | 方法 | 路徑 | 角色 | 說明 |
 |------|------|------|------|
-| GET | `/api/auth/provider` | 公開 | 查詢目前 auth provider（local / microsoft） |
+| GET | `/api/auth/provider` | 公開 | 查詢目前 auth provider（目前僅支援 local） |
 | POST | `/api/auth/login` | 公開 | 登入，返回 JWT |
 | POST | `/api/auth/logout` | 已登入 | 登出 |
 | GET | `/api/auth/me` | 已登入 | 取得當前使用者資訊 |
@@ -24,9 +24,9 @@
 | POST | `/api/users` | admin | 建立使用者 |
 | PUT | `/api/users/:id` | admin | 修改使用者（role、倉庫） |
 | DELETE | `/api/users/:id` | admin | 刪除使用者 |
-| GET | `/api/updates/status` | 已登入 | 查詢系統版本狀態 |
-| POST | `/api/updates/check` | 已登入 | 手動檢查遠端更新 |
-| POST | `/api/updates/apply` | 已登入 | 執行更新並重啟 |
+| GET | `/api/backup/settings` | admin | 查詢備份 Email 設定 |
+| POST | `/api/backup/settings` | admin | 更新備份 Email 設定 |
+| POST | `/api/backup/test-email` | admin | 寄送測試 Email |
 
 ### 倉庫範圍路由（需 `X-Warehouse-Id` header）
 所有以下路由均需要使用者對該倉庫有存取權限（middleware: `requireWarehouse`）。
@@ -34,6 +34,7 @@
 | 方法 | 路徑 | 角色 | 說明 |
 |------|------|------|------|
 | GET | `/api/products` | 已登入 | 列出商品 |
+| GET | `/api/products/lookup` | 已登入 | 依 SKU 查詢商品 |
 | GET | `/api/products/:id` | 已登入 | 取得單一商品 |
 | POST | `/api/products` | manager/admin | 建立商品 |
 | PUT | `/api/products/:id` | manager/admin | 修改商品 |
@@ -62,6 +63,7 @@
 | POST | `/api/product-units` | 已登入 | 建立單筆 AP |
 | POST | `/api/product-units/bulk` | 已登入 | 批次建立 AP |
 | POST | `/api/product-units/bulk-sell` | 已登入 | 批次標記 AP 出售 |
+| POST | `/api/product-units/transfer` | 已登入 | 跨倉調撥 AP |
 | PUT | `/api/product-units/:id` | 已登入 | 修改 AP |
 | DELETE | `/api/product-units/:id` | 已登入 | 刪除 AP（硬刪除） |
 | GET | `/api/product-units/export` | 已登入 | 匯出 AP CSV |

@@ -4,6 +4,8 @@
 **创建日期**: 2026-05-23  
 **优先级**: 高
 
+> ℹ️ **實作註記**：Shipment 目前採**無狀態設計**（無 pending/confirmed/shipped 等狀態機）；`status` 欄位、`operator_id`、items_summary 聚合等下列設計細節並未實作，僅為原始規劃。實際行為以 `src/controllers/shipmentsController.js` 為準。
+
 ---
 
 ## 概述

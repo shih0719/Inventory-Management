@@ -186,9 +186,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "data": [
     {
       "id": 1,
-      "name": "批次名稱",
-      "status": "completed",
-      "transaction_count": 5,
+      "batch_number": "BATCH-1789000000000",
+      "description": "5月進貨批次",
+      "item_count": 5,
+      "total_in": 25,
+      "total_out": 0,
       "created_by_user": "eric",
       "created_at": "2026-05-14T10:00:00Z"
     }
@@ -207,8 +209,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "success": true,
   "data": {
     "id": 1,
-    "name": "5月進貨批次",
-    "status": "completed",
+    "batch_number": "BATCH-1789000000000",
+    "description": "5月進貨批次",
     "transactions": [
       {
         "id": 1,
@@ -219,7 +221,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         "remarks": "進貨"
       }
     ],
-    "created_by": 1,
     "created_by_user": "eric",
     "created_at": "2026-05-14T10:00:00Z"
   }
@@ -244,6 +245,26 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
       "remarks": "產品備註"
     }
   ]
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "message": "Batch created successfully. Processed 1 items.",
+  "data": {
+    "batch_id": 1,
+    "batch_number": "BATCH-1789000000000",
+    "processed_items": [
+      {
+        "product_id": 1,
+        "product_name": "筆電",
+        "quantity_type": "accountable",
+        "quantity_change": 10
+      }
+    ]
+  }
 }
 ```
 

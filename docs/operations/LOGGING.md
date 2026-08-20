@@ -42,9 +42,8 @@ YYYY-MM-DD HH:mm:ss [LEVEL] [SERVICE] 日誌信息
 
 | Service | 用途 |
 |---------|------|
-| `[UPDATE]` | 版本檢查與更新 |
-| `[BACKUP]` | 數據庫備份 |
-| `[SERVER]` | 服務器启動和错误 |
+| `[BACKUP]` | 數據庫備份與 Email 寄送 |
+| `[SERVER]` | 服務器啟動和錯誤 |
 | `[SYSTEM]` | 系統相關操作 |
 
 ## 導出和查看日誌

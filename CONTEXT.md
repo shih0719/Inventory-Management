@@ -33,11 +33,7 @@
 
 ⚠️ **新增/刪除 AP 不會自動更動 Product 的 `accountable_quantity`**。AP 的數量對齊由使用者透過既有 Transaction 介面手動維護；UI 會在 `accountable_quantity ≠ COUNT(AP WHERE status='in_stock')` 時顯示黃色警示。
 
-AP 批次新增可同時用於兩種場景：
-- **進貨登記**：新到貨時登記序號，使用者**同時**做一筆入庫 Transaction 維持一致
-- **既有庫存回填**：對既有 SKU 開啟 `track_serial` 後盤點補登，**不應**伴隨 Transaction（屬資料校正，比照 CSV import 的定位）
-
-兩種場景在資料層無區別，由使用者依當下情境決定是否同時建立 Transaction。
+AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫 Transaction 並更新 Product 的 `accountable_quantity`**（若驗證通過）。單筆建立/刪除則不會自動更動數量，由使用者自行維護一致性。
 
 **出貨欄位規則**（status = `sold` 時）：
 - `project_case`（案子）— **必填**，後端強制驗證。系統設計假設「**出貨一定屬於某個案子**」，案子是 AP 出貨的主要歸屬單位
@@ -101,7 +97,7 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 ### Batch（批次）
 一次操作中產生的一組相關 Transaction（例如一次匯入、一次盤點），由 `batch_number`（格式 `BATCH-<timestamp>`）識別。
 
-**Batch 的部分失敗策略**：部分 items 失敗時，**已成功的仍會 COMMIT**；只有全部失敗才 ROLLBACK 並回傳 400。這是有意的設計選擇——便於使用者看清哪些 item 出錯而不必整批重試。
+**Batch 的驗證策略（Strict Mode）**：任一 item 驗證失敗即**整批取消**（回傳 400，列出所有錯誤），不會部分提交。通過驗證後的所有 item 在單一資料庫 transaction 中原子執行，全有或全無。
 
 ---
 
@@ -137,8 +133,7 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 
 ### 工具鏈
 - **Vite** — 打包器，HMR 開發環境
-- **Tailwind + PostCSS** — CSS 工具
-- 部署：`npm run build` 生成靜態資源至 `public/`
+- 部署：`npm run build` 建置前端並複製靜態資源至 `public/`（供後端 Express 伺服）
 
 ---
 
@@ -147,19 +142,20 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 ### Auth Provider（認証提供者）
 系統層級設定，管理員選擇一個 provider，全員走同一條路。切換 provider 時舊帳號直接失效。
 
-目前支援的 provider：
+目前實際支援的 provider：
 - **`local`** — username/password，bcrypt 驗証，帳號由 admin 手動建立
-- **`microsoft`** — Azure AD OAuth2/OIDC，使用者第一次登入時自動建立帳號
 
-Provider 透過 `AuthProvider` interface 抽象，未來可新增 Google 等 provider 而不改動核心邏輯。
+> ⚠️ **`microsoft`**（Azure AD SSO）目前**尚未實作**，僅在設計層次（見 `workFlows/260530/phase4-microsoft-sso-pending.md`）。請勿在文件或介面中宣稱已支援。
+
+Provider 透過抽象層設計，未來可新增 Google 等 provider 而不改動核心邏輯。
 
 ### User（使用者）
 系統操作者。每個 User 有：
 - **Role**（系統層級）：`admin` / `manager` / `view`
 - **Warehouses**（可存取倉庫清單）：多對多，決定能操作哪些倉庫
-- **Provider**：`local` 或 `microsoft`，決定登入方式
+- **Provider**：目前僅 `local`
 
-Local User 由 admin 手動建立並設定密碼。SSO User 在第一次登入時自動建立，需 admin 事後指派 role 和倉庫。
+Local User 由 admin 手動建立並設定密碼。
 
 ### Role（角色）
 系統層級，決定使用者能執行的動作：
@@ -183,7 +179,7 @@ Local User 由 admin 手動建立並設定密碼。SSO User 在第一次登入�
 三層 middleware：
 1. **`verifyAuth`** — 驗証 token 有效，掛載 `req.user`（含 role 和 warehouses）
 2. **`requireRole(roles)`** — 檢查 `req.user.role` 是否在允許清單內
-3. **`requireWarehouse`** — 檢查 `req.user.warehouses` 是否包含操作對象（第二階段實作）
+3. **`requireWarehouse`** — 檢查 `req.user.warehouses` 是否包含操作對象，並掛載 `req.warehouseId`
 
 所有端點預設需要登入，無公開 API。
 
