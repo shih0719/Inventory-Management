@@ -23,6 +23,7 @@ type View =
   | { kind: 'ap-products' }
   | { kind: 'edit-products' }
   | { kind: 'shipments' }
+  | { kind: 'transactions' }
   | { kind: 'audit-logs' }
   | { kind: 'reports' }
   | { kind: 'warehouses' }

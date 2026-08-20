@@ -72,12 +72,13 @@ async function create(req, res) {
       // Insert transaction record with created_by_user
       const createdByUser = req.user?.username || "unknown";
       const result = await db.run(
-        `INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, created_by_user)
-                 VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, created_by_user)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
         [
           product_id,
           tag_id,
           quantity_change,
+            quantity_type,
           `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
             remarks || ""
           }`,
@@ -173,7 +174,14 @@ async function getAll(req, res) {
   try {
     const {
       limit = 100,
-      offset = 0,
+      page = 1,
+      from,
+      to,
+      quantity_type,
+      direction,
+      product_id,
+      batch_id,
+      created_by_user,
       sku,
       tag_id,
       min_quantity,
@@ -193,37 +201,117 @@ async function getAll(req, res) {
       LEFT JOIN batches b ON t.batch_id = b.id
       WHERE 1=1
     `;
+      
 
-    const params = [];
+          const params = [];
+      const countParams = [];
+      const warehouseId = req.warehouseId;
+
+      let countSql = `
+        SELECT COUNT(*) as total
+        FROM transactions t
+        JOIN products p ON t.product_id = p.id
+        WHERE 1=1 AND p.warehouse_id = ?
+      `;
+      params.push(warehouseId);
+      countParams.push(warehouseId);
+      sql += " AND p.warehouse_id = ?";
 
     // Filter by SKU
     if (sku) {
       sql += " AND p.sku LIKE ?";
       params.push(`%${sku}%`);
+        countSql += " AND p.sku LIKE ?";
+        countParams.push(`%${sku}%`);
     }
 
     // Filter by tag
     if (tag_id) {
       sql += " AND t.tag_id = ?";
       params.push(parseInt(tag_id));
+        countSql += " AND t.tag_id = ?";
+        countParams.push(parseInt(tag_id));
     }
 
     // Filter by minimum quantity (for in-stock/positive changes)
     if (min_quantity !== undefined) {
       sql += " AND t.quantity_change >= ?";
       params.push(parseInt(min_quantity));
+        countSql += " AND t.quantity_change >= ?";
+        countParams.push(parseInt(min_quantity));
     }
 
     // Filter by maximum quantity (for out-of-stock/negative changes)
     if (max_quantity !== undefined) {
       sql += " AND t.quantity_change <= ?";
       params.push(parseInt(max_quantity));
+        countSql += " AND t.quantity_change <= ?";
+        countParams.push(parseInt(max_quantity));
     }
 
+      // Filter by date range
+      if (from) {
+        sql += " AND date(t.created_at) >= date(?)";
+        countSql += " AND date(t.created_at) >= date(?)";
+        params.push(from);
+        countParams.push(from);
+      }
+      if (to) {
+        sql += " AND date(t.created_at) <= date(?)";
+        countSql += " AND date(t.created_at) <= date(?)";
+        params.push(to);
+        countParams.push(to);
+      }
+
+      // Filter by quantity type (有帳/無帳)
+      if (quantity_type) {
+        sql += " AND t.quantity_type = ?";
+        countSql += " AND t.quantity_type = ?";
+        params.push(quantity_type);
+        countParams.push(quantity_type);
+      }
+
+      // Filter by direction
+      if (direction === "in") {
+        sql += " AND t.quantity_change > 0";
+        countSql += " AND t.quantity_change > 0";
+      } else if (direction === "out") {
+        sql += " AND t.quantity_change < 0";
+        countSql += " AND t.quantity_change < 0";
+      }
+
+      // Filter by product / batch / operator
+      if (product_id) {
+        sql += " AND t.product_id = ?";
+        countSql += " AND t.product_id = ?";
+        params.push(parseInt(product_id));
+        countParams.push(parseInt(product_id));
+      }
+      if (batch_id) {
+        sql += " AND t.batch_id = ?";
+        countSql += " AND t.batch_id = ?";
+        params.push(parseInt(batch_id));
+        countParams.push(parseInt(batch_id));
+      }
+      if (created_by_user) {
+        sql += " AND t.created_by_user = ?";
+        countSql += " AND t.created_by_user = ?";
+        params.push(created_by_user);
+        countParams.push(created_by_user);
+      }
+
+
     sql += " ORDER BY t.created_at DESC LIMIT ? OFFSET ?";
-    params.push(parseInt(limit), parseInt(offset));
+          const pageNum = parseInt(page) || 1;
+      const pageSize = parseInt(limit) || 100;
+      const offsetCalc = (pageNum - 1) * pageSize;
+      params.push(pageSize, offsetCalc);
 
     const transactions = await db.all(sql, params);
+
+      const totalRow = await db.get(countSql, countParams);
+      const total = totalRow?.total || 0;
+      const totalPages = Math.ceil(total / pageSize);
 
     // Enrich transactions with product_units details
     for (const tx of transactions) {
@@ -247,7 +335,17 @@ async function getAll(req, res) {
       }
     }
 
-    res.json({ success: true, data: formatTimestamps(transactions) });
+      res.json({
+        success: true,
+        data: formatTimestamps(transactions),
+        pagination: {
+          total,
+          page: pageNum,
+          limit: pageSize,
+          totalPages,
+        },
+      });
+      return;
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ success: false, error: error.message });

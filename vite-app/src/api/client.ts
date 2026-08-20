@@ -60,22 +60,6 @@ function notifyTokenListeners(token: string | null): void {
   tokenListeners.forEach((listener) => listener(token));
 }
 
-export function onTokenChange(listener: (token: string | null) => void): () => void {
-  tokenListeners.add(listener);
-  // Listen to storage events from other tabs
-  const handleStorageChange = (e: StorageEvent) => {
-    if (e.key === TOKEN_KEY) {
-      listener(e.newValue);
-    }
-  };
-  window.addEventListener('storage', handleStorageChange);
-  // Return unsubscribe function
-  return () => {
-    tokenListeners.delete(listener);
-    window.removeEventListener('storage', handleStorageChange);
-  };
-}
-
 interface RequestOpts extends Omit<RequestInit, 'body'> {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
@@ -166,9 +150,6 @@ export const api = {
 
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body }),
-
-  patch: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'PATCH', body }),
 
   del: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),

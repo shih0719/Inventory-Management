@@ -20,7 +20,6 @@ async function importCSV(req, res) {
     }
 
     // Validate file type
-    const allowedMimes = ['text/csv', 'text/plain', 'application/vnd.ms-excel', 'application/csv'];
     const fileExt = req.file.originalname.toLowerCase().endsWith('.csv');
     if (!fileExt) {
       fs.unlinkSync(req.file.path);
@@ -51,7 +50,6 @@ async function importCSV(req, res) {
     const warnings = [];
     let rowNumber = 0;
     let isEmptyFile = true;
-    let headersFound = false;
     let detectedEncoding = null;
 
     // Try to detect encoding by reading first few bytes
@@ -76,7 +74,6 @@ async function importCSV(req, res) {
     fileStream
       .pipe(csv())
       .on("headers", (headers) => {
-        headersFound = true;
         const required = ['SKU', 'Name', 'Type'];
         const missing = required.filter(h => !headers.includes(h));
         if (missing.length > 0) {

@@ -5,6 +5,7 @@ import { BatchFlow, type BatchSubmitPayload } from './BatchFlow';
 import { APProductsPage } from './APProductsPage';
 import { EditProductsPage } from './EditProductsPage';
 import { ShipmentsPage } from './ShipmentsPage';
+import { TransactionsPage } from './TransactionsPage';
 import { AuditLogsPage } from './AuditLogsPage';
 import { ReportsPage } from './ReportsPage';
 import { WarehousesPage } from './WarehousesPage';
@@ -20,7 +21,6 @@ import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { CreateProductModal } from './modals/CreateProductModal';
 import { Toast } from './Toast';
 import { Tour, type TourStep } from './Tour';
-import type { ActiveWarehouse } from '../context/ActiveWarehouseContext';
 
 type View =
   | { kind: 'dashboard' }
@@ -28,6 +28,7 @@ type View =
   | { kind: 'ap-products' }
   | { kind: 'edit-products' }
   | { kind: 'shipments' }
+    | { kind: 'transactions' }
   | { kind: 'audit-logs' }
   | { kind: 'reports' }
   | { kind: 'warehouses' }
@@ -191,6 +192,13 @@ export function AppContent({
         </div>
       )}
       {view.kind === 'shipments' && <ShipmentsPage lang={lang} />}
+        {view.kind === 'transactions' && (
+          <TransactionsPage
+            lang={lang}
+            tags={tags}
+            onViewTransaction={(tx) => onSetModal({ kind: 'transaction-detail', transactionId: tx.id })}
+          />
+        )}
       {view.kind === 'reports' && (
         <ReportsPage
           lang={lang}

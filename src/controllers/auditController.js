@@ -7,7 +7,7 @@ const { formatTimestamps } = require("../utils/formatTimestamps");
  */
 async function getAuditLogs(req, res) {
   try {
-    const { resource_type, resource_id, user_id, event_category, limit, offset } = req.query;
+    const { resource_type, resource_id, user_id, event_category, action, limit, offset } = req.query;
 
     const filters = {
       warehouseId: req.warehouseId,
@@ -15,6 +15,7 @@ async function getAuditLogs(req, res) {
       resourceId: resource_id ? parseInt(resource_id) : undefined,
       userId: user_id ? parseInt(user_id) : undefined,
       eventCategory: event_category,
+      action,
       limit: limit ? Math.min(parseInt(limit), 200) : 50,
       offset: offset ? Math.max(parseInt(offset), 0) : 0,
     };

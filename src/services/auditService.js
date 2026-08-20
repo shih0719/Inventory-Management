@@ -22,7 +22,7 @@ async function logAction(userId, action, resourceType, resourceId, warehouseId, 
 }
 
 async function getAuditLogs(filters = {}) {
-  const { resourceType, resourceId, userId, warehouseId, eventCategory, limit = 50, offset = 0 } = filters;
+  const { resourceType, resourceId, userId, warehouseId, eventCategory, action, limit = 50, offset = 0 } = filters;
 
   let sql = `
     SELECT
@@ -72,6 +72,11 @@ async function getAuditLogs(filters = {}) {
     params.push(userId);
   }
 
+  if (action) {
+    sql += " AND a.action = ?";
+    params.push(action);
+  }
+
   if (eventCategory) {
     sql += " AND a.event_category = ?";
     params.push(eventCategory);
@@ -110,6 +115,11 @@ async function getAuditLogs(filters = {}) {
   if (userId) {
     countSql += " AND a.user_id = ?";
     countParams.push(userId);
+  }
+
+  if (action) {
+    countSql += " AND a.action = ?";
+    countParams.push(action);
   }
 
   if (eventCategory) {

@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     batch_id INTEGER,
     location_id INTEGER,
     quantity_change INTEGER NOT NULL,
+    quantity_type TEXT DEFAULT 'accountable' CHECK(quantity_type IN ('accountable', 'non_accountable')),
     remarks TEXT,
     product_unit_ids TEXT,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),

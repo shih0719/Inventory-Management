@@ -21,6 +21,7 @@ type View =
   | { kind: 'ap-products' }
   | { kind: 'edit-products' }
   | { kind: 'shipments' }
+  | { kind: 'transactions' }
   | { kind: 'audit-logs' }
   | { kind: 'reports' }
   | { kind: 'warehouses' }
@@ -67,9 +68,9 @@ export interface AppState {
   setBootState: (state: 'loading' | 'ready' | 'error') => void;
   bootError: string | null;
   setBootError: (error: string | null) => void;
+  loadAll: () => Promise<void>;
 }
 
-const RECENT_MAX = 5;
 const RECENT_KEY = 'inv.recentSkus';
 
 function loadRecent(): string[] {
@@ -239,5 +240,6 @@ export function useAppState(): AppState {
     setBootState,
     bootError,
     setBootError,
+    loadAll,
   };
 }

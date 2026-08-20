@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Shipment, Transaction } from '../../types';
+import type { Shipment } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
 import { fmtTime } from '../../lib/format';
 import { getShipment } from '../../api/shipments';

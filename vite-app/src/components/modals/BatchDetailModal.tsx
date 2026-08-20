@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Batch, Transaction } from '../../types';
+import type { Batch } from '../../types';
 import { L, tagLabel, type Lang } from '../../lib/i18n';
 import { fmtDateTime } from '../../lib/format';
 import { getBatch } from '../../api/batches';

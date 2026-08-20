@@ -4,7 +4,6 @@ import {
   listShipments,
   getShipment,
   createShipment,
-  updateShipment,
   deleteShipment,
 } from '../api/shipments';
 import { listTransactions } from '../api/transactions';

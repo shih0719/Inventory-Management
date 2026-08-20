@@ -1,4 +1,4 @@
-import type { Product, Lang, ToastState } from '../types';
+import type { Product, Lang } from '../types';
 import { ProductCombobox } from './ProductCombobox';
 import { Dropdown, DropdownItem } from './Dropdown';
 
@@ -17,6 +17,7 @@ interface TopbarProps {
   onAPProducts: () => void;
   onEditProducts: () => void;
   onShipments: () => void;
+    onTransactions: () => void;
   onReports: () => void;
   onAuditLogs: () => void;
   onUsers: () => void;
@@ -46,6 +47,7 @@ export function Topbar({
   onAPProducts,
   onEditProducts,
   onShipments,
+    onTransactions,
   onReports,
   onAuditLogs,
   onUsers,
@@ -116,6 +118,14 @@ export function Topbar({
       >
         📊 {lang === 'en' ? 'Inventory Report' : lang.startsWith('zh') ? '庫存報表' : '在庫レポート'}
       </button>
+
+        <button
+          className="btn ghost"
+          onClick={onTransactions}
+          disabled={bootState !== 'ready'}
+        >
+          🕘 {lang === 'en' ? 'History' : lang.startsWith('zh') ? '交易歷史' : '履歴'}
+        </button>
 
       <Dropdown
         trigger={lang === 'en' ? 'Manage' : lang.startsWith('zh') ? '管理' : '管理'}

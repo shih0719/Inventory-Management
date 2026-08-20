@@ -54,30 +54,26 @@ function writeTempCsv(content) {
   return filePath;
 }
 
+const HEADER = "SKU,Name,Type";
+
 describe("POST /api/csv/import", () => {
   it("未登入回傳 401", async () => {
-    const csvPath = writeTempCsv("sku,name,type\nCSV-001,Test,hardware\n");
     const res = await request(app)
       .post("/api/csv/import")
-      .set("X-Warehouse-Id", warehouseId)
-      .attach("file", csvPath);
+      .set("X-Warehouse-Id", warehouseId);
     expect(res.status).toBe(401);
-    fs.unlinkSync(csvPath);
   });
 
   it("view 角色回傳 403", async () => {
-    const csvPath = writeTempCsv("sku,name,type\nCSV-002,Test,hardware\n");
     const res = await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${viewToken}`)
-      .set("X-Warehouse-Id", warehouseId)
-      .attach("file", csvPath);
+      .set("X-Warehouse-Id", warehouseId);
     expect(res.status).toBe(403);
-    fs.unlinkSync(csvPath);
   });
 
   it("manager 角色可匯入 CSV", async () => {
-    const csvPath = writeTempCsv("sku,name,type\nCSV-MGR-001,Manager Import,hardware\n");
+    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-MGR-001,Manager Import,hardware\n");
     const res = await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${managerToken}`)
@@ -90,7 +86,7 @@ describe("POST /api/csv/import", () => {
 
   it("匯入的產品綁定到當前倉庫", async () => {
     const { get } = require("../src/config/database");
-    const csvPath = writeTempCsv("sku,name,type\nCSV-WH-001,Warehouse Bound,hardware\n");
+    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-WH-001,Warehouse Bound,hardware\n");
     await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${adminToken}`)
@@ -115,13 +111,10 @@ describe("POST /api/csv/import", () => {
   });
 
   it("缺少 X-Warehouse-Id 回傳 403", async () => {
-    const csvPath = writeTempCsv("sku,name,type\nCSV-003,Test,hardware\n");
     const res = await request(app)
       .post("/api/csv/import")
-      .set("Authorization", `Bearer ${adminToken}`)
-      .attach("file", csvPath);
+      .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(403);
-    fs.unlinkSync(csvPath);
   });
 });
 

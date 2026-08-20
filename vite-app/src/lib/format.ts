@@ -44,13 +44,6 @@ export function isToday(iso: string): boolean {
   return parseUTCDate(iso).toDateString() === new Date().toDateString();
 }
 
-/** Format as YYYY-MM-DD in local timezone */
-export function fmtDate(iso: string, lang: Lang = 'en'): string {
-  const d = parseUTCDate(iso);
-  const locale = lang === 'zh' ? 'zh-TW' : lang === 'ja' ? 'ja-JP' : 'en-US';
-  return d.toLocaleDateString(locale);
-}
-
 /** Format as full date-time string in local timezone */
 export function fmtDateTime(iso: string, lang: Lang = 'en'): string {
   const d = parseUTCDate(iso);

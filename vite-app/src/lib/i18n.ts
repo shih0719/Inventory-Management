@@ -469,8 +469,6 @@ export const L = {
   },
 } as const;
 
-export type Labels = (typeof L)['en'];
-
 export function tagLabel(tagName: string, lang: Lang): string {
   const t = L[lang];
   const map: Record<string, string> = {

@@ -1,6 +1,12 @@
 # Dependencies
 node_modules/
 
+# Frontend build output (copied from vite-app/dist by scripts/copy-frontend.js)
+public/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Environment variables
 .env
 

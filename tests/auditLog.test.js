@@ -76,8 +76,8 @@ describe("GET /api/audit-logs", () => {
       .set("X-Warehouse-Id", warehouseId);
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(Array.isArray(res.body.data.logs)).toBe(true);
-    expect(res.body.data).toHaveProperty("total");
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.pagination).toHaveProperty("total");
   });
 
   it("缺少 X-Warehouse-Id 回傳 403", async () => {
@@ -107,7 +107,7 @@ describe("GET /api/audit-logs", () => {
       .set("X-Warehouse-Id", warehouseId);
 
     expect(res.status).toBe(200);
-    const resourceIds = res.body.data.logs.map((l) => l.resource_id);
+    const resourceIds = res.body.data.map((l) => l.resource_id);
     expect(resourceIds).toContain(999);
     expect(resourceIds).not.toContain(888);
   });
@@ -119,7 +119,7 @@ describe("GET /api/audit-logs", () => {
       .set("X-Warehouse-Id", warehouseId);
 
     expect(res.status).toBe(200);
-    const actions = res.body.data.logs.map((l) => l.action);
+    const actions = res.body.data.map((l) => l.action);
     actions.forEach((a) => expect(a).toBe("CREATE"));
   });
 
@@ -130,6 +130,6 @@ describe("GET /api/audit-logs", () => {
       .set("X-Warehouse-Id", warehouseId);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.logs.length).toBeLessThanOrEqual(1);
+    expect(res.body.data.length).toBeLessThanOrEqual(1);
   });
 });

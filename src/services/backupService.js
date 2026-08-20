@@ -164,8 +164,6 @@ function startBackupDaemon() {
 
 module.exports = {
   startBackupDaemon,
-  performBackup,
-  weeklyBackupAndEmail,
   loadEmailSettings,
   saveEmailSettings,
   sendTestEmail,

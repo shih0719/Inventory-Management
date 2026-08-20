@@ -2,10 +2,6 @@
 import { api } from './client';
 import type { Batch, CreateBatchInput, CreateBatchResult } from '../types';
 
-export async function listBatches(params: { page?: number; limit?: number } = {}) {
-  return api.get<Batch[]>('/api/batches', { limit: 20, ...params });
-}
-
 export async function getBatch(id: number): Promise<Batch> {
   const res = await api.get<Batch>(`/api/batches/${id}`);
   return res.data;

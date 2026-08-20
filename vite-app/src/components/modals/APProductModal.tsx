@@ -5,7 +5,6 @@ import { listProductUnits, transferUnits } from '../../api/product-units';
 import { listWarehouses, type Warehouse } from '../../api/warehouses';
 import { lookupProduct } from '../../api/products';
 import { ApiError } from '../../api/client';
-import type { Product as ProductType } from '../../types';
 import { CreateProductUnitsModal } from './CreateProductUnitsModal';
 
 export interface APProductModalProps {
@@ -32,7 +31,7 @@ export function APProductModal({
   const [targetWarehouseId, setTargetWarehouseId] = useState<number | null>(null);
   const [transferring, setTransferring] = useState(false);
   const [transferErrors, setTransferErrors] = useState<Array<{ serial_number: string; reason: string }> | string | null>(null);
-  const [targetProduct, setTargetProduct] = useState<ProductType | null | undefined>(undefined);
+  const [targetProduct, setTargetProduct] = useState<Product | null | undefined>(undefined);
 
   useEffect(() => {
     loadUnits();

@@ -22,14 +22,6 @@ export async function getProvider(): Promise<'local' | 'microsoft'> {
   return data.provider;
 }
 
-export interface LoginResponse {
-  success: boolean;
-  data: {
-    token: string;
-    user: User;
-  };
-}
-
 export async function login(req: LoginRequest): Promise<User> {
   const { data } = await api.post<{
     token: string;

@@ -39,6 +39,7 @@ export interface Transaction {
   location_tag?: string | null;
   remarks: string;
   created_at: string;
+  created_by_user?: string;
   batch_name?: string;
   /** Product units involved in this transaction (serial numbers for AP products) */
   product_units?: Array<{ id: number; serial_number: string; status: ProductUnitStatus }> | null;
@@ -85,21 +86,9 @@ export interface Pagination {
   totalPages: number;
 }
 
-export interface ApiOk<T> {
-  success: true;
-  data: T;
-  pagination?: Pagination;
-  message?: string;
-}
-
-export interface ApiErr {
-  success: false;
-  error?: string;
-  message?: string;
-  data?: unknown;
-}
-
-export type ApiResponse<T> = ApiOk<T> | ApiErr;
+export type ApiResponse<T> =
+  | { success: true; data: T; pagination?: Pagination; message?: string }
+  | { success: false; error?: string; message?: string; data?: unknown };
 
 // ---- Request bodies --------------------------------------------------------
 
@@ -155,13 +144,6 @@ export interface Shipment {
 
 export interface CreateShipmentInput {
   transaction_ids: number[];
-  customer?: string;
-  project_case?: string;
-  shipment_date?: string;
-}
-
-export interface UpdateShipmentInput {
-  transaction_ids?: number[];
   customer?: string;
   project_case?: string;
   shipment_date?: string;

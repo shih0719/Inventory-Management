@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import type { Lang } from './lib/i18n';
 import { LoginPage } from './components/LoginPage';
 import { WarehouseSelector } from './components/WarehouseSelector';
 import { Topbar } from './components/Topbar';
@@ -28,12 +27,12 @@ export function App() {
     recentSkus,
     view,
     setView,
-    viewHistory,
     setViewHistory,
     modal,
     setModal,
     bootState,
     bootError,
+    loadAll,
   } = appState;
 
   const t = L[lang];
@@ -51,12 +50,6 @@ export function App() {
   const openPicker = useCallback((onPick: (p: any) => void) => {
     setModal({ kind: 'picker', onPick });
   }, [setModal]);
-
-  const loadAll = useCallback(async () => {
-    const state = appState;
-    state.setBootState?.('loading');
-    // loadAll is already handled in useAppState hook
-  }, [appState]);
 
   const { trackRecent, showToast, dismissToast, refetchProducts, refetchTransactions, adjustTag } = useAppHelpers(
     lang,
@@ -97,9 +90,7 @@ export function App() {
     refetchTransactions,
     adjustTag,
     navigateTo,
-    async () => {
-      appState.setBootState?.('loading');
-    },
+    loadAll,
   );
 
   const canWrite = currentUser?.role === 'manager' || currentUser?.role === 'admin';
@@ -150,6 +141,7 @@ export function App() {
         onAPProducts={() => navigateTo({ kind: 'ap-products' })}
         onEditProducts={() => navigateTo({ kind: 'edit-products' })}
         onShipments={() => navigateTo({ kind: 'shipments' })}
+          onTransactions={() => navigateTo({ kind: 'transactions' })}
         onReports={() => navigateTo({ kind: 'reports' })}
         onAuditLogs={() => navigateTo({ kind: 'audit-logs' })}
         onUsers={() => navigateTo({ kind: 'users' })}
@@ -177,7 +169,7 @@ export function App() {
         t={t}
         isAdmin={isAdmin}
         onSetModal={setModal}
-        onLoadAll={async () => {}}
+        onLoadAll={loadAll}
         onAdjustProduct={handleAdjustProduct}
         onBatchSubmit={handleBatchSubmit}
         onAdjustSubmit={handleAdjustSubmit}

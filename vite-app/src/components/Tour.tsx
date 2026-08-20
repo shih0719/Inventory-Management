@@ -40,11 +40,6 @@ export function Tour({ steps, onComplete }: TourProps) {
       },
     });
 
-    // 暴露全局函數以便從其他地方調用
-    (window as any).__startTour = () => {
-      driverRef.current?.drive();
-    };
-
     return () => {
       driverRef.current?.destroy();
     };

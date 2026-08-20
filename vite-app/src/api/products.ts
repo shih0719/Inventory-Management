@@ -43,11 +43,6 @@ export async function listAllProducts(extra: Omit<ListProductsParams, 'page' | '
   return all;
 }
 
-export async function getProduct(id: number) {
-  const res = await api.get<Product>(`/api/products/${id}`);
-  return res.data;
-}
-
 export async function createProduct(input: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'ap_in_stock_count'>) {
   const res = await api.post<Product>('/api/products', input);
   return res.data;
@@ -60,10 +55,4 @@ export async function updateProduct(id: number, patch: Partial<Product>) {
 
 export async function deleteProduct(id: number) {
   await api.del(`/api/products/${id}`);
-}
-
-export async function getProductLocations(sku: string): Promise<Array<{ id: number; name: string; description: string }>> {
-  const res = await api.get<{ product: Product; locations: Array<{ id: number; name: string; description: string }> }>(`/api/products/${encodeURIComponent(sku)}/locations`);
-  const locations = (res.data as any)?.locations || [];
-  return Array.isArray(locations) ? locations : [];
 }

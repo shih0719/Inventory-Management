@@ -48,30 +48,6 @@ function validate(currentQuantity, delta, options = {}) {
   };
 }
 
-/**
- * Compute absolute outbound quantity from a signed delta
- *
- * @param {number} delta - Signed quantity_change
- * @returns {number} Absolute outbound quantity (positive number)
- */
-function getOutboundQuantity(delta) {
-  const change = parseInt(delta) || 0;
-  return Math.abs(Math.min(change, 0));
-}
-
-/**
- * Compute absolute inbound quantity from a signed delta
- *
- * @param {number} delta - Signed quantity_change
- * @returns {number} Absolute inbound quantity (positive number)
- */
-function getInboundQuantity(delta) {
-  const change = parseInt(delta) || 0;
-  return Math.max(change, 0);
-}
-
 module.exports = {
   validate,
-  getOutboundQuantity,
-  getInboundQuantity,
 };

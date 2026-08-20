@@ -5,6 +5,15 @@ import type { CreateTransactionInput, Transaction } from '../types';
 export interface ListTransactionsParams {
   page?: number;
   limit?: number;
+  from?: string;
+  to?: string;
+  quantity_type?: 'accountable' | 'non_accountable' | string;
+  direction?: 'in' | 'out';
+  sku?: string;
+  tag_id?: number;
+  product_id?: number;
+  batch_id?: number;
+  created_by_user?: string;
   [key: string]: string | number | boolean | undefined;
 }
 
@@ -13,10 +22,6 @@ export async function listTransactions(params: ListTransactionsParams = {}) {
     limit: 50,
     ...params,
   });
-}
-
-export async function listProductTransactions(productId: number, params: ListTransactionsParams = {}) {
-  return api.get<Transaction[]>(`/api/transactions/product/${productId}`, params);
 }
 
 export async function getTransaction(id: number): Promise<Transaction> {

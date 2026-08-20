@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { listAuditLogs, type AuditLog } from '../api/audit';
-import { L, type Lang } from '../lib/i18n';
+import { type Lang } from '../lib/i18n';
 
 interface AuditLogsPageProps {
   lang: Lang;

@@ -154,8 +154,8 @@ async function bulkCreate(req, res) {
           const productUnitIds = JSON.stringify(newUnits.map(u => u.id));
 
           await db.run(
-            "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?)",
-            [product_id, inboundTag.id, inserted, "系統自動", productUnitIds],
+            "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?)",
+            [product_id, inboundTag.id, inserted, "accountable", "系統自動", productUnitIds],
           );
           await db.run(
             "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
@@ -249,8 +249,8 @@ async function bulkSell(req, res) {
           if (validation.ok) {
             const productUnitIdsJson = JSON.stringify(unitIds);
             await db.run(
-              "INSERT INTO transactions (product_id, tag_id, quantity_change, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?)",
-              [productId, outboundTag.id, -count, "系統自動", productUnitIdsJson],
+              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?)",
+              [productId, outboundTag.id, -count, "accountable", "系統自動", productUnitIdsJson],
             );
             await db.run(
               "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",

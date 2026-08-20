@@ -1,5 +1,5 @@
 // src/components/Dashboard.tsx
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Product, Transaction } from '../types';
 import { L, tagLabel, type Lang } from '../lib/i18n';
 import { fmtTime, isToday } from '../lib/format';
@@ -27,8 +27,12 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
     [products],
   );
 
-  const filteredTransactions = useMemo(() => {
+  // Reset to first page whenever the filter window changes.
+  useEffect(() => {
     setCurrentPage(1);
+  }, [startDate, endDate]);
+
+  const filteredTransactions = useMemo(() => {
     if (!startDate && !endDate) return transactions;
     return transactions.filter((tx) => {
       const txDate = new Date(tx.created_at).toISOString().split('T')[0];

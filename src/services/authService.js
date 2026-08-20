@@ -81,23 +81,6 @@ function verifyToken(token) {
   }
 }
 
-/**
- * Create a new user (for seeding)
- */
-async function createUser(username, password) {
-  const passwordHash = await hashPassword(password);
-
-  const result = await db.run(
-    "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-    [username, passwordHash]
-  );
-
-  return {
-    id: result.id,
-    username: username,
-  };
-}
-
 async function changePassword(userId, currentPassword, newPassword) {
   const user = await db.get("SELECT * FROM users WHERE id = ?", [userId]);
   if (!user) {
@@ -120,8 +103,5 @@ async function changePassword(userId, currentPassword, newPassword) {
 module.exports = {
   login,
   verifyToken,
-  hashPassword,
-  comparePassword,
-  createUser,
   changePassword,
 };

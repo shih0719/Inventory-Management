@@ -69,15 +69,12 @@ async function createBatch(req, res) {
 
       validatedItems.push({
         product_id,
-        product_sku: product.sku,
         product_name: product.name,
         quantity_type,
         quantity_change: parseInt(quantity_change),
         remarks: remarks || "",
         quantityField: quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity",
-        currentQuantity,
         newQuantity,
-        min_stock: product.min_stock,
       });
     }
 
@@ -114,13 +111,14 @@ async function createBatch(req, res) {
 
       for (const item of validatedItems) {
         const txResult = await db.run(
-          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, remarks, created_by_user)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, quantity_type, remarks, created_by_user)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             item.product_id,
             tag_id,
             batchId,
             item.quantity_change,
+              item.quantity_type,
             `[${item.quantity_type === "accountable" ? "有帳" : "無帳"}] ${item.remarks}`,
             createdByUser,
           ],

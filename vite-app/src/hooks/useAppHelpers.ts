@@ -1,6 +1,5 @@
 import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { Product, Transaction, Tag, Lang, ToastState } from '../types';
-import type { ApiError } from '../api/client';
 import { listAllProducts } from '../api/products';
 import { listTransactions } from '../api/transactions';
 import { L } from '../lib/i18n';

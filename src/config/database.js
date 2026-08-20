@@ -299,6 +299,7 @@ function initDatabase() {
                           );
                         }))
                         .then(() => ensureWarehouseIdOnTables(defaultId))
+                          .then(() => ensureTransactionsQuantityType())
                         .then(() => fixProductsUniqueConstraint())
                         .then(() => { console.log("✅ Default warehouse ready"); r(); })
                         .catch(j);
@@ -400,6 +401,34 @@ function initDatabase() {
               }));
             }, Promise.resolve());
           }
+
+            function ensureTransactionsQuantityType() {
+              return new Promise((r, j) => {
+                db.all("PRAGMA table_info(transactions)", (e, cols) => {
+                  if (e) { j(e); return; }
+                  const has = cols.some(c => c.name === "quantity_type");
+                  if (has) { r(); return; }
+                  db.run("ALTER TABLE transactions ADD COLUMN quantity_type TEXT DEFAULT 'accountable'", (e2) => {
+                    if (e2) { j(e2); return; }
+                    console.log("✅ Added quantity_type to transactions");
+                    // Backfill existing rows from remarks prefix (old format)
+                    db.run(
+                      "UPDATE transactions SET quantity_type = 'non_accountable' WHERE remarks LIKE '[無帳]%' AND (quantity_type IS NULL OR quantity_type = '')",
+                      (e3) => {
+                        if (e3) { j(e3); return; }
+                        db.run(
+                          "UPDATE transactions SET quantity_type = 'accountable' WHERE (quantity_type IS NULL OR quantity_type = '')",
+                          (e4) => {
+                            if (e4) j(e4); else { console.log("✅ Backfilled transactions.quantity_type"); r(); }
+                          }
+                        );
+                      }
+                    );
+                  });
+                });
+              });
+            }
+
         });
       }
 
@@ -520,5 +549,4 @@ module.exports = {
   get,
   all,
   closeDatabase,
-  getDb: () => db,
 };
