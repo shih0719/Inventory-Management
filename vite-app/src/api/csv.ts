@@ -41,9 +41,13 @@ export async function importProductsCsv(file: File): Promise<CsvImportResult> {
   return json as CsvImportResult;
 }
 
-/** GET /api/csv/export — downloads CSV with authentication. */
-export async function exportProductsCsv(filename = 'inventory-export.csv'): Promise<void> {
-  const res = await fetchWithAuth(`${BASE}/api/csv/export`);
+/** GET /api/csv/export — downloads CSV with authentication.
+ *  Optional `skus` provides an explicit ordering (comma-joined) so the export
+ *  follows the user's manual row order. */
+export async function exportProductsCsv(opts: { filename?: string; skus?: string[] } = {}): Promise<void> {
+  const { filename = 'inventory-export.csv', skus } = opts;
+  const query = skus && skus.length > 0 ? `?skus=${encodeURIComponent(skus.join(','))}` : '';
+  const res = await fetchWithAuth(`${BASE}/api/csv/export${query}`);
   if (!res.ok) {
     const text = await res.text();
     let json: any = null;

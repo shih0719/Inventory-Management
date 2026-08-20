@@ -2,9 +2,31 @@
 // Dedicated transaction history page with server-side pagination & filters.
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import type { Transaction, Tag, Lang } from '../types';
-import { listTransactions } from '../api/transactions';
+import { listTransactions, exportTransactionsCsv } from '../api/transactions';
 import { tagLabel, L } from '../lib/i18n';
 import { fmtDateTime } from '../lib/format';
+
+type SortKey = 'created_at' | 'quantity_change' | 'sku' | 'product_name' | 'tag_name' | 'quantity_type' | 'created_by_user';
+const SORT_KEY = 'inv.txSort';
+const ORDER_KEY = 'inv.txOrder';
+
+function loadSort(): SortKey {
+  const saved = (() => { try { return localStorage.getItem(SORT_KEY); } catch { return null; } })();
+  const valid: SortKey[] = ['created_at', 'quantity_change', 'sku', 'product_name', 'tag_name', 'quantity_type', 'created_by_user'];
+  return (saved && valid.includes(saved as SortKey)) ? (saved as SortKey) : 'created_at';
+}
+
+function loadOrder(): 'asc' | 'desc' {
+  const saved = (() => { try { return localStorage.getItem(ORDER_KEY); } catch { return null; } })();
+  return saved === 'asc' ? 'asc' : 'desc';
+}
+
+function saveSort(sort: SortKey, order: 'asc' | 'desc') {
+  try {
+    localStorage.setItem(SORT_KEY, sort);
+    localStorage.setItem(ORDER_KEY, order);
+  } catch { /* quota / private mode — ignore */ }
+}
 
 interface TransactionsPageProps {
   lang: Lang;
@@ -28,6 +50,9 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
   const [tagId, setTagId] = useState('');
   const [sku, setSku] = useState('');
   const [operator, setOperator] = useState('');
+  const [sort, setSort] = useState<SortKey>(loadSort);
+  const [order, setOrder] = useState<'asc' | 'desc'>(loadOrder);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(
     async (pageNum: number) => {
@@ -44,6 +69,8 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           tag_id: tagId ? Number(tagId) : undefined,
           sku: sku || undefined,
           created_by_user: operator || undefined,
+          sort,
+          order,
         });
         setRows(res.data || []);
         setTotal(res.pagination?.total || 0);
@@ -53,7 +80,7 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
         setLoading(false);
       }
     },
-    [from, to, direction, quantityType, tagId, sku, operator],
+    [from, to, direction, quantityType, tagId, sku, operator, sort, order],
   );
 
   useEffect(() => {
@@ -66,7 +93,48 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
     void load(1);
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    setError(null);
+    try {
+      await exportTransactionsCsv({
+        from: from || undefined,
+        to: to || undefined,
+        direction: direction || undefined,
+        quantity_type: quantityType || undefined,
+        tag_id: tagId ? Number(tagId) : undefined,
+        sku: sku || undefined,
+        created_by_user: operator || undefined,
+        sort,
+        order,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const toggleSort = (col: SortKey) => {
+    let nextSort: SortKey;
+    let nextOrder: 'asc' | 'desc';
+    if (sort === col) {
+      nextSort = sort;
+      nextOrder = order === 'asc' ? 'desc' : 'asc';
+    } else {
+      nextSort = col;
+      nextOrder = 'asc';
+    }
+    setSort(nextSort);
+    setOrder(nextOrder);
+    saveSort(nextSort, nextOrder);
+    setPage(1);
+  };
+
+  const sortArrow = (col: string): string => (sort === col ? (order === 'asc' ? ' ▲' : ' ▼') : '');
+
 
   const inputStyle: CSSProperties = {
     padding: '6px 10px',
@@ -76,6 +144,8 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
     backgroundColor: 'var(--surface-2)',
     color: 'var(--ink)',
   };
+
+  const thStyle: CSSProperties = { padding: '8px 10px', userSelect: 'none' };
 
   return (
     <div className="batch-flow">
@@ -90,6 +160,16 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
               : 'サーバーサイドページングの入出庫履歴'}
           </div>
         </div>
+        <button
+          className="btn-lg"
+          onClick={() => void handleExport()}
+          disabled={exporting}
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          {exporting
+            ? (lang === 'en' ? 'Exporting…' : '匯出中…')
+            : (lang === 'en' ? '⬇ Export CSV' : '⬇ 匯出 CSV')}
+        </button>
       </div>
 
       {error && (
@@ -150,15 +230,25 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-2)', color: 'var(--ink-2)' }}>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Time' : '時間'}</th>
-              <th style={{ padding: '8px 10px' }}>SKU</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Tag' : '標籤'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Type' : '帳別'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Qty' : '數量'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Before/After' : '異動前後'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Source' : '來源'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Operator' : '操作者'}</th>
-              <th style={{ padding: '8px 10px' }}>{lang === 'en' ? 'Remarks' : '備註'}</th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('created_at')}>
+                {lang === 'en' ? 'Time' : '時間'}{sortArrow('created_at')}
+              </th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('sku')}>SKU{sortArrow('sku')}</th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('tag_name')}>
+                {lang === 'en' ? 'Tag' : '標籤'}{sortArrow('tag_name')}
+              </th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('quantity_type')}>
+                {lang === 'en' ? 'Type' : '帳別'}{sortArrow('quantity_type')}
+              </th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('quantity_change')}>
+                {lang === 'en' ? 'Qty' : '數量'}{sortArrow('quantity_change')}
+              </th>
+              <th style={thStyle}>{lang === 'en' ? 'Before/After' : '異動前後'}</th>
+              <th style={thStyle}>{lang === 'en' ? 'Source' : '來源'}</th>
+              <th style={{ ...thStyle, cursor: 'pointer' }} onClick={() => toggleSort('created_by_user')}>
+                {lang === 'en' ? 'Operator' : '操作者'}{sortArrow('created_by_user')}
+              </th>
+              <th style={thStyle}>{lang === 'en' ? 'Remarks' : '備註'}</th>
             </tr>
           </thead>
           <tbody>

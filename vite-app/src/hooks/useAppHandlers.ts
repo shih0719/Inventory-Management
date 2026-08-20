@@ -185,9 +185,9 @@ export function useAppHandlers(
     setTransactions([]);
   }, [setActiveWarehouse, setView, setProducts, setTransactions]);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (skus?: string[]) => {
     try {
-      await exportProductsCsv();
+      await exportProductsCsv({ skus });
       showToast(`${t.exported} ${products.length} ${lang === 'en' ? 'products' : lang.startsWith('zh') ? '項' : '製品'}`);
     } catch (err) {
       showToast((err as Error).message, { kind: 'alert' });

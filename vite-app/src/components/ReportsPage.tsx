@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getInventoryReport, type InventoryProduct, type InventoryReportData } from '../api/reports';
 import type { Lang } from '../lib/i18n';
 
@@ -6,7 +6,7 @@ interface ReportsPageProps {
   lang: Lang;
   canWrite: boolean;
   onImportClick: () => void;
-  onExport: () => void;
+  onExport: (skus?: string[]) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -69,14 +69,70 @@ export function ReportsPage({ lang, canWrite, onImportClick, onExport, fileInput
   const [report, setReport] = useState<InventoryReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [order, setOrder] = useState<string[]>([]);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const t = texts[lang];
+
+  const storageKey = useMemo(() => {
+    let wh = 'default';
+    try { wh = localStorage.getItem('inv.warehouseId') || 'default'; } catch { /* ignore */ }
+    return `inv.reportOrder.${wh}`;
+  }, []);
+
+  const loadSavedOrder = useCallback((): string[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  }, [storageKey]);
+
+  const saveOrder = useCallback((skus: string[]) => {
+    try { localStorage.setItem(storageKey, JSON.stringify(skus)); } catch { /* ignore */ }
+  }, [storageKey]);
 
   useEffect(() => {
     getInventoryReport()
-      .then(setReport)
+      .then((rep) => {
+        setReport(rep);
+        // Initialize order from saved preference if present; otherwise use server order.
+        const saved = loadSavedOrder();
+        const serverSkus = rep.products.map((p) => p.sku);
+        const merged = saved.length > 0
+          ? [...saved.filter((s) => serverSkus.includes(s)), ...serverSkus.filter((s) => !saved.includes(s))]
+          : serverSkus;
+        setOrder(merged);
+      })
       .catch(() => setError(t.error))
       .finally(() => setLoading(false));
-  }, [t.error]);
+  }, [t.error, loadSavedOrder]);
+
+  // Products ordered by the user's saved preference.
+  const orderedProducts = useMemo(() => {
+    if (!report) return [];
+    const bySku = new Map(report.products.map((p) => [p.sku, p]));
+    const ordered = order.map((sku) => bySku.get(sku)).filter((p): p is InventoryProduct => !!p);
+    // Append any products missing from the saved order (e.g. newly imported).
+    const seen = new Set(order);
+    for (const p of report.products) if (!seen.has(p.sku)) ordered.push(p);
+    return ordered;
+  }, [report, order]);
+
+  // Move the item currently at `from` to the position of `to` (drag & drop).
+  const reorder = useCallback((from: number, to: number) => {
+    setOrder((prev) => {
+      if (from === to || from < 0 || from >= prev.length || to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      saveOrder(next);
+      return next;
+    });
+  }, [saveOrder]);
 
   const totalQty = (p: InventoryProduct) => p.accountable_quantity + p.non_accountable_quantity;
   const isLow = (p: InventoryProduct) => p.min_stock > 0 && totalQty(p) < p.min_stock;
@@ -91,7 +147,7 @@ export function ReportsPage({ lang, canWrite, onImportClick, onExport, fileInput
             <span>CSV</span>
           </button>
         )}
-        <button className="btn ghost" onClick={onExport} title={t.exportCsv ?? 'Export CSV'}>
+        <button className="btn ghost" onClick={() => onExport(orderedProducts.map((p) => p.sku))} title={t.exportCsv ?? 'Export CSV'}>
           <span style={{ fontSize: 13, lineHeight: 1 }}>⤵</span>
           <span>CSV</span>
         </button>
@@ -154,14 +210,44 @@ export function ReportsPage({ lang, canWrite, onImportClick, onExport, fileInput
                 <table className="picker-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
+                      {canWrite && <th style={{ width: 64 }}></th>}
                       {[t.sku, t.name, t.type, t.accountable, t.nonAccountable, t.minStock].map(h => (
                         <th key={h}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {report.products.map(p => (
-                      <tr key={p.sku} style={isLow(p) ? { background: 'var(--accent-soft)' } : undefined}>
+                    {orderedProducts.map((p, idx) => {
+                      const isDragging = dragIndex === idx;
+                      const isOver = dragOverIndex === idx;
+                      const rowStyle = isLow(p)
+                        ? { background: 'var(--accent-soft)', opacity: isDragging ? 0.5 : undefined }
+                        : isDragging
+                        ? { background: 'var(--surface-2)', opacity: 0.5 }
+                        : isOver
+                        ? { background: 'var(--border-2)' }
+                        : undefined;
+                      return (
+                      <tr
+                        key={p.sku}
+                        draggable={canWrite}
+                        onDragStart={(e) => { setDragIndex(idx); setDragOverIndex(null); e.dataTransfer.effectAllowed = 'move'; }}
+                        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverIndex(idx); }}
+                        onDragLeave={() => { if (dragOverIndex === idx) setDragOverIndex(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragIndex !== null) reorder(dragIndex, idx);
+                          setDragIndex(null);
+                          setDragOverIndex(null);
+                        }}
+                        onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                        style={rowStyle}
+                      >
+                        {canWrite && (
+                          <td style={{ whiteSpace: 'nowrap', textAlign: 'center', cursor: 'grab' }} title={lang === 'en' ? 'Drag to reorder' : '拖曳調整順序'}>
+                            <span style={{ color: 'var(--ink-3)', fontSize: 16 }}>⠿</span>
+                          </td>
+                        )}
                         <td className="sku">{p.sku}</td>
                         <td>{p.name}</td>
                         <td style={{ color: 'var(--ink-2)' }}>{p.type}</td>
@@ -171,7 +257,8 @@ export function ReportsPage({ lang, canWrite, onImportClick, onExport, fileInput
                           {p.min_stock > 0 ? p.min_stock : '—'}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

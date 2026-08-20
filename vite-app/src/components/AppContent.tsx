@@ -74,7 +74,7 @@ interface AppContentProps {
   tourSteps: TourStep[];
   canWrite: boolean;
   onImportClick: () => void;
-  onExport: () => void;
+  onExport: (skus?: string[]) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onImportFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }

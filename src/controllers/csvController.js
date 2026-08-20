@@ -379,6 +379,8 @@ async function importCSV(req, res) {
 async function exportCSV(req, res) {
   try {
     const warehouseId = req.warehouseId;
+    const { skus } = req.query;
+
     const products = await db.all(
       `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock
        FROM products
@@ -387,7 +389,21 @@ async function exportCSV(req, res) {
       [warehouseId],
     );
 
-    const exportData = products.map((product) => ({
+    // If the client provides an explicit SKU ordering (from manual row reordering),
+    // export in that order; otherwise fall back to the DB ordering (sku ASC).
+    let exportData;
+    if (skus) {
+      const order = skus.split(",").map((s) => s.trim()).filter(Boolean);
+      const bySku = new Map(products.map((p) => [p.sku, p]));
+      const ordered = order.map((s) => bySku.get(s)).filter((p) => !!p);
+      const seen = new Set(order);
+      for (const p of products) if (!seen.has(p.sku)) ordered.push(p);
+      exportData = ordered;
+    } else {
+      exportData = products;
+    }
+
+    const rows = exportData.map((product) => ({
       SKU: product.sku,
       Name: product.name,
       Type: product.type,
@@ -423,7 +439,7 @@ async function exportCSV(req, res) {
       ],
     });
 
-    await csvWriter.writeRecords(exportData);
+    await csvWriter.writeRecords(rows);
     
     // Convert to ANSI (Big5) for Excel compatibility in Traditional Chinese environment
     const content = fs.readFileSync(filepath, "utf8");
