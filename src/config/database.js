@@ -90,6 +90,7 @@ function initDatabase() {
 
         ensureMinStock
           .then(() => ensureTrackSerial)
+          .then(() => syncProductTypeAndTrackSerial())
           .then(() => {
             // Check and add product_unit_ids to transactions table
             db.all("PRAGMA table_info(transactions)", (err, trxColumns) => {
@@ -182,6 +183,27 @@ function initDatabase() {
             reject(e);
           });
       });
+
+      // Keep products.type in sync with track_serial: type='ap' iff track_serial=1.
+      // This reconciles legacy rows where the two drifted apart.
+      function syncProductTypeAndTrackSerial() {
+        return new Promise((res, rej) => {
+          db.run(
+            `UPDATE products
+               SET type = CASE WHEN track_serial = 1 THEN 'ap' ELSE 'normal' END
+             WHERE type IS NULL OR (type = 'ap' AND track_serial != 1) OR (type = 'normal' AND track_serial = 1)`,
+            (e) => {
+              if (e) {
+                console.error("❌ Failed to sync product type/track_serial:", e.message);
+                rej(e);
+                return;
+              }
+              console.log("✅ Synced products.type with track_serial");
+              res();
+            },
+          );
+        });
+      }
 
       function ensureAuthAndAuditTables() {
         return new Promise((res, rej) => {

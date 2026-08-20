@@ -27,7 +27,7 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
   const [tagId, setTagId] = useState<number>(inboundTag?.id ?? tags[0]?.id ?? 1);
   const [remarks, setRemarks] = useState('');
   const [minStock, setMinStock] = useState<number | ''>(product.min_stock);
-  const [productType, setProductType] = useState<'normal' | 'ap'>(product.type);
+  const [trackSerial, setTrackSerial] = useState<boolean>(!!product.track_serial);
   const [submitting, setSubmitting] = useState(false);
   const tagIdRef = useRef(tagId);
 
@@ -55,7 +55,7 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
 
   const newMinStock = typeof minStock === 'number' ? minStock : product.min_stock;
   const hasMetaChanges =
-    newMinStock !== product.min_stock || productType !== product.type;
+    newMinStock !== product.min_stock || trackSerial !== !!product.track_serial;
   const canSubmit = (!isZero || hasMetaChanges) && !stockShort && !submitting;
 
 
@@ -76,11 +76,8 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
 
       const updates: Partial<Product> = {};
       if (newMinStock !== product.min_stock) updates.min_stock = newMinStock;
-      if (productType !== product.type) {
-        updates.type = productType;
-        if (productType === 'ap') {
-          (updates as any).track_serial = true;
-        }
+      if (trackSerial !== !!product.track_serial) {
+        (updates as any).track_serial = trackSerial;
       }
       if (Object.keys(updates).length > 0) {
         await updateProduct(product.id, updates);
@@ -104,7 +101,7 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
           <div>
             <h3>
               {t.adjustTitle} — {product.sku}
-              {product.type === 'ap' && <span className="ap-note">{t.apNote}</span>}
+              {product.track_serial && <span className="ap-note">{t.apNote}</span>}
             </h3>
             <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>
               {product.name} · {product.model}
@@ -209,21 +206,21 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
             <input value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t.remarksPh} />
           </div>
 
-          {/* Product Type */}
+          {/* Serial tracking */}
           <div className="field">
-            <label>{lang === 'en' ? 'Product Type' : '產品類型'}</label>
+            <label>{lang === 'en' ? 'Serial Tracking' : '序號追蹤'}</label>
             <div className="type-chips">
               <button
-                className={productType === 'normal' ? 'on' : ''}
-                onClick={() => setProductType('normal')}
+                className={!trackSerial ? 'on' : ''}
+                onClick={() => setTrackSerial(false)}
               >
-                {lang === 'en' ? 'Normal' : '一般'}
+                {lang === 'en' ? 'Off' : '關閉'}
               </button>
               <button
-                className={productType === 'ap' ? 'on' : ''}
-                onClick={() => setProductType('ap')}
+                className={trackSerial ? 'on' : ''}
+                onClick={() => setTrackSerial(true)}
               >
-                {lang === 'en' ? 'AP (Serial)' : 'AP (序號品)'}
+                {lang === 'en' ? 'On (AP)' : '開啟 (AP)'}
               </button>
             </div>
           </div>

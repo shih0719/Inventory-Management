@@ -51,7 +51,7 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
 
   const stats = useMemo(() => {
     const totalProducts = products.length;
-    const apProducts = products.filter((p) => p.type === 'ap').length;
+    const apProducts = products.filter((p) => p.track_serial).length;
     const lowStockCount = lowItems.length;
     const todayTx = transactions.filter((tx) => isToday(tx.created_at)).length;
     const inToday = transactions
@@ -61,7 +61,7 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
       .filter((tx) => isToday(tx.created_at) && tx.quantity_change < 0)
       .reduce((s, tx) => s - tx.quantity_change, 0);
     const apInStock = products
-      .filter((p) => p.type === 'ap')
+      .filter((p) => p.track_serial)
       .reduce((s, p) => s + (p.ap_in_stock_count || 0), 0);
     return { totalProducts, apProducts, lowStockCount, todayTx, inToday, outToday, apInStock };
   }, [products, transactions, lowItems]);
@@ -139,12 +139,12 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
               <div
                 key={p.id}
                 className="low-row"
-                onClick={() => (p.type === 'ap' && onManageAPProduct ? onManageAPProduct(p) : onAdjustProduct(p))}
+                onClick={() => (p.track_serial && onManageAPProduct ? onManageAPProduct(p) : onAdjustProduct(p))}
               >
                 <div className="low-row-main">
                   <div className="low-row-head">
                     <span className="sku">{p.sku}</span>
-                    {p.type === 'ap' && (
+                    {p.track_serial && (
                       <span className="pill" style={{ fontSize: 9, padding: '0 5px', marginLeft: 6 }}>
                         AP
                       </span>

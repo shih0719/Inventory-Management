@@ -207,7 +207,7 @@ export function BatchFlow({
                     }
                     lang={lang}
                   />
-                  {l.product && l.product.type === 'ap' && (
+                  {l.product && l.product.track_serial && (
                     <div style={{ marginTop: 4 }}>
                       <span className="ap-note">{t.apNoteForBatch}</span>
                     </div>

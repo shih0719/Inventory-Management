@@ -91,6 +91,7 @@ async function create(req, res) {
 async function bulkCreate(req, res) {
   try {
     const { product_id, serial_numbers, remarks, warehouse_id } = req.body;
+    const createdByUser = req.user?.username || "unknown";
 
     if (!product_id || !Array.isArray(serial_numbers) || serial_numbers.length === 0) {
       return res.status(400).json({ success: false, error: "product_id 和 serial_numbers 陣列為必填" });
@@ -154,8 +155,8 @@ async function bulkCreate(req, res) {
           const productUnitIds = JSON.stringify(newUnits.map(u => u.id));
 
           await db.run(
-            "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [product_id, inboundTag.id, inserted, "accountable", product.accountable_quantity, validation.newQuantity, "ap-bulk", "系統自動", productUnitIds],
+            "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, created_by_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [product_id, inboundTag.id, inserted, "accountable", product.accountable_quantity, validation.newQuantity, "ap-bulk", "系統自動", productUnitIds, createdByUser],
           );
           await db.run(
             "UPDATE products SET accountable_quantity = accountable_quantity + ? WHERE id = ?",
@@ -180,6 +181,7 @@ async function bulkCreate(req, res) {
 async function bulkSell(req, res) {
   try {
     const { serial_numbers, project_case, sold_to, remarks } = req.body;
+    const createdByUser = req.user?.username || "unknown";
 
     if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
       return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
@@ -249,8 +251,8 @@ async function bulkSell(req, res) {
           if (validation.ok) {
             const productUnitIdsJson = JSON.stringify(unitIds);
             await db.run(
-              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              [productId, outboundTag.id, -count, "accountable", productForValidation.accountable_quantity, validation.newQuantity, "ap-sell", "系統自動", productUnitIdsJson],
+              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, created_by_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              [productId, outboundTag.id, -count, "accountable", productForValidation.accountable_quantity, validation.newQuantity, "ap-sell", "系統自動", productUnitIdsJson, createdByUser],
             );
             await db.run(
               "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
@@ -280,6 +282,7 @@ async function bulkSell(req, res) {
 async function transfer(req, res) {
   try {
     const { serial_numbers, target_warehouse_id } = req.body;
+    const createdByUser = req.user?.username || "unknown";
 
     if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
       return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
@@ -388,8 +391,8 @@ async function transfer(req, res) {
         const unitIds = units.map(u => u.id);
         const snap = sourceSnapshots[productId] || { before: null, after: null };
         await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [productId, transferTag.id, -units.length, "accountable", snap.before, snap.after, "ap-transfer", `移倉至 ${warehouse.name}`, JSON.stringify(unitIds), units[0].src_warehouse_id],
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id, created_by_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, -units.length, "accountable", snap.before, snap.after, "ap-transfer", `移倉至 ${warehouse.name}`, JSON.stringify(unitIds), units[0].src_warehouse_id, createdByUser],
         );
       }
       for (const [productId, units] of Object.entries(byTargetProduct)) {
@@ -397,8 +400,8 @@ async function transfer(req, res) {
         const srcName = srcWarehouseNames[units[0].src_warehouse_id];
         const snap = targetSnapshots[productId] || { before: null, after: null };
         await db.run(
-          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [productId, transferTag.id, units.length, "accountable", snap.before, snap.after, "ap-transfer", `從 ${srcName} 移入`, JSON.stringify(unitIds), target_warehouse_id],
+          "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, warehouse_id, created_by_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [productId, transferTag.id, units.length, "accountable", snap.before, snap.after, "ap-transfer", `從 ${srcName} 移入`, JSON.stringify(unitIds), target_warehouse_id, createdByUser],
         );
       }
     }

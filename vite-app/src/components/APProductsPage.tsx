@@ -19,7 +19,7 @@ export function APProductsPage({
   const t = L[lang];
   const [showQuickSell, setShowQuickSell] = useState(false);
 
-  const apProducts = useMemo(() => products.filter((p) => p.type === 'ap'), [products]);
+  const apProducts = useMemo(() => products.filter((p) => p.track_serial), [products]);
 
   return (
     <div className="locations-page">

@@ -145,12 +145,16 @@ async function create(req, res) {
       warehouse_id: bodyWarehouseId,
     } = req.body;
 
-    if (!type || !sku || !name) {
+    if (!sku || !name) {
       return res.status(400).json({
         success: false,
-        error: "Type, SKU, and Name are required",
+        error: "SKU and Name are required",
       });
     }
+
+    // type is derived from track_serial (they describe the same concept:
+    // AP serial-number tracking). type='ap' iff track_serial is truthy.
+    const resolvedType = track_serial ? "ap" : "normal";
 
     // Resolve warehouse_id: from body, or header (Phase 2), or Default warehouse
     let warehouse_id = bodyWarehouseId || (req.warehouseId) || null;
@@ -177,7 +181,7 @@ async function create(req, res) {
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         warehouse_id,
-        type,
+        resolvedType,
         sku,
         name,
         model || "",
@@ -241,12 +245,15 @@ async function update(req, res) {
       ? (track_serial === true || track_serial === 1 || track_serial === "true" || track_serial === "1" ? 1 : 0)
       : product.track_serial;
 
+    // type is derived from track_serial so the two stay in sync.
+    const resolvedType = newTrackSerial ? "ap" : "normal";
+
     await db.run(
       `UPDATE products
              SET type = ?, name = ?, model = ?, min_stock = ?, track_serial = ?
              WHERE id = ?`,
       [
-        type || product.type,
+        resolvedType,
         name || product.name,
         model !== undefined ? model : product.model,
         min_stock != null ? parseInt(min_stock) : product.min_stock,

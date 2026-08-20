@@ -113,7 +113,7 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
   const handleAddNew = () => {
     setEditingId(NEW_PRODUCT_ID);
     setIsCreating(true);
-    setDraft({ type: 'normal', min_stock: 0, track_serial: false });
+    setDraft({ min_stock: 0, track_serial: false });
   };
 
   const handleEdit = (product: Product) => {
@@ -294,19 +294,6 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
                   <th
                     style={{
                       padding: '8px 12px',
-                      textAlign: 'left',
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      color: 'var(--ink-3)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                    }}
-                  >
-                    {t.type}
-                  </th>
-                  <th
-                    style={{
-                      padding: '8px 12px',
                       textAlign: 'center',
                       fontSize: '10px',
                       fontWeight: 600,
@@ -376,16 +363,6 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
                         style={{ ...inputStyle, width: '100%' }}
                       />
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <select
-                        value={draft.type || 'normal'}
-                        onChange={(e) => setDraft({ ...draft, type: e.target.value as 'normal' | 'ap' })}
-                        style={{ ...inputStyle, width: '100%' }}
-                      >
-                        <option value="normal">{t.normal}</option>
-                        <option value="ap">{t.ap}</option>
-                      </select>
-                    </td>
                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                       <input
                         type="number"
@@ -450,16 +427,6 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
                             style={{ ...inputStyle, width: '100%' }}
                           />
                         </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <select
-                            value={draft.type || 'normal'}
-                            onChange={(e) => setDraft({ ...draft, type: e.target.value as 'normal' | 'ap' })}
-                            style={{ ...inputStyle, width: '100%' }}
-                          >
-                            <option value="normal">{t.normal}</option>
-                            <option value="ap">{t.ap}</option>
-                          </select>
-                        </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <input
                             type="number"
@@ -502,7 +469,6 @@ export function EditProductsPage({ products, lang, onRefetchProducts, onShowToas
                         </td>
                         <td style={{ padding: '10px 12px', fontWeight: 500 }}>{product.name}</td>
                         <td style={{ padding: '10px 12px', color: 'var(--ink-3)', fontSize: 11 }}>{product.model}</td>
-                        <td style={{ padding: '10px 12px' }}>{product.type === 'ap' ? t.ap : t.normal}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontWeight: 600 }}>
                           {product.min_stock}
                         </td>

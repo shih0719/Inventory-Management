@@ -20,7 +20,7 @@ export function ProductPickerModal({ products, lang, onClose, onPick }: ProductP
     return products.filter((p) => {
       if (filter === 'low' && p.accountable_quantity >= p.min_stock) return false;
       if (filter === 'out' && p.accountable_quantity !== 0) return false;
-      if (filter === 'ap' && p.type !== 'ap') return false;
+      if (filter === 'ap' && !p.track_serial) return false;
       if (!q) return true;
       return (
         p.sku.toLowerCase().includes(q) ||
@@ -118,7 +118,7 @@ export function ProductPickerModal({ products, lang, onClose, onPick }: ProductP
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>{p.model}</div>
                     </td>
                     <td>
-                      {p.type === 'ap' ? (
+                      {p.track_serial ? (
                         <span className="pill">AP</span>
                       ) : (
                         <span style={{ color: 'var(--ink-3)', fontSize: 11 }}>normal</span>

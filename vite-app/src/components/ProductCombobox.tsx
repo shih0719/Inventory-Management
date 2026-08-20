@@ -222,7 +222,7 @@ export function ProductCombobox({
                   <div className="combobox-item-main">
                     <div className="combobox-item-head">
                       <span className="combobox-item-sku">{p.sku}</span>
-                      {p.type === 'ap' && (
+                      {p.track_serial && (
                         <span className="pill" style={{ fontSize: 9, padding: '0 4px' }}>
                           AP
                         </span>
