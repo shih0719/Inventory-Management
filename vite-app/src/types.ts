@@ -113,6 +113,8 @@ export interface CreateBatchItem {
   quantity_type: QuantityType;
   location_id?: number | null;
   remarks?: string;
+  /** Inbound AP lines: the serials coming in (length must equal quantity_change). */
+  serial_numbers?: string[];
 }
 
 export interface CreateBatchInput {
@@ -131,6 +133,41 @@ export interface CreateBatchResult {
     quantity_type: QuantityType;
     quantity_change: number;
   }>;
+}
+
+// ---- Outbound (unified: qty lines + AP serials + auto shipment) -----------
+export interface OutboundItem {
+  product_id: number;
+  /** Positive number of units going out. */
+  quantity: number;
+  quantity_type: QuantityType;
+  remarks?: string;
+}
+
+export interface OutboundInput {
+  tag_id: number;
+  description?: string;
+  items: OutboundItem[];
+  serial_numbers: string[];
+  shipment?: { customer?: string; project_case?: string; shipment_date?: string };
+}
+
+export interface OutboundResult {
+  batch_id: number;
+  batch_number: string;
+  transaction_ids: number[];
+  /** Set only when the tag is OUTBOUND. */
+  shipment_id: number | null;
+  shipment_number: string | null;
+}
+
+export interface SerialLookup {
+  id: number;
+  serial_number: string;
+  status: 'in_stock' | 'sold';
+  product_id: number;
+  sku: string;
+  product_name: string;
 }
 
 // ---- Shipments (出貨單據) --------------------------------------------------

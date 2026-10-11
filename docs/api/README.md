@@ -49,6 +49,7 @@
 | POST | `/api/batches` | manager/admin | 建立批次異動 |
 | GET | `/api/shipments` | 已登入 | 列出出貨單據 |
 | GET | `/api/shipments/:id` | 已登入 | 取得單筆出貨單 |
+| GET | `/api/shipments/:id/export` | 已登入 | 匯出出貨單 Excel（工作表：出貨明細、序號表） |
 | POST | `/api/shipments` | manager/admin | 建立出貨單 |
 | PUT | `/api/shipments/:id` | manager/admin | 修改出貨單 |
 | DELETE | `/api/shipments/:id` | manager/admin | 軟刪除出貨單 |
@@ -62,7 +63,8 @@
 | GET | `/api/product-units/:id` | 已登入 | 取得單筆 AP |
 | POST | `/api/product-units` | 已登入 | 建立單筆 AP |
 | POST | `/api/product-units/bulk` | 已登入 | 批次建立 AP |
-| POST | `/api/product-units/bulk-sell` | 已登入 | 批次標記 AP 出售 |
+| GET | `/api/product-units/lookup/:serial` | 已登入 | 以序號查詢目前倉庫的 AP（找不到回 404） |
+| POST | `/api/outbound` | manager / admin | 統一出庫：數量明細 + AP 序號，OUTBOUND 標籤自動建立出貨單（全有或全無） |
 | POST | `/api/product-units/transfer` | 已登入 | 跨倉調撥 AP |
 | PUT | `/api/product-units/:id` | 已登入 | 修改 AP |
 | DELETE | `/api/product-units/:id` | 已登入 | 刪除 AP（硬刪除） |

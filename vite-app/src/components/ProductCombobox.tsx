@@ -20,6 +20,12 @@ export interface ProductComboboxProps {
   onPicked?: (product: Product) => void;
   /** Bump to a new non-zero value to focus the input without opening the list (scan-ready). */
   focusSignal?: number;
+  /**
+   * Enter with text that matches no product (e.g. a scanned AP serial).
+   * Resolve true when the text was consumed — the input then clears for the next scan;
+   * false keeps the text selected so the next scan replaces it.
+   */
+  onUnmatchedEnter?: (text: string) => boolean | Promise<boolean>;
 }
 
 /**
@@ -38,6 +44,7 @@ export function ProductCombobox({
   showQty = true,
   onPicked,
   focusSignal = 0,
+  onUnmatchedEnter,
 }: ProductComboboxProps) {
   const t = L[lang];
   const selected = value ? products.find((p) => p.id === Number(value)) : null;
@@ -169,9 +176,22 @@ export function ProductCombobox({
         pick(visible[hi]);
         e.preventDefault();
       } else if (q) {
-        // No match: keep the text selected so the next scan replaces it.
-        inputRef.current?.select();
         e.preventDefault();
+        if (!onUnmatchedEnter) {
+          // No match: keep the text selected so the next scan replaces it.
+          inputRef.current?.select();
+          return;
+        }
+        const text = query.trim();
+        setQuery('');
+        setOpen(false);
+        void Promise.resolve(onUnmatchedEnter(text)).then((consumed) => {
+          if (!consumed) {
+            // Restore the text only if nothing was typed in the meantime.
+            setQuery((cur) => (cur === '' ? text : cur));
+            requestAnimationFrame(() => inputRef.current?.select());
+          }
+        });
       }
     } else if (e.key === 'Escape') {
       setOpen(false);

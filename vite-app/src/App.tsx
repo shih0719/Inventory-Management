@@ -173,6 +173,7 @@ export function App() {
         onLoadAll={loadAll}
         onAdjustProduct={handleAdjustProduct}
         onBatchSubmit={handleBatchSubmit}
+        onQuickOutbound={() => navigateTo({ kind: 'batch', batchKind: 'outbound' })}
         onAdjustSubmit={handleAdjustSubmit}
         onAdjustTopbar={handleTopbarPick}
         onOpenPicker={openPicker}

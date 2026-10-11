@@ -3,6 +3,64 @@ const quantityStateService = require("../services/quantityStateService");
 const auditService = require("../services/auditService");
 const { formatTimestamps } = require("../utils/formatTimestamps");
 
+/**
+ * Validate the serials of one inbound AP line. New serials are created; a sold
+ * serial of the same product comes back to stock only under the RETURN tag.
+ * Returns { errors: string[], plan: Array<{ serial } | { returnUnitId }> }.
+ */
+async function planInboundSerials(product, quantityChange, quantityType, serials, tagName, seenSerials) {
+  if (serials.length === 0) return { errors: ["AP 商品必須掃描序號進貨"], plan: [] };
+  if (parseInt(quantityChange) <= 0) return { errors: ["AP 商品出庫請使用出貨頁"], plan: [] };
+  if (quantityType !== "accountable") return { errors: ["AP 商品只能計入有帳數量"], plan: [] };
+  if (parseInt(quantityChange) !== serials.length) {
+    return { errors: [`數量 ${quantityChange} 與序號數 ${serials.length} 不符`], plan: [] };
+  }
+
+  const errors = [];
+  const plan = [];
+  for (const raw of serials) {
+    const sn = String(raw || "").trim().toUpperCase();
+    if (!sn) { errors.push("序號不可為空"); continue; }
+    if (seenSerials.has(sn)) { errors.push(`${sn} 批次內序號重複`); continue; }
+    seenSerials.add(sn);
+
+    const unit = await db.get("SELECT id, status, product_id FROM product_units WHERE serial_number = ?", [sn]);
+    if (!unit) {
+      plan.push({ serial: sn });
+    } else if (unit.status === "in_stock") {
+      errors.push(`${sn} 已在庫`);
+    } else if (tagName !== "RETURN") {
+      errors.push(`${sn} 已出庫，退貨請選「退貨」標籤`);
+    } else if (unit.product_id !== product.id) {
+      errors.push(`${sn} 屬於其他商品`);
+    } else {
+      plan.push({ returnUnitId: unit.id });
+    }
+  }
+  return { errors, plan };
+}
+
+/** Write a planned set of inbound serials; returns the product_unit ids. Call inside a DB transaction. */
+async function applyInboundSerials(plan, productId, warehouseId) {
+  const ids = [];
+  for (const p of plan) {
+    if (p.returnUnitId) {
+      await db.run(
+        "UPDATE product_units SET status = 'in_stock', project_case = NULL, sold_to = NULL, sold_at = NULL WHERE id = ?",
+        [p.returnUnitId],
+      );
+      ids.push(p.returnUnitId);
+    } else {
+      const result = await db.run(
+        "INSERT INTO product_units (product_id, serial_number, warehouse_id) VALUES (?, ?, ?)",
+        [productId, p.serial, warehouseId],
+      );
+      ids.push(result.id);
+    }
+  }
+  return ids;
+}
+
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
   try {
@@ -25,9 +83,11 @@ async function createBatch(req, res) {
     // ── Phase 1: Pre-validate ALL items before touching the DB ──────────────
     const validationErrors = [];
     const validatedItems = []; // Enriched items ready for execution
+    const tag = await db.get("SELECT name FROM tags WHERE id = ?", [tag_id]);
+    const seenSerials = new Set(); // AP serials across the whole batch
 
     for (let i = 0; i < items.length; i++) {
-      const { product_id, quantity_change, quantity_type, remarks } = items[i];
+      const { product_id, quantity_change, quantity_type, remarks, serial_numbers } = items[i];
       const index = `Item[${i}] (product_id: ${product_id ?? "N/A"})`;
 
       if (!product_id || quantity_change === undefined || !quantity_type) {
@@ -47,6 +107,21 @@ async function createBatch(req, res) {
 
       if (!product) {
         validationErrors.push(`${index}: Product not found`);
+        continue;
+      }
+
+      // AP (serial-tracked) products come in by serial only; see planInboundSerials.
+      const serialList = Array.isArray(serial_numbers) ? serial_numbers : [];
+      let serialPlan = null;
+      if (product.track_serial) {
+        const planned = await planInboundSerials(product, quantity_change, quantity_type, serialList, tag?.name, seenSerials);
+        if (planned.errors.length > 0) {
+          validationErrors.push(...planned.errors.map((e) => `${index} (${product.name}): ${e}`));
+          continue;
+        }
+        serialPlan = planned.plan;
+      } else if (serialList.length > 0) {
+        validationErrors.push(`${index} (${product.name}): 非 AP 商品不能帶序號`);
         continue;
       }
 
@@ -76,6 +151,8 @@ async function createBatch(req, res) {
         quantityField: quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity",
         currentQuantity,
         newQuantity,
+        warehouseId: product.warehouse_id,
+        serialPlan,
       });
     }
 
@@ -111,9 +188,10 @@ async function createBatch(req, res) {
       );
 
       for (const item of validatedItems) {
+        const unitIds = item.serialPlan ? await applyInboundSerials(item.serialPlan, item.product_id, item.warehouseId) : null;
         const txResult = await db.run(
-          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, created_by_user)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, created_by_user)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             item.product_id,
             tag_id,
@@ -124,6 +202,7 @@ async function createBatch(req, res) {
             item.newQuantity,
             "batch",
             `[${item.quantity_type === "accountable" ? "有帳" : "無帳"}] ${item.remarks}`,
+            unitIds ? JSON.stringify(unitIds) : null,
             createdByUser,
           ],
         );

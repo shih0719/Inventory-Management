@@ -3,10 +3,10 @@ const router = express.Router();
 const c = require("../controllers/productUnitsController");
 
 router.get("/export", c.exportCSV);
+router.get("/lookup/:serial", c.lookupBySerial);
 router.get("/", c.getAll);
 router.get("/:id", c.getById);
 router.post("/bulk", c.bulkCreate);
-router.post("/bulk-sell", c.bulkSell);
 router.post("/transfer", c.transfer);
 router.post("/", c.create);
 router.put("/:id", c.update);
