@@ -3,8 +3,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { CreateBatchItem, Product, QuantityType, SerialLookup, Tag } from '../types';
 import { L, tagLabel, type Lang } from '../lib/i18n';
 import { ProductCombobox } from './ProductCombobox';
-import { ShipmentFields, SerialList, type ShipmentDraft } from './OutboundExtras';
-import { lookupSerial } from '../api/product-units';
+import { ShipmentFields, SerialSection, type SerialCandidates, type ShipmentDraft } from './OutboundExtras';
+import { listProductUnits, lookupSerial } from '../api/product-units';
 
 export interface BatchSubmitPayload {
   name: string;
@@ -74,6 +74,8 @@ export function BatchFlow({
   // Outbound only: scanned AP serials + shipment fields.
   const [serialUnits, setSerialUnits] = useState<SerialLookup[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<SerialCandidates | null>(null);
+  const [serialFocus, setSerialFocus] = useState(0);
   const [shipment, setShipment] = useState<ShipmentDraft>({
     customer: '',
     project_case: '',
@@ -85,8 +87,11 @@ export function BatchFlow({
   const createsShipment = tags.find((tg) => tg.id === tagId)?.name === 'OUTBOUND';
   const caseRequired = serialUnits.length > 0;
 
-  /** Text scanned into a product field that matched no SKU: try it as an AP serial. */
-  const handleSerialScan = async (lineId: number, text: string): Promise<boolean> => {
+  /**
+   * Look up a serial and add it to the AP list. `lineId` is set when the text was
+   * scanned into a product field (no SKU matched); focus then returns to that line.
+   */
+  const handleSerialScan = async (text: string, lineId?: number): Promise<boolean> => {
     const sn = text.trim().toUpperCase();
     if (serialUnits.some((u) => u.serial_number === sn)) {
       setScanError(lang === 'en' ? `${sn} is already in the list` : `${sn} 已在清單中`);
@@ -102,12 +107,38 @@ export function BatchFlow({
         prev.some((u) => u.serial_number === unit.serial_number) ? prev : [...prev, unit],
       );
       setScanError(null);
-      focusProduct(lineId);
+      if (lineId !== undefined) focusProduct(lineId);
       return true;
     } catch {
       setScanError(lang === 'en' ? `No product or serial "${sn}"` : `找不到商品或序號「${sn}」`);
       return false;
     }
+  };
+
+  /** Outbound: an AP product picked by name can't go out by quantity. Clear the line and offer its serials. */
+  const redirectApPick = (lineId: number, product: Product): boolean => {
+    if (isInbound || !product.track_serial) return false;
+    setLine(lineId, { product_id: '' });
+    setScanError(null);
+    setSerialFocus((n) => n + 1);
+    setCandidates({ sku: product.sku, name: product.name, units: [] });
+    listProductUnits(product.id, 'in_stock')
+      .then((list) =>
+        setCandidates({
+          sku: product.sku,
+          name: product.name,
+          units: list.map((u) => ({
+            id: u.id,
+            serial_number: u.serial_number,
+            status: 'in_stock' as const,
+            product_id: u.product_id,
+            sku: product.sku,
+            product_name: product.name,
+          })),
+        }),
+      )
+      .catch((err) => setScanError((err as Error).message));
+    return true;
   };
 
   useEffect(() => {
@@ -286,6 +317,7 @@ export function BatchFlow({
                     recentSkus={recentSkus || []}
                     value={l.product_id}
                     onChange={(id, prod) => {
+                      if (prod && redirectApPick(l.id, prod)) return;
                       setLine(l.id, { product_id: id === '' ? '' : Number(id) });
                       if (prod) setScanError(null);
                       if (prod && onPickProduct) onPickProduct(prod);
@@ -294,6 +326,7 @@ export function BatchFlow({
                       onOpenPicker
                         ? () =>
                             onOpenPicker((picked) => {
+                              if (redirectApPick(l.id, picked)) return;
                               setLine(l.id, { product_id: picked.id });
                               if (onPickProduct) onPickProduct(picked);
                             })
@@ -302,8 +335,9 @@ export function BatchFlow({
                     lang={lang}
                     placeholder={scanPh}
                     focusSignal={scanFocus.lineId === l.id ? scanFocus.n : 0}
-                    onUnmatchedEnter={isInbound ? undefined : (text) => handleSerialScan(l.id, text)}
-                    onPicked={() => {
+                    onUnmatchedEnter={isInbound ? undefined : (text) => handleSerialScan(text, l.id)}
+                    onPicked={(prod) => {
+                      if (!isInbound && prod.track_serial) return;
                       setJustPicked(l.id);
                       const el = qtyRefs.current.get(l.id);
                       el?.focus();
@@ -381,13 +415,17 @@ export function BatchFlow({
       </div>
 
       {!isInbound && (
-        <SerialList
+        <SerialSection
           units={serialUnits}
           onRemove={(sn) => {
             setSerialUnits((prev) => prev.filter((u) => u.serial_number !== sn));
             setScanError(null);
           }}
+          onScan={(sn) => handleSerialScan(sn)}
+          candidates={candidates}
+          onCloseCandidates={() => setCandidates(null)}
           scanError={scanError}
+          focusSignal={serialFocus}
           lang={lang}
         />
       )}
