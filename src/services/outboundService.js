@@ -105,6 +105,13 @@ async function createOutbound(input, actor) {
     });
   }
 
+  const createShipment = tag.name === 'OUTBOUND';
+  const shipmentDate = shipment.shipment_date || new Date().toISOString().split('T')[0];
+  if (createShipment) {
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(shipmentDate) && !Number.isNaN(new Date(shipmentDate).getTime());
+    if (!validDate) errors.push('shipment_date 格式錯誤（需為 YYYY-MM-DD）');
+  }
+
   // ── Phase 1b: AP serials ───────────────────────────────────────────────────
   if (serials.length > 0 && !projectCase) {
     errors.push("出貨含 AP 序號時，案子（project_case）為必填");
@@ -161,8 +168,6 @@ async function createOutbound(input, actor) {
   }
 
   // ── Phase 2: write everything atomically ───────────────────────────────────
-  const createShipment = tag.name === "OUTBOUND";
-  const shipmentDate = shipment.shipment_date || new Date().toISOString().split("T")[0];
   const soldAt = new Date().toISOString();
 
   await db.run("BEGIN TRANSACTION");
@@ -178,10 +183,13 @@ async function createOutbound(input, actor) {
     for (const tx of plannedTx) {
       if (tx.unitIds) {
         for (const unitId of tx.unitIds) {
-          await db.run(
-            "UPDATE product_units SET status = 'sold', project_case = ?, sold_to = ?, sold_at = ? WHERE id = ?",
+          const updated = await db.run(
+            "UPDATE product_units SET status = 'sold', project_case = ?, sold_to = ?, sold_at = ? WHERE id = ? AND status = 'in_stock'",
             [projectCase, customer, soldAt, unitId]
           );
+          if (updated.changes !== 1) {
+            throw new OutboundError(`序號單位 ${unitId} 已被其他操作出庫`);
+          }
         }
       }
       const result = await db.run(
@@ -197,7 +205,13 @@ async function createOutbound(input, actor) {
       auditService.logAction(actor.userId, "CREATE", "transaction", result.id);
 
       const field = tx.quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity";
-      await db.run(`UPDATE products SET ${field} = ? WHERE id = ?`, [tx.after, tx.product_id]);
+      const stock = await db.run(
+        `UPDATE products SET ${field} = ? WHERE id = ? AND ${field} = ?`,
+        [tx.after, tx.product_id, tx.before]
+      );
+      if (stock.changes !== 1) {
+        throw new OutboundError(`商品 ${tx.product_id} 庫存已變動，請重新送出`);
+      }
     }
 
     let shipmentId = null;

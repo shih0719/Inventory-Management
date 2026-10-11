@@ -218,6 +218,35 @@ describe("POST /api/outbound", () => {
     expect(await statusOf("OB-OT-1")).toBe("in_stock");
   });
 
+
+  it('軟刪除後再建立出貨單 → 流水號取最大值 +1，不撞號', async () => {
+    const id = await createProduct('OB-SEQ', { qty: 10 });
+    const out = () => postOutbound({
+      tag_id: outboundTagId,
+      items: [{ product_id: id, quantity: 1, quantity_type: 'accountable' }],
+      shipment: { shipment_date: '2026-12-01' },
+    });
+    const first = await out();
+    const second = await out();
+    expect(first.body.data.shipment_number).toBe('SHP-20261201-001');
+    expect(second.body.data.shipment_number).toBe('SHP-20261201-002');
+    await db.run('UPDATE shipments SET is_deleted = 1 WHERE id = ?', [first.body.data.shipment_id]);
+    const third = await out();
+    expect(third.status).toBe(201);
+    expect(third.body.data.shipment_number).toBe('SHP-20261201-003');
+  });
+
+  it('OUTBOUND 的 shipment_date 格式錯誤 → 400，什麼都不變', async () => {
+    const id = await createProduct('OB-BADDATE', { qty: 5 });
+    const res = await postOutbound({
+      tag_id: outboundTagId,
+      items: [{ product_id: id, quantity: 1, quantity_type: 'accountable' }],
+      shipment: { shipment_date: 'garbage' },
+    });
+    expect(res.status).toBe(400);
+    expect(await qtyOf(id)).toBe(5);
+  });
+
   it("沒有任何明細 → 400", async () => {
     const res = await postOutbound({ tag_id: outboundTagId });
     expect(res.status).toBe(400);
