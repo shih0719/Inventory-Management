@@ -167,8 +167,8 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
             <h2>{lang === 'en' ? 'Shipments' : '出貨單據'}</h2>
             <div className="sub">
               {lang === 'en'
-                ? 'Group transactions into shipments'
-                : '將異動分組為出貨單據'}
+                ? 'Shipments are created by Outbound with the OUTBOUND tag'
+                : '出貨單據由「出貨」頁（OUTBOUND 標籤）自動建立'}
             </div>
           </div>
         </div>
@@ -192,7 +192,7 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
               className="btn ghost"
               style={{ fontSize: 12, padding: '4px 10px' }}
             >
-              {isCreating ? (lang === 'en' ? 'Cancel' : '取消') : (lang === 'en' ? '+ New' : '新增')}
+              {isCreating ? (lang === 'en' ? 'Cancel' : '取消') : (lang === 'en' ? 'Bind existing' : '補綁異動')}
             </button>
           </div>
 
@@ -240,7 +240,7 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
           {isCreating ? (
             <>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13 }}>
-                {lang === 'en' ? 'New Shipment' : '新增出貨單'}
+                {lang === 'en' ? 'Bind existing transactions' : '補綁既有異動'}
               </div>
               <form onSubmit={handleCreateShipment} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
