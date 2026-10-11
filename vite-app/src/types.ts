@@ -113,6 +113,8 @@ export interface CreateBatchItem {
   quantity_type: QuantityType;
   location_id?: number | null;
   remarks?: string;
+  /** Inbound AP lines: the serials coming in (length must equal quantity_change). */
+  serial_numbers?: string[];
 }
 
 export interface CreateBatchInput {

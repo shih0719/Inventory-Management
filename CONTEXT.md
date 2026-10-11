@@ -41,6 +41,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 - `sold_at` — 由系統在 status 轉為 `sold` 的瞬間自動填入，不由使用者輸入
 - 當 status 從 `sold` 改回 `in_stock` 時，`project_case` / `sold_to` / `sold_at` 三欄**自動清空**，避免殘留資訊誤導
 - AP 商品不能用數量出庫，必須在「出貨」頁掃描序號（避免 `accountable_quantity` 減少但序號仍是 `in_stock`）。
+- AP 商品進貨同樣必須掃描序號（「進貨」頁，批次明細帶 `serial_numbers`，數量 = 序號數）。新序號直接建立；已出庫的序號只有在「退貨」（RETURN）標籤下可改回 `in_stock`，並清空 `project_case` / `sold_to` / `sold_at`。
 
 **serial_number 規則**：
 - **全域唯一**（不同 Product 的 serial_number 也不會撞，UNIQUE 約束施加於整張 `product_units` 表）

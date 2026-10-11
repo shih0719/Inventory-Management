@@ -5,6 +5,8 @@ import { L, tagLabel, type Lang } from '../lib/i18n';
 import { ProductCombobox } from './ProductCombobox';
 import { ShipmentFields, SerialSection, type SerialCandidates, type ShipmentDraft } from './OutboundExtras';
 import { listProductUnits, lookupSerial } from '../api/product-units';
+import { ApiError } from '../api/client';
+import { InboundSerialEntry, type InboundSerial } from './InboundSerialEntry';
 
 export interface BatchSubmitPayload {
   name: string;
@@ -33,6 +35,8 @@ interface LineRow {
   qty: number | '';
   quantity_type: QuantityType;
   remarks: string;
+  /** Inbound AP lines only: serials coming in; the line's quantity is their count. */
+  serials: InboundSerial[];
 }
 
 export function BatchFlow({
@@ -56,7 +60,7 @@ export function BatchFlow({
   const [name, setName] = useState('');
   const [tagId, setTagId] = useState<number>(defaultTagId);
   const [lines, setLines] = useState<LineRow[]>([
-    { id: 1, product_id: '', qty: 0, quantity_type: 'accountable', remarks: '' },
+    { id: 1, product_id: '', qty: 0, quantity_type: 'accountable', remarks: '', serials: [] },
   ]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -164,6 +168,7 @@ export function BatchFlow({
         qty: 0,
         quantity_type: 'accountable',
         remarks: '',
+        serials: [],
       },
     ]);
     return id;
@@ -176,32 +181,77 @@ export function BatchFlow({
     focusProduct(next ? next.id : addLine());
   };
 
+  // Inbound AP lines: per-line scan error and focus signal for the serial input.
+  const [inboundSerialError, setInboundSerialError] = useState<{ lineId: number; msg: string } | null>(null);
+  const [inboundSerialFocus, setInboundSerialFocus] = useState({ lineId: 0, n: 0 });
+
+  /** Check a serial for an inbound AP line: new serials are fine; a sold one only comes back under RETURN. */
+  const addInboundSerial = async (lineId: number, product: Product, text: string): Promise<boolean> => {
+    const sn = text.trim().toUpperCase();
+    const fail = (msg: string) => {
+      setInboundSerialError({ lineId, msg });
+      return false;
+    };
+    if (lines.some((l) => l.serials.some((s) => s.serial_number === sn))) {
+      return fail(lang === 'en' ? `${sn} is already in this batch` : `${sn} 已在本批次中`);
+    }
+    let kind: InboundSerial['kind'] = 'new';
+    try {
+      const unit = await lookupSerial(sn);
+      if (unit.status === 'in_stock') return fail(lang === 'en' ? `${sn} is already in stock` : `${sn} 已在庫`);
+      if (!isReturnTag) {
+        return fail(lang === 'en' ? `${sn} was shipped — choose the Return tag to bring it back` : `${sn} 已出庫，退貨請選「退貨」標籤`);
+      }
+      if (unit.product_id !== product.id) return fail(lang === 'en' ? `${sn} belongs to ${unit.sku}` : `${sn} 屬於 ${unit.sku}`);
+      kind = 'return';
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 404)) return fail((err as Error).message);
+    }
+    setLines((prev) =>
+      prev.map((l) =>
+        l.id === lineId && !l.serials.some((s) => s.serial_number === sn)
+          ? { ...l, serials: [...l.serials, { serial_number: sn, kind }] }
+          : l,
+      ),
+    );
+    setInboundSerialError(null);
+    return true;
+  };
+
   const removeLine = (id: number) => setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.id !== id) : prev));
 
   const qtyRequiredMsg = lang === 'en' ? 'Quantity required' : '需要數量';
+
+  const isReturnTag = tags.find((tg) => tg.id === tagId)?.name === 'RETURN';
 
   // Validation: each line must have product + non-zero qty; outbound can't go negative.
   const linesWithStatus = useMemo(
     () =>
       lines.map((l) => {
         const product = products.find((p) => p.id === Number(l.product_id));
+        const apInbound = isInbound && !!product?.track_serial;
+        const qty = apInbound ? l.serials.length : l.qty;
         let error: string | null = null;
         if (!product) {
           error = null; // empty line is fine until submit
         } else if (!isInbound && product.track_serial) {
           error = lang === 'en' ? 'AP product — scan its serial numbers instead' : 'AP 商品請改掃描序號';
-        } else if (l.qty === 0 || l.qty === '') {
+        } else if (apInbound && l.serials.length === 0) {
+          error = lang === 'en' ? 'Scan the serial numbers coming in' : '請掃描進貨的序號';
+        } else if (apInbound && l.serials.some((s) => s.kind === 'return') && !isReturnTag) {
+          error = lang === 'en' ? 'Returned serials need the Return tag' : '退回的序號需使用「退貨」標籤';
+        } else if (qty === 0 || qty === '') {
           error = qtyRequiredMsg;
         } else if (!isInbound && product) {
           const current =
             l.quantity_type === 'accountable' ? product.accountable_quantity : product.non_accountable_quantity;
-          if (Number(l.qty) > current) {
+          if (Number(qty) > current) {
             error = lang === 'en' ? `Stock short — have ${current}` : `庫存不足 — 現有 ${current}`;
           }
         }
-        return { ...l, product, error };
+        return { ...l, qty, product, apInbound, error };
       }),
-    [lines, products, isInbound, lang],
+    [lines, products, isInbound, isReturnTag, lang],
   );
 
   const validLines = linesWithStatus.filter((l) => l.product && Number(l.qty) > 0 && !l.error);
@@ -219,6 +269,7 @@ export function BatchFlow({
       quantity_change: isInbound ? Number(l.qty) : -Number(l.qty),
       quantity_type: l.quantity_type,
       remarks: l.remarks || name || '',
+      ...(l.apInbound ? { serial_numbers: l.serials.map((s) => s.serial_number) } : {}),
     }));
     const generatedName =
       name || `${isInbound ? 'IN' : 'OUT'}-${new Date().toISOString().slice(0, 16).replace(/[T:]/g, '')}`;
@@ -318,7 +369,7 @@ export function BatchFlow({
                     value={l.product_id}
                     onChange={(id, prod) => {
                       if (prod && redirectApPick(l.id, prod)) return;
-                      setLine(l.id, { product_id: id === '' ? '' : Number(id) });
+                      setLine(l.id, { product_id: id === '' ? '' : Number(id), serials: [], quantity_type: 'accountable' });
                       if (prod) setScanError(null);
                       if (prod && onPickProduct) onPickProduct(prod);
                     }}
@@ -327,7 +378,8 @@ export function BatchFlow({
                         ? () =>
                             onOpenPicker((picked) => {
                               if (redirectApPick(l.id, picked)) return;
-                              setLine(l.id, { product_id: picked.id });
+                              setLine(l.id, { product_id: picked.id, serials: [], quantity_type: 'accountable' });
+                              if (isInbound && picked.track_serial) setInboundSerialFocus((f) => ({ lineId: l.id, n: f.n + 1 }));
                               if (onPickProduct) onPickProduct(picked);
                             })
                         : undefined
@@ -338,6 +390,10 @@ export function BatchFlow({
                     onUnmatchedEnter={isInbound ? undefined : (text) => handleSerialScan(text, l.id)}
                     onPicked={(prod) => {
                       if (!isInbound && prod.track_serial) return;
+                      if (isInbound && prod.track_serial) {
+                        setInboundSerialFocus((f) => ({ lineId: l.id, n: f.n + 1 }));
+                        return;
+                      }
                       setJustPicked(l.id);
                       const el = qtyRefs.current.get(l.id);
                       el?.focus();
@@ -365,6 +421,8 @@ export function BatchFlow({
                   min={0}
                   aria-label={t.qty}
                   placeholder={t.qty}
+                  readOnly={l.apInbound}
+                  title={l.apInbound ? (lang === 'en' ? 'Count of scanned serials' : '依掃描的序號數量') : undefined}
                   value={l.qty || ''}
                   onChange={(e) =>
                     setLine(l.id, {
@@ -382,6 +440,7 @@ export function BatchFlow({
                   <button
                     className={l.quantity_type === 'non_accountable' ? 'on' : ''}
                     onClick={() => setLine(l.id, { quantity_type: 'non_accountable' })}
+                    disabled={l.apInbound}
                   >
                     {t.nonAcctShort}
                   </button>
@@ -403,6 +462,19 @@ export function BatchFlow({
                   ✕
                 </button>
               </div>
+              {l.apInbound && l.product && (
+                <InboundSerialEntry
+                  serials={l.serials}
+                  onAdd={(sn) => addInboundSerial(l.id, l.product!, sn)}
+                  onRemove={(sn) => {
+                    setLine(l.id, { serials: l.serials.filter((s) => s.serial_number !== sn) });
+                    setInboundSerialError(null);
+                  }}
+                  error={inboundSerialError?.lineId === l.id ? inboundSerialError.msg : null}
+                  focusSignal={inboundSerialFocus.lineId === l.id ? inboundSerialFocus.n : 0}
+                  lang={lang}
+                />
+              )}
               {l.error && (touched.has(l.id) || l.error !== qtyRequiredMsg) && <div className="batch-line-error">⚠ {l.error}</div>}
             </Fragment>
           ))}
