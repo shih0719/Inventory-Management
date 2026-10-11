@@ -365,6 +365,7 @@ export function APProductModal({
                   {lang === 'en' ? 'Serial Numbers to Transfer (one per line)' : '移倉序號（一行一個）'}
                 </label>
                 <textarea
+                  autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false}
                   value={transferSerialInput}
                   onChange={(e) => setTransferSerialInput(e.target.value)}
                   placeholder={'SN-001\nSN-002\nSN-003'}

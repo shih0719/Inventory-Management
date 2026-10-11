@@ -61,7 +61,11 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
-.tb .logo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.tb .logo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
+.tb-search { flex: 1; max-width: 340px; min-width: 180px; }
+.tb-desk { display: contents; }
+/* phone-only chrome, enabled in the ≤900px block at the end of this file */
+.tb-wh, .tb-menu-btn, .mobile-actions, .ship-back { display: none; }
 .tb .logo .mark {
   width: 26px; height: 26px; border-radius: 6px;
   background: var(--ink); color: var(--bg);
@@ -248,7 +252,7 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
 
 /* ------- modals ------- */
 .modal-scrim {
-  position: absolute; inset: 0;
+  position: fixed; inset: 0;
   background: rgba(26, 26, 26, 0.32);
   display: flex; align-items: center; justify-content: center;
   z-index: 50;
@@ -261,6 +265,7 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   border: 1px solid var(--border);
   box-shadow: 0 10px 40px rgba(0,0,0,0.16), 0 4px 12px rgba(0,0,0,0.08);
   width: 540px;
+  max-width: calc(100vw - 24px);
   max-height: 80%;
   overflow: hidden;
   display: flex; flex-direction: column;
@@ -272,7 +277,12 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
 }
 .modal-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: start; }
 .modal-head h3 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
-.modal-head .close { background: none; border: none; font-size: 16px; color: var(--ink-3); cursor: pointer; padding: 0; line-height: 1; }
+.modal-head .close {
+  background: none; border: none; font-size: 16px; color: var(--ink-3); cursor: pointer; padding: 0; line-height: 1;
+  /* 44px hit area without moving the glyph */
+  width: 44px; height: 44px; margin: -14px -14px -14px 0;
+  display: grid; place-items: center; flex-shrink: 0; border-radius: 6px;
+}
 .modal-head .close:hover { color: var(--ink); }
 .modal-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
 .modal-foot { padding: 12px 20px; border-top: 1px solid var(--border); background: var(--surface-2); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
@@ -341,7 +351,8 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
 
 /* toast */
 .toast-stack {
-  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
   display: flex; flex-direction: column; gap: 8px; z-index: 100;
   pointer-events: none;
 }
@@ -469,6 +480,10 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
 }
 .batch-line:last-child { border-bottom: none; }
 .batch-line.invalid { background: var(--accent-soft); }
+/* scan confirmation: the line that just received a product glows once */
+.batch-line.just-picked { animation: line-picked .7s cubic-bezier(.16, 1, .3, 1); }
+@keyframes line-picked { from { background: var(--ok-soft); box-shadow: inset 0 0 0 1px var(--ok); } }
+@media (prefers-reduced-motion: reduce) { .batch-line.just-picked { animation: none; background: var(--ok-soft); } }
 .batch-line.alert-row { background: rgba(217, 110, 91, 0.07); }
 .batch-line .col-sku { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 .batch-line .col-name { display: flex; flex-direction: column; gap: 2px; }
@@ -508,6 +523,23 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
+}
+
+.batch-lines {
+  flex: 1; min-height: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.batch-lines-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.batch-lines-foot { padding: 10px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.batch-add {
+  background: transparent;
+  border: 1px dashed var(--border-2); border-radius: 6px;
+  padding: 6px 14px;
+  font: 500 12px var(--sans); color: var(--ink-2);
+  cursor: pointer; white-space: nowrap;
 }
 
 .batch-meta-fields { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -759,7 +791,9 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   border-radius: 12px;
   min-height: calc(100vh - 56px);
   box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
-  overflow: hidden;
+  /* clip (not hidden): keeps the rounded corners without becoming a scroll
+     container, so focusing an off-edge control can't shift the whole shell */
+  overflow: clip;
   display: flex;
   flex-direction: column;
 }
@@ -937,7 +971,302 @@ body { min-height: 100vh; padding: 28px 24px 80px; font-size: 13px; line-height:
   font-size: 11px;
 }
 
+.ship-split { display: grid; grid-template-columns: 280px 1fr; gap: 16px; flex: 1; min-height: 0; }
+.ap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; min-height: 0; }
+
+/* ============================================================
+   Camera barcode scanner
+   ============================================================ */
+.serial-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.scan-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--ink); border-radius: 6px;
+  background: var(--ink); color: var(--bg);
+  font: 600 13px var(--sans); cursor: pointer; white-space: nowrap;
+}
+.scan-btn:hover { background: #000; }
+
+.cam-scan {
+  position: fixed; inset: 0; z-index: 2000;
+  background: #0b0b0a; color: #fff;
+  display: grid; grid-template-rows: auto 1fr auto;
+  animation: scrim-in .15s ease;
+}
+.cam-scan-video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+.cam-scan-head, .cam-scan-foot { position: relative; z-index: 1; }
+.cam-scan-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(8px + env(safe-area-inset-top)) 8px 8px 16px;
+  background: linear-gradient(rgba(0,0,0,0.55), transparent);
+}
+.cam-scan-title { font-size: 15px; font-weight: 600; }
+.cam-scan-close {
+  width: 44px; height: 44px; border: none; border-radius: 22px;
+  background: rgba(255,255,255,0.14); color: #fff; font-size: 16px; cursor: pointer;
+}
+/* Wide, short window: serial labels are mostly 1D barcodes */
+.cam-scan-frame {
+  position: relative; z-index: 1; align-self: center; justify-self: center;
+  width: min(86vw, 520px); aspect-ratio: 5 / 2;
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(0,0,0,0.45);
+}
+.cam-scan-frame .corner { position: absolute; width: 22px; height: 22px; border: 3px solid #fff; }
+.cam-scan-frame .corner.tl { top: -2px; left: -2px; border-right: none; border-bottom: none; border-top-left-radius: 10px; }
+.cam-scan-frame .corner.tr { top: -2px; right: -2px; border-left: none; border-bottom: none; border-top-right-radius: 10px; }
+.cam-scan-frame .corner.bl { bottom: -2px; left: -2px; border-right: none; border-top: none; border-bottom-left-radius: 10px; }
+.cam-scan-frame .corner.br { bottom: -2px; right: -2px; border-left: none; border-top: none; border-bottom-right-radius: 10px; }
+.cam-scan-frame .laser {
+  position: absolute; left: 6%; right: 6%; top: 50%;
+  height: 2px; background: var(--accent-2);
+  box-shadow: 0 0 10px var(--accent-2);
+}
+.cam-scan-msg {
+  position: relative; z-index: 1; align-self: center; justify-self: center;
+  max-width: min(86vw, 420px); padding: 16px 18px;
+  border-radius: 10px; background: rgba(255,255,255,0.1);
+  font-size: 15px; line-height: 1.55; text-align: center;
+}
+.cam-scan-foot {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 24px 16px calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0,0,0,0.65));
+}
+.cam-scan-last { min-height: 36px; display: flex; justify-content: center; align-items: center; }
+.cam-scan-hint { font-size: 14px; color: rgba(255,255,255,0.8); }
+.cam-scan-chip {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 7px 14px; border-radius: 18px;
+  background: var(--ok); color: #fff;
+  font: 600 15px var(--mono); letter-spacing: 0.02em;
+  animation: chip-pop .35s cubic-bezier(.16, 1, .3, 1);
+}
+.cam-scan-chip.dup { background: rgba(255,255,255,0.18); }
+.cam-scan-chip em { font: 500 13px var(--sans); font-style: normal; opacity: 0.85; }
+@keyframes chip-pop { from { transform: scale(0.9); opacity: 0; } }
+.cam-scan-done { width: 100%; min-height: 48px; font-size: 16px; font-weight: 600; background: #fff; color: var(--ink); border-color: #fff; }
+.cam-scan-done:hover { background: #f0efea; }
+@media (prefers-reduced-motion: reduce) { .cam-scan, .cam-scan-chip { animation: none; } }
+
+/* ============================================================
+   PHONE + TABLET (≤900px)
+   Core flows (scan → inbound/outbound/adjust → confirm) are
+   rebuilt for touch; admin pages only need to not break.
+   ============================================================ */
 @media (max-width: 900px) {
   body { padding: 0; }
-  .app-shell { border-radius: 0; border-width: 0 0 1px 0; min-height: 100vh; }
+  .app-shell {
+    border-radius: 0; border-width: 0 0 1px 0; min-height: 100vh;
+    overflow: visible;
+  }
+  .app-shell:has(.mobile-actions) { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+
+  /* Pages grow with content and scroll with the window instead of clipping */
+  .dash, .flow, .batch-flow, .locations-page {
+    height: auto; overflow: visible;
+    padding: 14px 14px 18px;
+  }
+
+  /* iOS zooms any focused field under 16px; inline styles need the override */
+  input:not([type=checkbox]):not([type=radio]), select, textarea { font-size: 16px !important; }
+
+  /* ---- topbar: brand + warehouse + menu, search on its own row ---- */
+  .tb {
+    flex-wrap: wrap; gap: 8px 8px;
+    padding: 8px 10px 10px 14px;
+    position: sticky; top: 0; z-index: 40;
+  }
+  .tb-desk { display: none; }
+  .tb-search { order: 3; flex: 1 1 100%; max-width: none; min-width: 0; }
+  /* In a batch the line's own field is the scan target; a second search row competes with it */
+  .tb--batch .tb-search { display: none; }
+  .combobox--topbar .combobox-input-wrap { height: 44px; }
+  .tb-wh {
+    display: block; margin-left: auto;
+    max-width: 42vw; height: 36px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 18px;
+    background: var(--surface-2); color: var(--ink-2);
+    font: 500 13px/34px var(--sans);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    cursor: pointer;
+  }
+  .tb-menu-btn {
+    display: grid; place-items: center;
+    width: 44px; height: 44px;
+    border: none; border-radius: 8px; background: transparent;
+    color: var(--ink); cursor: pointer;
+  }
+  .tb-menu-btn:active, .tb-wh:active { background: var(--surface-3); }
+
+  /* ---- bottom action bar (thumb zone) ---- */
+  .mobile-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.05);
+  }
+  .mobile-actions .btn-lg {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 48px; font-size: 15px; font-weight: 600;
+  }
+  .mobile-actions .dir { font-weight: 700; }
+  .mobile-actions .dir.in { color: var(--ok); }
+  .mobile-actions .dir.out { color: var(--accent); }
+
+  /* ---- navigation sheet ---- */
+  .sheet-scrim {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(26, 26, 26, 0.32);
+    animation: scrim-in .15s ease;
+  }
+  .nav-sheet {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: min(320px, 86vw);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    box-shadow: -8px 0 24px rgba(0,0,0,0.10);
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheet-in .24s cubic-bezier(.16, 1, .3, 1);
+  }
+  .nav-sheet-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 6px 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-sheet-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .nav-sheet-who .avatar {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: 50%; background: var(--surface-2);
+    display: grid; place-items: center; font-weight: 600; font-size: 14px; color: var(--ink-2);
+  }
+  .nav-sheet-user { font-size: 15px; font-weight: 600; }
+  .nav-sheet-wh { font-size: 13px; color: var(--ink-2); margin-top: 1px; }
+  .nav-sheet-close {
+    width: 44px; height: 44px; flex-shrink: 0;
+    border: none; background: none; border-radius: 6px;
+    font-size: 16px; color: var(--ink-2); cursor: pointer;
+  }
+  .nav-sheet-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+  .nav-sheet-group { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .nav-sheet-group:last-child { border-bottom: none; }
+  .nav-sheet-item {
+    display: flex; align-items: center;
+    width: 100%; min-height: 48px; padding: 0 12px;
+    border: none; border-radius: 6px; background: none;
+    font: 500 15px var(--sans); color: var(--ink); text-align: left;
+    cursor: pointer;
+  }
+  .nav-sheet-item:active { background: var(--surface-2); }
+  .nav-sheet-item.on { background: var(--surface-2); font-weight: 600; }
+  .nav-sheet-item.danger { color: var(--accent); }
+  .nav-sheet-item:disabled { color: var(--ink-3); }
+  .nav-sheet-label { font-size: 13px; font-weight: 500; color: var(--ink-2); padding: 8px 12px 6px; }
+  .nav-sheet-langs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 4px 6px; }
+  .nav-sheet-langs button {
+    min-height: 44px;
+    border: 1px solid var(--border-2); border-radius: 6px; background: var(--surface);
+    font: 600 14px var(--sans); color: var(--ink-2); cursor: pointer;
+  }
+  .nav-sheet-langs button.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  /* ---- modals become bottom sheets ---- */
+  .modal-scrim { align-items: flex-end; }
+  .modal {
+    width: 100% !important; max-width: none !important; max-height: 92dvh !important;
+    border-radius: 14px 14px 0 0; border-width: 1px 0 0;
+    animation: sheet-up .26s cubic-bezier(.16, 1, .3, 1);
+  }
+  .modal-head { padding: 14px 16px 10px; }
+  .modal-body { padding: 14px 16px; }
+  .modal-foot { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .modal-foot .btn-lg { min-height: 44px; }
+
+  /* ---- touch targets ---- */
+  .btn-lg { min-height: 44px; }
+  .suggest-strip { gap: 8px; }
+  .suggest-strip button { min-height: 44px; padding: 0 16px; font-size: 14px; }
+  .tag-chips, .type-chips { gap: 6px; }
+  .tag-chips button, .type-chips button { min-height: 44px; padding: 0 14px; font-size: 14px; }
+  .qty-type-seg button { min-height: 44px; font-size: 14px; }
+  .qty-stepper button { width: 48px; min-height: 48px; font-size: 20px; flex-shrink: 0; }
+  .qty-stepper input { width: auto; min-width: 0; }
+  .scan-btn { min-height: 44px; padding: 0 14px; font-size: 14px; }
+  .qty-presets { gap: 8px !important; }
+  .qty-preset { min-height: 44px; min-width: 56px; font-size: 14px !important; }
+  .combobox-input-wrap { min-height: 44px; }
+  .combobox-clear, .combobox-picker-btn { width: 40px; height: 40px; }
+  .combobox-item { min-height: 48px; }
+  .field input, .field select { min-height: 44px; }
+
+  /* ---- dashboard ---- */
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .cols { grid-template-columns: 1fr; }
+  .panel .rows { overflow: visible; }
+  .low-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 6px; }
+  .low-row > .pill { grid-column: 2; grid-row: 1; align-self: start; }
+  .low-row-qty { grid-column: 1 / -1; gap: 22px; }
+  .qty-pair { align-items: start; }
+  .low-row .sku, .low-row-name { overflow-wrap: anywhere; }
+
+  /* ---- batch inbound / outbound: each line becomes a card ---- */
+  .batch-meta-fields { grid-template-columns: 1fr; gap: 12px; }
+  .batch-lines, .batch-lines-scroll { overflow: visible; }
+  .batch-line-head { display: none; }
+  .batch-line {
+    grid-template-columns: 1fr 1fr 44px;
+    grid-template-areas:
+      "prod prod rm"
+      "qty  type type"
+      "rem  rem  rem";
+    gap: 8px; padding: 12px;
+  }
+  .batch-line .col-name { grid-area: prod; min-width: 0; }
+  .batch-line .col-qty { grid-area: qty; }
+  .batch-line .col-type { grid-area: type; }
+  .batch-line .col-rem { grid-area: rem; }
+  .batch-line .remove { grid-area: rm; width: 44px; height: 44px; margin: 0; font-size: 16px; }
+  .batch-line select, .batch-line > input { min-height: 44px; }
+  .batch-line-error { padding: 0 12px 10px; margin-top: 0; font-size: 13px; }
+  .batch-lines-foot { padding: 10px 12px; }
+  .batch-add { width: 100%; min-height: 44px; font-size: 14px; }
+  .flow-foot {
+    position: sticky; bottom: 0; z-index: 5;
+    flex-wrap: wrap; gap: 8px;
+    margin: 0 -14px -18px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 18px rgba(0,0,0,0.05);
+  }
+  .flow-foot .actions { flex: 1 1 100%; }
+  .flow-foot .actions .btn-lg { width: 100%; min-height: 48px; font-size: 15px; font-weight: 600; }
+
+  /* ---- shipments: list and detail are separate screens ---- */
+  .ship-split { grid-template-columns: 1fr; }
+  .ship-split.has-detail .ship-list,
+  .ship-split:not(.has-detail) .ship-detail { display: none !important; }
+  .ship-back {
+    display: flex; align-items: center;
+    min-height: 44px; padding: 0 14px;
+    border: none; border-bottom: 1px solid var(--border); background: none;
+    font: 500 14px var(--sans); color: var(--ink-2); cursor: pointer;
+    text-align: left;
+  }
+
+  .ap-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+  .toast-stack { bottom: calc(84px + env(safe-area-inset-bottom)); }
+}
+
+@keyframes sheet-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-sheet, .modal, .sheet-scrim, .modal-scrim { animation: none; }
 }

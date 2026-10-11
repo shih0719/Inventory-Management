@@ -1,20 +1,7 @@
 const db = require("../config/database");
 const auditService = require("../services/auditService");
-
-// Generate shipment number in format SHP-YYYYMMDD-XXX
-async function generateShipmentNumber(shipmentDate) {
-  const date = new Date(shipmentDate);
-  const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
-
-  const result = await db.get(
-    `SELECT COUNT(*) as count FROM shipments
-     WHERE shipment_number LIKE ? AND is_deleted = 0`,
-    [`SHP-${dateStr}-%`]
-  );
-
-  const nextSeq = (result?.count || 0) + 1;
-  return `SHP-${dateStr}-${String(nextSeq).padStart(3, '0')}`;
-}
+const { generateShipmentNumber } = require("../services/shipmentService");
+const { buildShipmentWorkbook } = require("../services/shipmentExportService");
 
 // Create new shipment
 async function create(req, res) {
@@ -231,6 +218,23 @@ async function getById(req, res) {
   }
 }
 
+// Export one shipment as .xlsx (sheets: 出貨明細, 序號表)
+async function exportXlsx(req, res) {
+  try {
+    const result = await buildShipmentWorkbook(req.params.id, req.warehouseId);
+    if (!result) {
+      return res.status(404).json({ success: false, error: "Shipment not found" });
+    }
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
+    await result.workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error exporting shipment:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // Update shipment
 async function update(req, res) {
   try {
@@ -407,6 +411,7 @@ module.exports = {
   create,
   getAll,
   getById,
+  exportXlsx,
   update,
   delete: delete_,
 };

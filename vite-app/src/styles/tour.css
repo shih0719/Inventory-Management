@@ -16,6 +16,21 @@
   transition: all 0.2s ease;
 }
 
+/* Phones: sit above the bottom action bar / sticky submit instead of covering them */
+@media (max-width: 900px) {
+  .tour-trigger-driver {
+    width: 40px;
+    height: 40px;
+    font-size: 17px;
+    right: 14px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+  body:has(.sheet-scrim) .tour-trigger-driver,
+  body:has(.modal-scrim) .tour-trigger-driver {
+    display: none;
+  }
+}
+
 .tour-trigger-driver:hover:not(:disabled) {
   background: #4338ca;
   transform: scale(1.1);

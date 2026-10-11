@@ -72,6 +72,17 @@ export interface AppState {
 }
 
 const RECENT_KEY = 'inv.recentSkus';
+const LANG_KEY = 'inv.lang';
+const LANGS: Lang[] = ['en', 'zh', 'zh-cn', 'ja'];
+
+function loadLang(): Lang {
+  try {
+    const saved = localStorage.getItem(LANG_KEY) as Lang | null;
+    return saved && LANGS.includes(saved) ? saved : 'en';
+  } catch {
+    return 'en';
+  }
+}
 
 function loadRecent(): string[] {
   try {
@@ -85,7 +96,7 @@ function loadRecent(): string[] {
 }
 
 export function useAppState(): AppState {
-  const [lang, setLang] = useState<Lang>('en');
+  const [lang, setLang] = useState<Lang>(loadLang);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
   const [activeWarehouse, setActiveWarehouse] = useState<ActiveWarehouse | null>(() => {
@@ -204,11 +215,16 @@ export function useAppState(): AppState {
     }
   }, [recentSkus]);
 
-  // ---- update <html lang>
+  // ---- update <html lang> + persist choice
   useEffect(() => {
-    const langMap = { en: 'en', zh: 'zh-Hant', ja: 'ja' };
+    const langMap: Record<Lang, string> = { en: 'en', zh: 'zh-Hant', 'zh-cn': 'zh-Hans', ja: 'ja' };
     document.documentElement.lang = langMap[lang];
     document.body.dataset.lang = lang;
+    try {
+      localStorage.setItem(LANG_KEY, lang);
+    } catch {
+      /* quota / private mode — ignore */
+    }
   }, [lang]);
 
   return {

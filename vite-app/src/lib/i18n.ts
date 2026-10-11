@@ -77,7 +77,6 @@ export const L = {
     returnLbl: 'Return',
     internalLbl: 'Internal',
 
-    apNoteForBatch: 'AP product · manage units in the AP panel',
     apNote: 'AP item · serial numbers are tracked separately',
 
     today: 'today',
@@ -123,15 +122,6 @@ export const L = {
     failedToMarkTitle: 'Failed to Mark as Sold',
 
     quickSellTitle: 'Quick Outbound',
-    quickSellSerialLabel: 'Serial numbers (one per line)',
-    quickSellSerialPh: 'Scan or paste serial numbers…',
-    quickSellProjectCase: 'Project / Case',
-    quickSellProjectCasePh: 'Required',
-    quickSellSoldTo: 'Customer / Recipient (optional)',
-    quickSellSoldToPh: 'Optional',
-    quickSellSubmit: 'Confirm Outbound',
-    quickSellSuccess: 'units shipped out successfully.',
-    quickSellErrors: 'The following serials failed:',
   },
   zh: {
     appName: '小倉庫存',
@@ -207,7 +197,6 @@ export const L = {
     returnLbl: '退貨',
     internalLbl: '內部',
 
-    apNoteForBatch: 'AP 序號品 · 在 AP 面板中管理',
     apNote: 'AP 品 · 序號獨立追蹤',
 
     today: '今日',
@@ -249,15 +238,6 @@ export const L = {
     sourceShipment: '出貨',
 
     quickSellTitle: '快速出庫',
-    quickSellSerialLabel: '序號清單（每行一個）',
-    quickSellSerialPh: '掃描或貼上序號…',
-    quickSellProjectCase: '案子',
-    quickSellProjectCasePh: '必填',
-    quickSellSoldTo: '客戶 / 收件人（選填）',
-    quickSellSoldToPh: '選填',
-    quickSellSubmit: '確認出庫',
-    quickSellSuccess: '台已成功出庫。',
-    quickSellErrors: '以下序號失敗：',
   },
   ja: {
     appName: '在庫管理室',
@@ -333,7 +313,6 @@ export const L = {
     returnLbl: '返品',
     internalLbl: '内部',
 
-    apNoteForBatch: 'AP商品 · APパネルで管理',
     apNote: 'AP品 · 型番は個別に追跡',
 
     today: '今日',
@@ -375,15 +354,6 @@ export const L = {
     sourceShipment: '出荷',
 
     quickSellTitle: 'クイック出荷',
-    quickSellSerialLabel: '型番リスト（1行1件）',
-    quickSellSerialPh: '型番をスキャンまたは貼り付け…',
-    quickSellProjectCase: '案件',
-    quickSellProjectCasePh: '必須',
-    quickSellSoldTo: '顧客 / 受取人（オプション）',
-    quickSellSoldToPh: 'オプション',
-    quickSellSubmit: '出荷確定',
-    quickSellSuccess: '件が正常に出荷されました。',
-    quickSellErrors: '以下の型番が失敗しました：',
   },
   'zh-cn': {
     appName: '小仓库存',
@@ -459,7 +429,6 @@ export const L = {
     returnLbl: '退货',
     internalLbl: '内部',
 
-    apNoteForBatch: 'AP 序号品 · 在 AP 面板中管理',
     apNote: 'AP 品 · 序号独立追踪',
 
     today: '今日',
@@ -505,15 +474,6 @@ export const L = {
     failedToMarkTitle: '标记为售出失败',
 
     quickSellTitle: '快速出库',
-    quickSellSerialLabel: '序号清单（每行一个）',
-    quickSellSerialPh: '扫描或粘贴序号…',
-    quickSellProjectCase: '案子',
-    quickSellProjectCasePh: '必填',
-    quickSellSoldTo: '客户 / 收件人（选填）',
-    quickSellSoldToPh: '选填',
-    quickSellSubmit: '确认出库',
-    quickSellSuccess: '台已成功出库。',
-    quickSellErrors: '以下序号失败：',
   },
 } as const;
 

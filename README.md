@@ -98,8 +98,9 @@ NODE_ENV=production
 | `GET/POST /api/transactions`、`GET /api/transactions/:id`、`GET /api/transactions/product/:productId` | 庫存異動 |
 | `GET/POST /api/batches`、`GET /api/batches/:id` | 批次異動 |
 | `GET/POST /api/shipments`、`GET/PUT/DELETE /api/shipments/:id` | 出貨單據 |
+| `POST /api/outbound` | 統一出庫（數量 + AP 序號 + 自動出貨單） |
 | `GET /api/tags` | 交易標籤 |
-| `GET/POST /api/product-units`、`GET/PUT/DELETE /api/product-units/:id`、`POST /api/product-units/bulk`、`POST /api/product-units/bulk-sell`、`POST /api/product-units/transfer`、`GET /api/product-units/export` | AP 序號品管理 |
+| `GET/POST /api/product-units`、`GET/PUT/DELETE /api/product-units/:id`、`POST /api/product-units/bulk`、`GET /api/product-units/lookup/:serial`、`POST /api/product-units/transfer`、`GET /api/product-units/export` | AP 序號品管理 |
 | `POST /api/csv/import`、`GET /api/csv/export`、`GET /api/csv/template`、`GET /api/csv/imports` | CSV 匯入匯出 |
 | `GET /api/reports/inventory` | 庫存報表 |
 

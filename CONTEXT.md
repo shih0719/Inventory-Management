@@ -40,6 +40,8 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 - `sold_to`（客戶/收件人）— 選填，案子內部不一定需要指定收件人
 - `sold_at` — 由系統在 status 轉為 `sold` 的瞬間自動填入，不由使用者輸入
 - 當 status 從 `sold` 改回 `in_stock` 時，`project_case` / `sold_to` / `sold_at` 三欄**自動清空**，避免殘留資訊誤導
+- AP 商品不能用數量出庫，必須在「出貨」頁掃描序號（避免 `accountable_quantity` 減少但序號仍是 `in_stock`）。
+- AP 商品進貨同樣必須掃描序號（「進貨」頁，批次明細帶 `serial_numbers`，數量 = 序號數）。新序號直接建立；已出庫的序號只有在「退貨」（RETURN）標籤下可改回 `in_stock`，並清空 `project_case` / `sold_to` / `sold_at`。
 
 **serial_number 規則**：
 - **全域唯一**（不同 Product 的 serial_number 也不會撞，UNIQUE 約束施加於整張 `product_units` 表）
@@ -70,6 +72,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 - `items_summary` — 逐筆列出被綁定的 Transactions 詳細資訊（不聚合），便於追蹤個別異動
 
 **操作規則**：
+0. **自動建立（主要途徑）** — 「出貨」頁送出且標籤為 `OUTBOUND` 時，`POST /api/outbound` 在同一個 DB transaction 內建立異動、將 AP 序號標為 `sold`、並建立 Shipment 綁定所有異動。其他標籤不建立 Shipment。含 AP 序號時 `project_case` 必填，並同時寫入 Shipment 與 AP；AP 的 `sold_to` 取自 Shipment 的 `customer`。下方「建立」改為補綁既有異動用。
 1. **建立** — 提供 `transaction_ids`；如果某 ID 已屬於其他 Shipment，API 返回 409 Conflict（防止誤加）
 2. **修改** — 通過 `PUT /shipments/:id` 提供完整新的 `transaction_ids` 列表，覆蓋舊值；所有業務欄位也可修改
 3. **刪除** — 軟刪除，Transactions 保留並自動解除關聯（shipment_id → NULL）；已刪除 Shipment 仍可查詢

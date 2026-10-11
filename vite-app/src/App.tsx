@@ -128,6 +128,7 @@ export function App() {
     <div className="app-shell">
       <Topbar
         lang={lang}
+        currentView={view.kind}
         products={products}
         recentSkus={recentSkus}
         bootState={bootState}
@@ -172,6 +173,7 @@ export function App() {
         onLoadAll={loadAll}
         onAdjustProduct={handleAdjustProduct}
         onBatchSubmit={handleBatchSubmit}
+        onQuickOutbound={() => navigateTo({ kind: 'batch', batchKind: 'outbound' })}
         onAdjustSubmit={handleAdjustSubmit}
         onAdjustTopbar={handleTopbarPick}
         onOpenPicker={openPicker}

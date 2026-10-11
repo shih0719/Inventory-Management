@@ -63,6 +63,7 @@ interface AppContentProps {
   onLoadAll: () => Promise<void>;
   onAdjustProduct: (product: Product) => void;
   onBatchSubmit: (payload: BatchSubmitPayload) => Promise<void>;
+  onQuickOutbound: () => void;
   onAdjustSubmit: (input: any) => Promise<void>;
   onAdjustTopbar: (id: number | '', product: Product | null) => void;
   onOpenPicker: (callback: (p: Product) => void) => void;
@@ -96,6 +97,7 @@ export function AppContent({
   onLoadAll,
   onAdjustProduct,
   onBatchSubmit,
+  onQuickOutbound,
   onAdjustSubmit,
   onAdjustTopbar,
   onOpenPicker,
@@ -156,6 +158,7 @@ export function AppContent({
       )}
       {view.kind === 'batch' && (
         <BatchFlow
+          key={view.batchKind}
           kind={view.batchKind}
           products={products}
           tags={tags}
@@ -171,7 +174,7 @@ export function AppContent({
           products={products}
           lang={lang}
           onSelectProduct={(product) => onSetModal({ kind: 'ap-product', product })}
-          onRefresh={() => void onRefetchProducts()}
+          onQuickOutbound={onQuickOutbound}
         />
       )}
       {view.kind === 'edit-products' && isAdmin && (

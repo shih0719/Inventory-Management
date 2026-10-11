@@ -56,6 +56,24 @@ async function getAll(req, res) {
   }
 }
 
+// GET /api/product-units/lookup/:serial — exact serial in the current warehouse
+async function lookupBySerial(req, res) {
+  try {
+    const sn = normalizeSerial(req.params.serial);
+    const unit = await db.get(
+      `SELECT pu.id, pu.serial_number, pu.status, pu.product_id, p.sku, p.name AS product_name
+       FROM product_units pu JOIN products p ON pu.product_id = p.id
+       WHERE pu.serial_number = ? AND p.warehouse_id = ? AND p.is_deleted = 0`,
+      [sn, req.warehouseId]
+    );
+    if (!unit) return res.status(404).json({ success: false, error: "此倉庫找不到序號" });
+    res.json({ success: true, data: unit });
+  } catch (error) {
+    console.error("Error looking up serial:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 // POST /api/product-units
 async function create(req, res) {
   try {
@@ -173,107 +191,6 @@ async function bulkCreate(req, res) {
     res.status(201).json({ success: true, data: { inserted, failed: errors.length, errors, message } });
   } catch (error) {
     console.error("Error bulk creating product units:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-}
-
-// POST /api/product-units/bulk-sell
-async function bulkSell(req, res) {
-  try {
-    const { serial_numbers, project_case, sold_to, remarks } = req.body;
-    const createdByUser = req.user?.username || "unknown";
-
-    if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
-      return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
-    }
-    if (!project_case || !project_case.trim()) {
-      return res.status(400).json({ success: false, error: "project_case 為必填" });
-    }
-
-    const errors = [];
-    const seenInBatch = new Set();
-    const validUnits = [];
-
-    for (const raw of serial_numbers) {
-      if (!raw || !raw.trim()) {
-        errors.push({ serial_number: raw || "", reason: "序號不可為空" });
-        continue;
-      }
-      const sn = normalizeSerial(raw);
-      if (seenInBatch.has(sn)) {
-        errors.push({ serial_number: sn, reason: "批次內序號重複" });
-        continue;
-      }
-      seenInBatch.add(sn);
-
-      const unit = await db.get("SELECT * FROM product_units WHERE serial_number = ?", [sn]);
-      if (!unit) {
-        errors.push({ serial_number: sn, reason: "序號不存在" });
-      } else if (unit.status !== "in_stock") {
-        errors.push({ serial_number: sn, reason: "已出庫" });
-      } else {
-        validUnits.push(unit);
-      }
-    }
-
-    if (errors.length > 0) {
-      return res.status(400).json({ success: false, errors });
-    }
-
-    // All-or-nothing: all valid, proceed
-    const soldAt = new Date().toISOString();
-    for (const unit of validUnits) {
-      await db.run(
-        "UPDATE product_units SET status = 'sold', project_case = ?, sold_to = ?, sold_at = ?, remarks = CASE WHEN ? IS NOT NULL THEN ? ELSE remarks END WHERE id = ?",
-        [project_case.trim(), sold_to || null, soldAt, remarks || null, remarks || null, unit.id],
-      );
-    }
-
-    // Group by product_id and create OUTBOUND transactions
-    const outboundTag = await db.get("SELECT id FROM tags WHERE name = 'OUTBOUND'");
-    let transactionsCreated = 0;
-    if (outboundTag) {
-      const grouped = {};
-      for (const unit of validUnits) {
-        if (!grouped[unit.product_id]) grouped[unit.product_id] = [];
-        grouped[unit.product_id].push(unit.id);
-      }
-      for (const [productId, unitIds] of Object.entries(grouped)) {
-        const count = unitIds.length;
-        const productForValidation = await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [productId]);
-        if (productForValidation) {
-          // Validate outbound using QuantityState module
-          const validation = quantityStateService.validate(
-            productForValidation.accountable_quantity,
-            -count,
-            { quantityType: 'accountable' }
-          );
-          if (validation.ok) {
-            const productUnitIdsJson = JSON.stringify(unitIds);
-            await db.run(
-              "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, created_by_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              [productId, outboundTag.id, -count, "accountable", productForValidation.accountable_quantity, validation.newQuantity, "ap-sell", "系統自動", productUnitIdsJson, createdByUser],
-            );
-            await db.run(
-              "UPDATE products SET accountable_quantity = accountable_quantity - ? WHERE id = ?",
-              [count, productId],
-            );
-            transactionsCreated++;
-          }
-        }
-      }
-    }
-
-    res.json({
-      success: true,
-      data: {
-        sold: validUnits.length,
-        transactions_created: transactionsCreated,
-        message: `${validUnits.length} unit${validUnits.length !== 1 ? 's' : ''} have been marked as sold.`
-      }
-    });
-  } catch (error) {
-    console.error("Error bulk selling product units:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 }
@@ -535,4 +452,4 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { getAll, getById, create, bulkCreate, bulkSell, transfer, update, remove, exportCSV };
+module.exports = { getAll, getById, lookupBySerial, create, bulkCreate, transfer, update, remove, exportCSV };

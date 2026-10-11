@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ProductUnit } from '../types';
+import type { ProductUnit, SerialLookup } from '../types';
 
 export async function listProductUnits(productId: number, status?: string): Promise<ProductUnit[]> {
   const res = await api.get<ProductUnit[]>('/api/product-units', {
@@ -37,18 +37,8 @@ export async function transferUnits(
   return res.data;
 }
 
-export async function bulkSellUnits(
-  serialNumbers: string[],
-  projectCase: string,
-  soldTo?: string,
-): Promise<{ sold: number; transactions_created: number; message: string }> {
-  const res = await api.post<{ sold: number; transactions_created: number; message: string }>(
-    '/api/product-units/bulk-sell',
-    {
-      serial_numbers: serialNumbers,
-      project_case: projectCase,
-      ...(soldTo && { sold_to: soldTo }),
-    },
-  );
+/** Exact serial lookup in the current warehouse. Throws ApiError(404) when not found. */
+export async function lookupSerial(serial: string): Promise<SerialLookup> {
+  const res = await api.get<SerialLookup>(`/api/product-units/lookup/${encodeURIComponent(serial.trim())}`);
   return res.data;
 }

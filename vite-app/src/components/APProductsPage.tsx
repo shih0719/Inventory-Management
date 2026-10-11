@@ -1,23 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { Product } from '../types';
 import { L, type Lang } from '../lib/i18n';
-import { QuickSellModal } from './modals/QuickSellModal';
 
 export interface APProductsPageProps {
   products: Product[];
   lang: Lang;
   onSelectProduct: (product: Product) => void;
-  onRefresh?: () => void;
+  /** Opens the outbound flow, where AP serials are scanned. */
+  onQuickOutbound: () => void;
 }
 
 export function APProductsPage({
   products,
   lang,
   onSelectProduct,
-  onRefresh,
+  onQuickOutbound,
 }: APProductsPageProps) {
   const t = L[lang];
-  const [showQuickSell, setShowQuickSell] = useState(false);
 
   const apProducts = useMemo(() => products.filter((p) => p.track_serial), [products]);
 
@@ -35,29 +34,18 @@ export function APProductsPage({
             </div>
           </div>
           </div>
-          <button className="btn-lg primary" onClick={() => setShowQuickSell(true)}>
+          <button className="btn-lg primary" onClick={onQuickOutbound}>
             {t.quickSellTitle}
           </button>
         </div>
       </div>
-
-      {showQuickSell && (
-        <QuickSellModal
-          lang={lang}
-          onClose={() => setShowQuickSell(false)}
-          onSuccess={() => {
-            setShowQuickSell(false);
-            onRefresh?.();
-          }}
-        />
-      )}
 
       <div className="card panel">
         <h3>
           <span>{lang === 'en' ? 'AP Products' : 'AP 序號品'}</span>
           <span className="pill">{apProducts.length}</span>
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flex: 1, minHeight: 0 }}>
+        <div className="ap-grid">
           {apProducts.length === 0 ? (
             <div style={{ gridColumn: '1 / -1', padding: '24px 8px', color: 'var(--ink-3)', fontSize: 12, textAlign: 'center' }}>
               {lang === 'en'

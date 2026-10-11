@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
 import type { Product, Lang } from '../types';
 import { ProductCombobox } from './ProductCombobox';
 import { Dropdown, DropdownItem } from './Dropdown';
 
 interface TopbarProps {
   lang: Lang;
+  /** Current view kind — highlights the active item in the mobile menu and hides the bottom action bar inside batch flows. */
+  currentView: string;
   products: Product[];
   recentSkus: string[];
   bootState: 'loading' | 'ready' | 'error';
@@ -32,8 +35,24 @@ interface TopbarProps {
   t: Record<string, string>;
 }
 
+const LANG_OPTIONS: { code: Lang; short: string; label: string }[] = [
+  { code: 'en', short: 'EN', label: 'English' },
+  { code: 'zh', short: '繁', label: '繁體中文' },
+  { code: 'zh-cn', short: '简', label: '简体中文' },
+  { code: 'ja', short: 'JP', label: '日本語' },
+];
+
+function MenuIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function Topbar({
   lang,
+  currentView,
   products,
   recentSkus,
   bootState,
@@ -61,8 +80,44 @@ export function Topbar({
   onOpenPicker,
   t,
 }: TopbarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const ready = bootState === 'ready';
+  const tx = (en: string, zh: string, ja: string) => (lang === 'en' ? en : lang.startsWith('zh') ? zh : ja);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  // Close the sheet first so navigation never lands behind an open overlay.
+  const go = (fn: () => void) => () => {
+    setMenuOpen(false);
+    fn();
+  };
+
+  const navItems = [
+    { view: 'dashboard', label: tx('Dashboard', '總覽', 'ダッシュボード'), onClick: onLogoClick, show: true },
+    { view: 'reports', label: tx('Inventory Report', '庫存報表', '在庫レポート'), onClick: onReports, show: true },
+    { view: 'transactions', label: tx('History', '交易歷史', '履歴'), onClick: onTransactions, show: true },
+    { view: 'ap-products', label: tx('AP Products', 'AP 序號品', 'AP商品'), onClick: onAPProducts, show: true },
+    { view: 'shipments', label: tx('Shipments', '出貨單據', '配送'), onClick: onShipments, show: true },
+    { view: 'edit-products', label: tx('Manage Products', '產品管理', '商品管理'), onClick: onEditProducts, show: isAdmin },
+    { view: 'audit-logs', label: tx('Audit Logs', '操作日誌', '操作ログ'), onClick: onAuditLogs, show: isAdmin },
+    { view: 'users', label: tx('Users', '使用者管理', 'ユーザー管理'), onClick: onUsers, show: isAdmin },
+    { view: 'warehouses', label: tx('Warehouses', '倉庫管理', '倉庫管理'), onClick: onWarehouses, show: isAdmin },
+    { view: 'backup-settings', label: tx('Backup Settings', '備份設定', 'バックアップ設定'), onClick: onBackupSettings, show: isAdmin },
+  ].filter((i) => i.show);
+
   return (
-    <div className="tb">
+    <>
+    <div className={'tb' + (currentView === 'batch' ? ' tb--batch' : '')}>
       <button
         className="logo"
         onClick={onLogoClick}
@@ -72,7 +127,7 @@ export function Topbar({
         {t.appName}
       </button>
 
-      <div style={{ flex: 1, maxWidth: 340, minWidth: 180 }}>
+      <div className="tb-search">
         <ProductCombobox
           products={products}
           recentSkus={recentSkus}
@@ -89,6 +144,7 @@ export function Topbar({
         />
       </div>
 
+      <div className="tb-desk">
       {canWrite && (
         <button
           className="btn"
@@ -205,6 +261,113 @@ export function Topbar({
           {lang === 'en' ? 'Sign out' : lang.startsWith('zh') ? '登出' : 'ログアウト'}
         </DropdownItem>
       </Dropdown>
+      </div>
+
+      {activeWarehouse && (
+        <button
+          className="tb-wh"
+          onClick={onSwitchWarehouse}
+          aria-label={tx('Switch warehouse', '切換倉庫', '倉庫を切り替え')}
+        >
+          {activeWarehouse.name}
+        </button>
+      )}
+      <button
+        className="tb-menu-btn"
+        onClick={() => setMenuOpen(true)}
+        aria-label={tx('Menu', '選單', 'メニュー')}
+        aria-expanded={menuOpen}
+      >
+        <MenuIcon />
+      </button>
     </div>
+
+    {canWrite && currentView !== 'batch' && (
+      <nav className="mobile-actions" aria-label={tx('Stock actions', '庫存動作', '在庫操作')}>
+        <button className="btn-lg" onClick={onInbound} disabled={!ready}>
+          <span className="dir in" aria-hidden="true">↑</span>
+          {tx('Inbound', '進貨', '入庫')}
+        </button>
+        <button className="btn-lg" onClick={onOutbound} disabled={!ready}>
+          <span className="dir out" aria-hidden="true">↓</span>
+          {tx('Outbound', '出貨', '出庫')}
+        </button>
+      </nav>
+    )}
+
+    {menuOpen && (
+      <div className="sheet-scrim" onClick={() => setMenuOpen(false)}>
+        <aside
+          className="nav-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label={tx('Menu', '選單', 'メニュー')}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="nav-sheet-head">
+            <div className="nav-sheet-who">
+              <span className="avatar">{currentUser?.username?.[0]?.toUpperCase() || 'A'}</span>
+              <div>
+                <div className="nav-sheet-user">{currentUser?.username}</div>
+                {activeWarehouse && <div className="nav-sheet-wh">{activeWarehouse.name}</div>}
+              </div>
+            </div>
+            <button className="nav-sheet-close" onClick={() => setMenuOpen(false)} aria-label={tx('Close', '關閉', '閉じる')}>
+              ✕
+            </button>
+          </div>
+
+          <div className="nav-sheet-body">
+            <div className="nav-sheet-group">
+              {navItems.map((item) => (
+                <button
+                  key={item.view}
+                  className={'nav-sheet-item' + (currentView === item.view ? ' on' : '')}
+                  aria-current={currentView === item.view ? 'page' : undefined}
+                  onClick={go(item.onClick)}
+                  disabled={!ready}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="nav-sheet-group">
+              <div className="nav-sheet-label">{tx('Language', '語言', '言語')}</div>
+              <div className="nav-sheet-langs">
+                {LANG_OPTIONS.map((l) => (
+                  <button
+                    key={l.code}
+                    className={lang === l.code ? 'on' : ''}
+                    aria-pressed={lang === l.code}
+                    onClick={() => onLanguageChange(l.code)}
+                    title={l.label}
+                  >
+                    {l.short}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="nav-sheet-group">
+              {activeWarehouse && (
+                <button className="nav-sheet-item" onClick={go(onSwitchWarehouse)}>
+                  {tx('Switch warehouse', '切換倉庫', '倉庫を切り替え')}
+                </button>
+              )}
+              {currentUser?.provider === 'local' && (
+                <button className="nav-sheet-item" onClick={go(onChangePassword)}>
+                  {tx('Change Password', '修改密碼', 'パスワード変更')}
+                </button>
+              )}
+              <button className="nav-sheet-item danger" onClick={go(onLogout)}>
+                {tx('Sign out', '登出', 'ログアウト')}
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    )}
+    </>
   );
 }

@@ -144,7 +144,7 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
                 <div className="low-row-main">
                   <div className="low-row-head">
                     <span className="sku">{p.sku}</span>
-                    {p.track_serial && (
+                    {!!p.track_serial && (
                       <span className="pill" style={{ fontSize: 9, padding: '0 5px', marginLeft: 6 }}>
                         AP
                       </span>

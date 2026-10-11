@@ -5,6 +5,7 @@ import {
   getShipment,
   createShipment,
   deleteShipment,
+  exportShipmentXlsx,
 } from '../api/shipments';
 import { listTransactions } from '../api/transactions';
 import { listAllProducts } from '../api/products';
@@ -167,8 +168,8 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
             <h2>{lang === 'en' ? 'Shipments' : '出貨單據'}</h2>
             <div className="sub">
               {lang === 'en'
-                ? 'Group transactions into shipments'
-                : '將異動分組為出貨單據'}
+                ? 'Shipments are created by Outbound with the OUTBOUND tag'
+                : '出貨單據由「出貨」頁（OUTBOUND 標籤）自動建立'}
             </div>
           </div>
         </div>
@@ -180,9 +181,9 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, flex: 1, minHeight: 0 }}>
+      <div className={'ship-split' + (isCreating || selectedShipment ? ' has-detail' : '')}>
         {/* Left: Shipments List */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+        <div className="ship-list" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
               {lang === 'en' ? 'Shipments' : '清單'} ({shipments.length})
@@ -192,7 +193,7 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
               className="btn ghost"
               style={{ fontSize: 12, padding: '4px 10px' }}
             >
-              {isCreating ? (lang === 'en' ? 'Cancel' : '取消') : (lang === 'en' ? '+ New' : '新增')}
+              {isCreating ? (lang === 'en' ? 'Cancel' : '取消') : (lang === 'en' ? 'Bind existing' : '補綁異動')}
             </button>
           </div>
 
@@ -226,11 +227,21 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
         </div>
 
         {/* Right: Create or Details */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+        <div className="ship-detail" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+          {/* Phone only: list and detail are separate screens */}
+          <button
+            className="ship-back"
+            onClick={() => {
+              setIsCreating(false);
+              setSelectedShipment(null);
+            }}
+          >
+            ‹ {lang === 'en' ? 'All shipments' : '出貨單清單'}
+          </button>
           {isCreating ? (
             <>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13 }}>
-                {lang === 'en' ? 'New Shipment' : '新增出貨單'}
+                {lang === 'en' ? 'Bind existing transactions' : '補綁既有異動'}
               </div>
               <form onSubmit={handleCreateShipment} style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
@@ -372,6 +383,17 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
                     })}
                   </div>
                 </div>
+
+                <button
+                  onClick={() =>
+                    exportShipmentXlsx(selectedShipment.id, selectedShipment.shipment_number).catch((err) =>
+                      setError((err as Error).message),
+                    )
+                  }
+                  className="btn ghost"
+                >
+                  {lang === 'en' ? 'Export Excel' : '匯出 Excel'}
+                </button>
 
                 <button
                   onClick={() => handleDeleteShipment(selectedShipment.id)}
