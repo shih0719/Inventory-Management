@@ -13,6 +13,7 @@ import type { BatchSubmitPayload } from '../components/BatchFlow';
 import { ApiError } from '../api/client';
 import { createTransaction } from '../api/transactions';
 import { createBatch } from '../api/batches';
+import { createOutbound } from '../api/outbound';
 import { logout } from '../api/auth';
 import { exportProductsCsv, importProductsCsv } from '../api/csv';
 import { L } from '../lib/i18n';
@@ -121,10 +122,27 @@ export function useAppHandlers(
     async (payload: BatchSubmitPayload) => {
       try {
         const items: CreateBatchItem[] = payload.items;
-        await createBatch({ name: payload.name, tag_id: payload.tagId, items });
+        let suffix = `${items.length} ${t.lines}`;
+        if (payload.outbound) {
+          const result = await createOutbound({
+            tag_id: payload.tagId,
+            description: payload.name,
+            items: items.map((i) => ({
+              product_id: i.product_id,
+              quantity: Math.abs(i.quantity_change),
+              quantity_type: i.quantity_type,
+              remarks: i.remarks,
+            })),
+            serial_numbers: payload.outbound.serials,
+            shipment: payload.outbound.shipment,
+          });
+          suffix = result.shipment_number ?? `${items.length + payload.outbound.serials.length} ${t.lines}`;
+        } else {
+          await createBatch({ name: payload.name, tag_id: payload.tagId, items });
+        }
         await Promise.all([refetchProducts(), refetchTransactions()]);
         navigateTo({ kind: 'dashboard' });
-        showToast(`${t.batchSaved} · ${items.length} ${t.lines}`);
+        showToast(`${t.batchSaved} · ${suffix}`);
       } catch (err) {
         const message = err instanceof ApiError ? err.message : (err as Error).message;
         let detail = '';
@@ -132,6 +150,10 @@ export function useAppHandlers(
           const body = err.body as any;
           if (body?.data?.failed) {
             detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : lang.startsWith('zh') ? '失敗' : '失敗'})`;
+          }
+          if (Array.isArray(body?.errors) && body.errors.length > 0) {
+            const first = body.errors[0];
+            detail = ` — ${typeof first === 'string' ? first : `${first.serial_number}: ${first.reason}`}`;
           }
         }
         showToast(`❌ ${message}${detail}`, { kind: 'alert', duration: 6000 });

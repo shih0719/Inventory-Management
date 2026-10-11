@@ -1,8 +1,10 @@
 // src/components/BatchFlow.tsx
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import type { CreateBatchItem, Product, QuantityType, Tag } from '../types';
+import type { CreateBatchItem, Product, QuantityType, SerialLookup, Tag } from '../types';
 import { L, tagLabel, type Lang } from '../lib/i18n';
 import { ProductCombobox } from './ProductCombobox';
+import { ShipmentFields, SerialList, type ShipmentDraft } from './OutboundExtras';
+import { lookupSerial } from '../api/product-units';
 
 export interface BatchSubmitPayload {
   name: string;
@@ -10,6 +12,8 @@ export interface BatchSubmitPayload {
   /** UI-only convenience copy, NOT sent to the backend. */
   tagId: number;
   locationTag: string;
+  /** Outbound only: AP serials and shipment fields, sent to POST /api/outbound. */
+  outbound?: { serials: string[]; shipment: ShipmentDraft };
 }
 
 export interface BatchFlowProps {
@@ -67,14 +71,49 @@ export function BatchFlow({
   const [touched, setTouched] = useState<Set<number>>(() => new Set());
   const touch = (id: number) => setTouched((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
 
+  // Outbound only: scanned AP serials + shipment fields.
+  const [serialUnits, setSerialUnits] = useState<SerialLookup[]>([]);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [shipment, setShipment] = useState<ShipmentDraft>({
+    customer: '',
+    project_case: '',
+    shipment_date: new Date().toISOString().split('T')[0],
+  });
+  const createsShipment = tags.find((tg) => tg.id === tagId)?.name === 'OUTBOUND';
+  const caseRequired = serialUnits.length > 0;
+
+  /** Text scanned into a product field that matched no SKU: try it as an AP serial. */
+  const handleSerialScan = async (lineId: number, text: string): Promise<boolean> => {
+    const sn = text.trim().toUpperCase();
+    if (serialUnits.some((u) => u.serial_number === sn)) {
+      setScanError(lang === 'en' ? `${sn} is already in the list` : `${sn} 已在清單中`);
+      return false;
+    }
+    try {
+      const unit = await lookupSerial(sn);
+      if (unit.status !== 'in_stock') {
+        setScanError(lang === 'en' ? `${sn} is already shipped` : `${sn} 已出庫`);
+        return false;
+      }
+      setSerialUnits((prev) => [...prev, unit]);
+      setScanError(null);
+      focusProduct(lineId);
+      return true;
+    } catch {
+      setScanError(lang === 'en' ? `No product or serial "${sn}"` : `找不到商品或序號「${sn}」`);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (justPicked === null) return;
     const timer = setTimeout(() => setJustPicked(null), 700);
     return () => clearTimeout(timer);
   }, [justPicked]);
 
-  const scanPh =
-    lang === 'en' ? 'Scan or search product…' : lang === 'ja' ? 'スキャンまたは商品を検索…' : lang === 'zh-cn' ? '扫描或搜索商品…' : '掃描或搜尋商品…';
+  const scanPh = isInbound
+    ? lang === 'en' ? 'Scan or search product…' : lang === 'ja' ? 'スキャンまたは商品を検索…' : lang === 'zh-cn' ? '扫描或搜索商品…' : '掃描或搜尋商品…'
+    : lang === 'en' ? 'Scan SKU / AP serial, or search…' : lang === 'ja' ? 'SKU / AP シリアルをスキャン…' : lang === 'zh-cn' ? '扫描 SKU / AP 序号或搜索…' : '掃描 SKU / AP 序號或搜尋…';
 
   const setLine = (id: number, patch: Partial<LineRow>) =>
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -113,6 +152,8 @@ export function BatchFlow({
         let error: string | null = null;
         if (!product) {
           error = null; // empty line is fine until submit
+        } else if (!isInbound && product.track_serial) {
+          error = lang === 'en' ? 'AP product — scan its serial numbers instead' : 'AP 商品請改掃描序號';
         } else if (l.qty === 0 || l.qty === '') {
           error = qtyRequiredMsg;
         } else if (!isInbound && product) {
@@ -129,9 +170,11 @@ export function BatchFlow({
 
   const validLines = linesWithStatus.filter((l) => l.product && Number(l.qty) > 0 && !l.error);
   const hasErrors = linesWithStatus.some((l) => l.error);
-  const canSubmit = validLines.length > 0 && !hasErrors && !submitting;
+  const caseMissing = caseRequired && !shipment.project_case.trim();
+  const canSubmit =
+    (validLines.length > 0 || serialUnits.length > 0) && !hasErrors && !caseMissing && !submitting;
 
-  const totalUnits = validLines.reduce((s, l) => s + Number(l.qty), 0);
+  const totalUnits = validLines.reduce((s, l) => s + Number(l.qty), 0) + serialUnits.length;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -146,7 +189,13 @@ export function BatchFlow({
 
     setSubmitting(true);
     try {
-      await onSubmit({ name: generatedName, items, tagId, locationTag: '' });
+      await onSubmit({
+        name: generatedName,
+        items,
+        tagId,
+        locationTag: '',
+        ...(isInbound ? {} : { outbound: { serials: serialUnits.map((u) => u.serial_number), shipment } }),
+      });
     } finally {
       setSubmitting(false);
     }
@@ -195,6 +244,16 @@ export function BatchFlow({
         </div>
       </div>
 
+      {!isInbound && (
+        <ShipmentFields
+          value={shipment}
+          onChange={(patch) => setShipment((s) => ({ ...s, ...patch }))}
+          createsShipment={createsShipment}
+          caseRequired={caseRequired}
+          lang={lang}
+        />
+      )}
+
       {/* Lines */}
       <div
         className="batch-lines"
@@ -237,6 +296,7 @@ export function BatchFlow({
                     lang={lang}
                     placeholder={scanPh}
                     focusSignal={scanFocus.lineId === l.id ? scanFocus.n : 0}
+                    onUnmatchedEnter={isInbound ? undefined : (text) => handleSerialScan(l.id, text)}
                     onPicked={() => {
                       setJustPicked(l.id);
                       const el = qtyRefs.current.get(l.id);
@@ -244,11 +304,6 @@ export function BatchFlow({
                       el?.select();
                     }}
                   />
-                  {!!l.product?.track_serial && (
-                    <div style={{ marginTop: 4 }}>
-                      <span className="ap-note">{t.apNoteForBatch}</span>
-                    </div>
-                  )}
                 </div>
                 <input
                   className="col-qty"
@@ -318,6 +373,15 @@ export function BatchFlow({
           </button>
         </div>
       </div>
+
+      {!isInbound && (
+        <SerialList
+          units={serialUnits}
+          onRemove={(sn) => setSerialUnits((prev) => prev.filter((u) => u.serial_number !== sn))}
+          scanError={scanError}
+          lang={lang}
+        />
+      )}
 
       <div className="flow-foot">
         <div className="progress">
