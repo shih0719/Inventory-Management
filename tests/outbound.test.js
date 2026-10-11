@@ -223,3 +223,26 @@ describe("POST /api/outbound", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("GET /api/product-units/lookup/:serial", () => {
+  const lookup = (sn, wid = warehouseId) =>
+    request(app)
+      .get(`/api/product-units/lookup/${encodeURIComponent(sn)}`)
+      .set("Authorization", `Bearer ${token}`)
+      .set("X-Warehouse-Id", String(wid));
+
+  it("找到序號（不分大小寫）→ 200 帶商品資訊", async () => {
+    const apId = await createProduct("OB-LK", { serials: ["OB-LK-1"] });
+    const res = await lookup(" ob-lk-1 ");
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      serial_number: "OB-LK-1", status: "in_stock", product_id: apId, sku: "OB-LK",
+    });
+  });
+
+  it("不存在或在別的倉庫 → 404", async () => {
+    await createProduct("OB-LK-OTHER", { serials: ["OB-LK-O1"], wid: otherWarehouseId });
+    expect((await lookup("OB-NOPE-999")).status).toBe(404);
+    expect((await lookup("OB-LK-O1")).status).toBe(404);
+  });
+});
