@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Product } from '../../types';
 import { L, type Lang } from '../../lib/i18n';
 import { bulkCreateUnits } from '../../api/product-units';
 import { ApiError } from '../../api/client';
 import { ConfirmModal } from './ConfirmModal';
+import { CameraScanner } from '../CameraScanner';
 
 export interface CreateProductUnitsModalProps {
   product: Product;
@@ -22,6 +23,21 @@ export function CreateProductUnitsModal({
   const [serials, setSerials] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resultModal, setResultModal] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
+  // Camera callbacks fire between renders; read the latest text from a ref.
+  const serialsRef = useRef(serials);
+  serialsRef.current = serials;
+
+  /** Append a scanned code as a new line. Serials are stored upper-case, so compare that way. */
+  const addScanned = (code: string): boolean => {
+    const norm = code.trim().toUpperCase();
+    const prev = serialsRef.current;
+    if (prev.split('\n').some((s) => s.trim().toUpperCase() === norm)) return false;
+    const next = prev + (prev && !prev.endsWith('\n') ? '\n' : '') + norm + '\n';
+    serialsRef.current = next;
+    setSerials(next);
+    return true;
+  };
 
   // Parse input: split by newlines, filter empty lines, trim whitespace
   const serialList = serials
@@ -92,10 +108,25 @@ export function CreateProductUnitsModal({
           </div>
 
           <div className="field">
-            <label style={{ marginBottom: 8 }}>
-              {lang === 'en' ? 'Serial Numbers (one per line)' : '序號品 (一行一個)'}
-            </label>
+            <div className="serial-label-row">
+              <label style={{ margin: 0 }}>
+                {lang === 'en' ? 'Serial Numbers (one per line)' : '序號品 (一行一個)'}
+              </label>
+              <button type="button" className="scan-btn" onClick={() => setScanning(true)}>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M1.5 5V2.5a1 1 0 0 1 1-1H5M11 1.5h2.5a1 1 0 0 1 1 1V5M14.5 11v2.5a1 1 0 0 1-1 1H11M5 14.5H2.5a1 1 0 0 1-1-1V11M4.5 5v6M7 5v6M9 5v6M11.5 5v6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {lang === 'en' ? 'Scan with camera' : lang === 'ja' ? 'カメラでスキャン' : lang === 'zh-cn' ? '相机扫描' : '相機掃描'}
+              </button>
+            </div>
             <textarea
+              autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false}
               value={serials}
               onChange={(e) => setSerials(e.target.value)}
               placeholder={
@@ -177,6 +208,15 @@ export function CreateProductUnitsModal({
         </div>
       </div>
       </div>
+
+      {scanning && (
+        <CameraScanner
+          lang={lang}
+          count={serialList.length}
+          onDetect={addScanned}
+          onClose={() => setScanning(false)}
+        />
+      )}
 
       {resultModal && (
         <ConfirmModal

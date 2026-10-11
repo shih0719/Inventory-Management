@@ -180,9 +180,9 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, flex: 1, minHeight: 0 }}>
+      <div className={'ship-split' + (isCreating || selectedShipment ? ' has-detail' : '')}>
         {/* Left: Shipments List */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+        <div className="ship-list" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>
               {lang === 'en' ? 'Shipments' : '清單'} ({shipments.length})
@@ -226,7 +226,17 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
         </div>
 
         {/* Right: Create or Details */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+        <div className="ship-detail" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+          {/* Phone only: list and detail are separate screens */}
+          <button
+            className="ship-back"
+            onClick={() => {
+              setIsCreating(false);
+              setSelectedShipment(null);
+            }}
+          >
+            ‹ {lang === 'en' ? 'All shipments' : '出貨單清單'}
+          </button>
           {isCreating ? (
             <>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, fontSize: 13 }}>

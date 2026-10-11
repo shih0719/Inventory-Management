@@ -57,7 +57,7 @@ export function APProductsPage({
           <span>{lang === 'en' ? 'AP Products' : 'AP 序號品'}</span>
           <span className="pill">{apProducts.length}</span>
         </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, flex: 1, minHeight: 0 }}>
+        <div className="ap-grid">
           {apProducts.length === 0 ? (
             <div style={{ gridColumn: '1 / -1', padding: '24px 8px', color: 'var(--ink-3)', fontSize: 12, textAlign: 'center' }}>
               {lang === 'en'

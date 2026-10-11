@@ -66,6 +66,7 @@ export function QuickSellModal({ lang, onClose, onSuccess }: QuickSellModalProps
             <label>{t.quickSellSerialLabel}</label>
             <textarea
               rows={6}
+              autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false}
               placeholder={t.quickSellSerialPh}
               value={serialInput}
               onChange={(e) => setSerialInput(e.target.value)}

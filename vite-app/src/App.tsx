@@ -128,6 +128,7 @@ export function App() {
     <div className="app-shell">
       <Topbar
         lang={lang}
+        currentView={view.kind}
         products={products}
         recentSkus={recentSkus}
         bootState={bootState}

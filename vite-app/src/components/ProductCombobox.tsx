@@ -13,6 +13,13 @@ export interface ProductComboboxProps {
   placeholder?: string;
   variant?: 'default' | 'topbar';
   showQty?: boolean;
+  /**
+   * Called after a product is picked. When provided, the input keeps focus
+   * management to the caller (e.g. jump to the qty field) instead of blurring.
+   */
+  onPicked?: (product: Product) => void;
+  /** Bump to a new non-zero value to focus the input without opening the list (scan-ready). */
+  focusSignal?: number;
 }
 
 /**
@@ -29,6 +36,8 @@ export function ProductCombobox({
   placeholder,
   variant = 'default',
   showQty = true,
+  onPicked,
+  focusSignal = 0,
 }: ProductComboboxProps) {
   const t = L[lang];
   const selected = value ? products.find((p) => p.id === Number(value)) : null;
@@ -42,6 +51,16 @@ export function ProductCombobox({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  // A programmatic focus (scan-ready) shouldn't pop the list over the screen;
+  // the list opens as soon as the scanner or the user starts typing.
+  const quietFocusRef = useRef(false);
+
+  useEffect(() => {
+    if (!focusSignal || !inputRef.current) return;
+    quietFocusRef.current = true;
+    inputRef.current.focus();
+    inputRef.current.select();
+  }, [focusSignal]);
 
   useEffect(() => {
     if (!open) {
@@ -120,7 +139,8 @@ export function ProductCombobox({
     onChange(product.id, product);
     setQuery('');
     setOpen(false);
-    inputRef.current?.blur();
+    if (onPicked) onPicked(product);
+    else inputRef.current?.blur();
   }
 
   function clear() {
@@ -138,8 +158,19 @@ export function ProductCombobox({
       setHi((h) => Math.max(h - 1, 0));
       e.preventDefault();
     } else if (e.key === 'Enter') {
-      if (open && visible[hi]) {
+      // A scanner types the full SKU then sends Enter: an exact SKU match wins
+      // over the highlighted row (a short SKU can be a substring of another).
+      const q = query.trim().toLowerCase();
+      const exact = q ? products.find((p) => p.sku.toLowerCase() === q) : undefined;
+      if (exact) {
+        pick(exact);
+        e.preventDefault();
+      } else if (open && visible[hi]) {
         pick(visible[hi]);
+        e.preventDefault();
+      } else if (q) {
+        // No match: keep the text selected so the next scan replaces it.
+        inputRef.current?.select();
         e.preventDefault();
       }
     } else if (e.key === 'Escape') {
@@ -157,12 +188,22 @@ export function ProductCombobox({
         <input
           ref={inputRef}
           className="combobox-input"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="search"
           value={inputValue}
           onChange={(e) => {
             setQuery(e.target.value);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (quietFocusRef.current) {
+              quietFocusRef.current = false;
+              return;
+            }
+            setOpen(true);
+          }}
           onKeyDown={handleKey}
           placeholder={placeholder || t.search}
         />
@@ -222,7 +263,7 @@ export function ProductCombobox({
                   <div className="combobox-item-main">
                     <div className="combobox-item-head">
                       <span className="combobox-item-sku">{p.sku}</span>
-                      {p.track_serial && (
+                      {!!p.track_serial && (
                         <span className="pill" style={{ fontSize: 9, padding: '0 4px' }}>
                           AP
                         </span>

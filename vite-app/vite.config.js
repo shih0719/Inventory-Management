@@ -12,6 +12,8 @@ export default defineConfig(function (_a) {
         plugins: [react()],
         server: {
             port: 5173,
+            // Listen on all interfaces so phones on the LAN can open http://<this-pc-ip>:5173
+            host: true,
             proxy: {
                 '/api': {
                     target: proxyTarget,

@@ -15,14 +15,11 @@ export interface AdjustStockModalProps {
 export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: AdjustStockModalProps) {
   const t = L[lang];
 
-  // Suggested quantity to refill back to min_stock + 50% buffer
-  const refillTarget = Math.ceil(product.min_stock * 1.5);
-  const suggested = Math.max(refillTarget - product.accountable_quantity, 1);
-
   const inboundTag = tags.find((tg) => tg.name === 'INBOUND');
   const outboundTag = tags.find((tg) => tg.name === 'OUTBOUND');
 
-  const [qty, setQty] = useState<number | ''>(suggested);
+  // Starts empty: a transaction is immutable, so the user must enter the change themselves.
+  const [qty, setQty] = useState<number | ''>('');
   const [quantityType, setQuantityType] = useState<QuantityType>('accountable');
   const [tagId, setTagId] = useState<number>(inboundTag?.id ?? tags[0]?.id ?? 1);
   const [remarks, setRemarks] = useState('');
@@ -101,7 +98,7 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
           <div>
             <h3>
               {t.adjustTitle} — {product.sku}
-              {product.track_serial && <span className="ap-note">{t.apNote}</span>}
+              {!!product.track_serial && <span className="ap-note">{t.apNote}</span>}
             </h3>
             <div style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>
               {product.name} · {product.model}
@@ -162,14 +159,16 @@ export function AdjustStockModal({ product, tags, lang, onClose, onSubmit }: Adj
                   type="number"
                   className={isInbound ? 'in' : isOutbound ? 'out' : ''}
                   value={qty}
+                  placeholder="0"
                   onChange={(e) => setQty(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
                 />
                 <button onClick={() => setQty((q) => Number(q || 0) + 1)}>+</button>
               </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <div className="qty-presets" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {[5, 10, 20, 50].map((v) => (
                   <button
                     key={v}
+                    className="qty-preset"
                     onClick={() => setQty(v)}
                     style={{
                       border: '1px solid var(--border-2)',
