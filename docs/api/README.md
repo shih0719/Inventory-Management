@@ -49,6 +49,7 @@
 | POST | `/api/batches` | manager/admin | 建立批次異動 |
 | GET | `/api/shipments` | 已登入 | 列出出貨單據 |
 | GET | `/api/shipments/:id` | 已登入 | 取得單筆出貨單 |
+| GET | `/api/shipments/:id/export` | 已登入 | 匯出出貨單 Excel（工作表：出貨明細、序號表） |
 | POST | `/api/shipments` | manager/admin | 建立出貨單 |
 | PUT | `/api/shipments/:id` | manager/admin | 修改出貨單 |
 | DELETE | `/api/shipments/:id` | manager/admin | 軟刪除出貨單 |

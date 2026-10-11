@@ -5,6 +5,7 @@ import {
   getShipment,
   createShipment,
   deleteShipment,
+  exportShipmentXlsx,
 } from '../api/shipments';
 import { listTransactions } from '../api/transactions';
 import { listAllProducts } from '../api/products';
@@ -382,6 +383,17 @@ export function ShipmentsPage({ lang = 'en' }: ShipmentsPageProps) {
                     })}
                   </div>
                 </div>
+
+                <button
+                  onClick={() =>
+                    exportShipmentXlsx(selectedShipment.id, selectedShipment.shipment_number).catch((err) =>
+                      setError((err as Error).message),
+                    )
+                  }
+                  className="btn ghost"
+                >
+                  {lang === 'en' ? 'Export Excel' : '匯出 Excel'}
+                </button>
 
                 <button
                   onClick={() => handleDeleteShipment(selectedShipment.id)}
