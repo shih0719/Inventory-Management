@@ -182,12 +182,14 @@ export function ProductCombobox({
           inputRef.current?.select();
           return;
         }
-        void Promise.resolve(onUnmatchedEnter(query.trim())).then((consumed) => {
-          if (consumed) {
-            setQuery('');
-            setOpen(false);
-          } else {
-            inputRef.current?.select();
+        const text = query.trim();
+        setQuery('');
+        setOpen(false);
+        void Promise.resolve(onUnmatchedEnter(text)).then((consumed) => {
+          if (!consumed) {
+            // Restore the text only if nothing was typed in the meantime.
+            setQuery((cur) => (cur === '' ? text : cur));
+            requestAnimationFrame(() => inputRef.current?.select());
           }
         });
       }

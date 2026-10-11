@@ -158,6 +158,7 @@ export function AppContent({
       )}
       {view.kind === 'batch' && (
         <BatchFlow
+          key={view.batchKind}
           kind={view.batchKind}
           products={products}
           tags={tags}

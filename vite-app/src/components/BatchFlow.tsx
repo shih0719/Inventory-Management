@@ -77,7 +77,10 @@ export function BatchFlow({
   const [shipment, setShipment] = useState<ShipmentDraft>({
     customer: '',
     project_case: '',
-    shipment_date: new Date().toISOString().split('T')[0],
+    shipment_date: (() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })(),
   });
   const createsShipment = tags.find((tg) => tg.id === tagId)?.name === 'OUTBOUND';
   const caseRequired = serialUnits.length > 0;
@@ -95,7 +98,9 @@ export function BatchFlow({
         setScanError(lang === 'en' ? `${sn} is already shipped` : `${sn} 已出庫`);
         return false;
       }
-      setSerialUnits((prev) => [...prev, unit]);
+      setSerialUnits((prev) =>
+        prev.some((u) => u.serial_number === unit.serial_number) ? prev : [...prev, unit],
+      );
       setScanError(null);
       focusProduct(lineId);
       return true;
@@ -282,6 +287,7 @@ export function BatchFlow({
                     value={l.product_id}
                     onChange={(id, prod) => {
                       setLine(l.id, { product_id: id === '' ? '' : Number(id) });
+                      if (prod) setScanError(null);
                       if (prod && onPickProduct) onPickProduct(prod);
                     }}
                     onOpenPicker={
@@ -377,7 +383,10 @@ export function BatchFlow({
       {!isInbound && (
         <SerialList
           units={serialUnits}
-          onRemove={(sn) => setSerialUnits((prev) => prev.filter((u) => u.serial_number !== sn))}
+          onRemove={(sn) => {
+            setSerialUnits((prev) => prev.filter((u) => u.serial_number !== sn));
+            setScanError(null);
+          }}
           scanError={scanError}
           lang={lang}
         />
