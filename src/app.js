@@ -48,6 +48,7 @@ function createApp() {
   warehouseRouter.use("/transactions",  require("./routes/transactions"));
   warehouseRouter.use("/batches",       require("./routes/batches"));
   warehouseRouter.use("/shipments",     require("./routes/shipments"));
+  warehouseRouter.use("/outbound",      require("./routes/outbound"));
   warehouseRouter.use("/tags",          require("./routes/tags"));
   warehouseRouter.use("/csv",           require("./routes/csv"));
   warehouseRouter.use("/product-units", require("./routes/productUnits"));
