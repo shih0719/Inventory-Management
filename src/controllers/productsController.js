@@ -159,7 +159,7 @@ async function create(req, res) {
     // Resolve warehouse_id: from body, or header (Phase 2), or Default warehouse
     let warehouse_id = bodyWarehouseId || (req.warehouseId) || null;
     if (!warehouse_id) {
-      const defaultWh = await db.get("SELECT id FROM warehouses WHERE name = 'Default'");
+      const defaultWh = await db.get("SELECT id FROM warehouses WHERE name = 'default'");
       warehouse_id = defaultWh ? defaultWh.id : null;
     }
 
