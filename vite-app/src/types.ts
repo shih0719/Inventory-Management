@@ -118,7 +118,6 @@ export interface CreateBatchItem {
 }
 
 export interface CreateBatchInput {
-  name: string;
   tag_id: number;
   description?: string;
   items: CreateBatchItem[];

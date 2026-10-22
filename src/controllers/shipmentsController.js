@@ -269,7 +269,7 @@ async function update(req, res) {
         }
 
         // Allow if it already belongs to this shipment, or if it belongs to no shipment
-        if (transaction.shipment_id && transaction.shipment_id !== id) {
+        if (transaction.shipment_id && transaction.shipment_id !== Number(id)) {
           validationErrors.push(`Transaction ${txId}: already belongs to shipment ${transaction.shipment_id}`);
           continue;
         }

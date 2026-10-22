@@ -52,8 +52,6 @@ export function APProductModal({
 
   const inStockCount = units.filter((u) => u.status === 'in_stock').length;
   const soldCount = units.filter((u) => u.status === 'sold').length;
-  const returnedCount = units.filter((u) => u.status === 'returned').length;
-
   const handleCreateConfirm = async () => {
     setSubModal(null);
     await loadUnits();
@@ -129,7 +127,7 @@ export function APProductModal({
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr 1fr',
+                gridTemplateColumns: '1fr 1fr',
                 gap: 12,
                 marginBottom: 20,
               }}
@@ -148,14 +146,6 @@ export function APProductModal({
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--accent)' }}>
                   {soldCount}
-                </div>
-              </div>
-              <div style={{ padding: 12, background: 'var(--surface-2)', borderRadius: 6 }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-2)', marginBottom: 4 }}>
-                  {lang === 'en' ? 'Returned' : '已退貨'}
-                </div>
-                <div style={{ fontSize: 20, fontWeight: 600 }}>
-                  {returnedCount}
                 </div>
               </div>
             </div>
