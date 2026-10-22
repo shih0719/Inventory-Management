@@ -1,6 +1,5 @@
 const db = require("../config/database");
-const quantityStateService = require("../services/quantityStateService");
-const auditService = require("../services/auditService");
+const stockLedger = require("../services/stockLedger");
 const { formatTimestamps } = require("../utils/formatTimestamps");
 const fs = require("fs");
 const path = require("path");
@@ -99,7 +98,7 @@ async function create(req, res) {
 
     // Check if product exists
     const product = await db.get(
-      "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
+      "SELECT id, track_serial FROM products WHERE id = ? AND is_deleted = 0",
       [product_id],
     );
 
@@ -109,98 +108,35 @@ async function create(req, res) {
         .json({ success: false, error: "Product not found" });
     }
 
-    // Determine which quantity field to update
-    const quantityField =
-      quantity_type === "accountable"
-        ? "accountable_quantity"
-        : "non_accountable_quantity";
-    const currentQuantity =
-      quantity_type === "accountable"
-        ? product.accountable_quantity
-        : product.non_accountable_quantity;
-
-    // Validate quantity change using QuantityState module
-    const validation = quantityStateService.validate(currentQuantity, quantity_change, {
-      quantityType: quantity_type,
-    });
-
-    if (!validation.ok) {
-      return res.status(400).json({
-        success: false,
-        error: validation.reason,
-      });
-    }
-
-    const newQuantity = validation.newQuantity;
-
     // AP accountable stock moves with serials (inbound/outbound pages). Here it may only
-    // be reconciled toward the in-stock serial count, never pushed further away from it.
-    if (product.track_serial && quantity_type === "accountable") {
-      const { inStock } = await db.get(
-        "SELECT COUNT(*) AS inStock FROM product_units WHERE product_id = ? AND status = 'in_stock'",
-        [product_id],
-      );
-      if (Math.abs(newQuantity - inStock) >= Math.abs(currentQuantity - inStock)) {
-        return res.status(400).json({
-          success: false,
-          error: `AP 商品的有帳數量只能朝在庫序號數（${inStock}）對齊；一般進出貨請在進貨/出貨頁掃描序號`,
-        });
-      }
-    }
+    // be reconciled toward the in-stock serial count — the ledger enforces that.
+    const movement = {
+      productId: product.id,
+      quantityType: quantity_type,
+      delta: Number(quantity_change),
+      remarks,
+      locationId: location_id,
+      kind: product.track_serial && quantity_type === "accountable" ? "reconcile" : undefined,
+    };
 
-    // Start transaction
-    await db.run("BEGIN TRANSACTION");
+    const [{ transactionId }] = await db.transaction((tx) =>
+      stockLedger.apply(tx, [movement], {
+        tag: { id: tag_id },
+        source,
+        actor: { userId: req.user?.id, username: req.user?.username || "unknown" },
+      }),
+    );
 
-    try {
-      // Insert transaction record with created_by_user, quantity snapshot & source
-      const createdByUser = req.user?.username || "unknown";
-      const result = await db.run(
-        `INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, quantity_before, quantity_after, source, location_id, remarks, created_by_user)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          product_id,
-          tag_id,
-          quantity_change,
-            quantity_type,
-          currentQuantity,
-          newQuantity,
-          source,
-          location_id ?? null,
-          `[${quantity_type === "accountable" ? "有帳" : "無帳"}] ${
-            remarks || ""
-          }`,
-          createdByUser,
-        ],
-      );
+    const transaction = await db.get(
+      "SELECT * FROM transactions WHERE id = ?",
+      [transactionId],
+    );
 
-      auditService.logAction(
-        req.user?.id,
-        "CREATE",
-        "transaction",
-        result.id,
-        req.warehouseId
-      );
-
-      // Update product quantity
-      await db.run(`UPDATE products SET ${quantityField} = ? WHERE id = ?`, [
-        newQuantity,
-        product_id,
-      ]);
-
-      // Commit transaction
-      await db.run("COMMIT");
-
-      const transaction = await db.get(
-        "SELECT * FROM transactions WHERE id = ?",
-        [result.id],
-      );
-
-      res.status(201).json({ success: true, data: formatTimestamps(transaction) });
-    } catch (error) {
-      await db.run("ROLLBACK");
-      throw error;
-    }
+    res.status(201).json({ success: true, data: formatTimestamps(transaction) });
   } catch (error) {
+    if (error instanceof stockLedger.LedgerError) {
+      return res.status(400).json({ success: false, error: error.errors[0]?.reason || error.message });
+    }
     console.error("Error creating transaction:", error);
     res.status(500).json({ success: false, error: error.message });
   }
