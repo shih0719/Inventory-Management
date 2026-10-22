@@ -72,3 +72,19 @@ These reduce common LLM coding mistakes. Apply them to all work.
 - **Define success criteria first.** Loop until verified.
 - **Write a test that reproduces the bug,** then make it pass.
 - **For multi-step tasks,** state a brief plan with verification steps before implementing.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `shih0719/Inventory-Management`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` glossary + `docs/adr/`. See `docs/agents/domain.md`.
