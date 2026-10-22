@@ -60,65 +60,57 @@ async function create(req, res) {
     // Phase 2: Create shipment atomically
     const shipmentNumber = await generateShipmentNumber(finalDate);
 
-    await db.run("BEGIN TRANSACTION");
-
-    try {
+    const shipmentId = await db.transaction(async (tx) => {
       const createdByUser = req.user?.username || "unknown";
-      const result = await db.run(
+      const result = await tx.run(
         `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user)
          VALUES (?, ?, ?, ?, ?)`,
         [shipmentNumber, customer || null, project_case || null, finalDate, createdByUser]
       );
 
-      const shipmentId = result.id;
-
-      auditService.logAction(
+      await auditService.logAction(
         req.user?.id,
         "CREATE",
         "shipment",
-        shipmentId,
+        result.id,
         req.warehouseId
       );
 
       // Insert shipment-transaction relationships
       for (const txId of validatedTransactionIds) {
-        await db.run(
+        await tx.run(
           `INSERT INTO shipment_transactions (shipment_id, transaction_id) VALUES (?, ?)`,
-          [shipmentId, txId]
+          [result.id, txId]
         );
       }
+      return result.id;
+    });
 
-      await db.run("COMMIT");
+    const shipment = await db.get(
+      "SELECT * FROM shipments WHERE id = ?",
+      [shipmentId]
+    );
 
-      const shipment = await db.get(
-        "SELECT * FROM shipments WHERE id = ?",
-        [shipmentId]
-      );
+    // Fetch items_summary
+    const itemsSummary = await db.all(
+      `SELECT t.* FROM transactions t
+       WHERE t.id IN (${validatedTransactionIds.join(',')})
+       ORDER BY t.created_at ASC`
+    );
 
-      // Fetch items_summary
-      const itemsSummary = await db.all(
-        `SELECT t.* FROM transactions t
-         WHERE t.id IN (${validatedTransactionIds.join(',')})
-         ORDER BY t.created_at ASC`
-      );
-
-      res.status(201).json({
-        success: true,
-        data: {
-          id: shipment.id,
-          shipment_number: shipment.shipment_number,
-          customer: shipment.customer,
-          project_case: shipment.project_case,
-          shipment_date: shipment.shipment_date,
-          transaction_ids: validatedTransactionIds,
-          items_summary: itemsSummary,
-          created_at: shipment.created_at,
-        },
-      });
-    } catch (error) {
-      await db.run("ROLLBACK");
-      throw error;
-    }
+    res.status(201).json({
+      success: true,
+      data: {
+        id: shipment.id,
+        shipment_number: shipment.shipment_number,
+        customer: shipment.customer,
+        project_case: shipment.project_case,
+        shipment_date: shipment.shipment_date,
+        transaction_ids: validatedTransactionIds,
+        items_summary: itemsSummary,
+        created_at: shipment.created_at,
+      },
+    });
   } catch (error) {
     console.error("Error creating shipment:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -292,55 +284,48 @@ async function update(req, res) {
         });
       }
 
-      await db.run("BEGIN TRANSACTION");
-
-      try {
+      await db.transaction(async (tx) => {
         // Remove old relationships
-        await db.run("DELETE FROM shipment_transactions WHERE shipment_id = ?", [id]);
+        await tx.run("DELETE FROM shipment_transactions WHERE shipment_id = ?", [id]);
 
         // Add new relationships
         for (const txId of validatedTransactionIds) {
-          await db.run(
+          await tx.run(
             `INSERT INTO shipment_transactions (shipment_id, transaction_id) VALUES (?, ?)`,
             [id, txId]
           );
         }
 
         // Update shipment fields
-        await db.run(
+        await tx.run(
           `UPDATE shipments SET customer = ?, project_case = ?, shipment_date = ? WHERE id = ?`,
           [customer || null, project_case || null, shipment_date || shipment.shipment_date, id]
         );
+      });
 
-        await db.run("COMMIT");
+      const updated = await db.get("SELECT * FROM shipments WHERE id = ?", [id]);
+      const txIds = await db.all(
+        `SELECT transaction_id FROM shipment_transactions WHERE shipment_id = ?`,
+        [id]
+      );
+      const transactions = await db.all(
+        `SELECT t.* FROM transactions t
+         WHERE t.id IN (${txIds.map(tx => tx.transaction_id).join(',') || 'NULL'})`
+      );
 
-        const updated = await db.get("SELECT * FROM shipments WHERE id = ?", [id]);
-        const txIds = await db.all(
-          `SELECT transaction_id FROM shipment_transactions WHERE shipment_id = ?`,
-          [id]
-        );
-        const transactions = await db.all(
-          `SELECT t.* FROM transactions t
-           WHERE t.id IN (${txIds.map(tx => tx.transaction_id).join(',') || 'NULL'})`
-        );
-
-        res.json({
-          success: true,
-          data: {
-            id: updated.id,
-            shipment_number: updated.shipment_number,
-            customer: updated.customer,
-            project_case: updated.project_case,
-            shipment_date: updated.shipment_date,
-            transaction_ids: txIds.map(tx => tx.transaction_id),
-            items_summary: transactions,
-            updated_at: updated.updated_at,
-          },
-        });
-      } catch (error) {
-        await db.run("ROLLBACK");
-        throw error;
-      }
+      res.json({
+        success: true,
+        data: {
+          id: updated.id,
+          shipment_number: updated.shipment_number,
+          customer: updated.customer,
+          project_case: updated.project_case,
+          shipment_date: updated.shipment_date,
+          transaction_ids: txIds.map(tx => tx.transaction_id),
+          items_summary: transactions,
+          updated_at: updated.updated_at,
+        },
+      });
     } else {
       // Update only business fields
       await db.run(
@@ -381,26 +366,19 @@ async function delete_(req, res) {
       return res.status(404).json({ success: false, error: "Shipment not found" });
     }
 
-    await db.run("BEGIN TRANSACTION");
-
-    try {
+    await db.transaction(async (tx) => {
       // Soft delete shipment
-      await db.run("UPDATE shipments SET is_deleted = 1 WHERE id = ?", [id]);
+      await tx.run("UPDATE shipments SET is_deleted = 1 WHERE id = ?", [id]);
 
       // Remove all transaction relationships
-      await db.run("DELETE FROM shipment_transactions WHERE shipment_id = ?", [id]);
+      await tx.run("DELETE FROM shipment_transactions WHERE shipment_id = ?", [id]);
+    });
 
-      await db.run("COMMIT");
-
-      res.json({
-        success: true,
-        message: "Shipment deleted successfully",
-        data: { id, shipment_number: shipment.shipment_number },
-      });
-    } catch (error) {
-      await db.run("ROLLBACK");
-      throw error;
-    }
+    res.json({
+      success: true,
+      message: "Shipment deleted successfully",
+      data: { id, shipment_number: shipment.shipment_number },
+    });
   } catch (error) {
     console.error("Error deleting shipment:", error);
     res.status(500).json({ success: false, error: error.message });

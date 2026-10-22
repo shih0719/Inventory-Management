@@ -39,8 +39,8 @@ afterAll(async () => {
   await teardownTestDb();
 });
 
-afterEach(() => {
-  jest.restoreAllMocks();
+afterEach(async () => {
+  await restoreTransactionInsert();
 });
 
 const auth = (req, { tk = token, wh = warehouseId } = {}) =>
@@ -48,8 +48,12 @@ const auth = (req, { tk = token, wh = warehouseId } = {}) =>
 
 async function createProduct(sku, { qty = 0, trackSerial = false, wh = warehouseId } = {}) {
   const res = await auth(request(app).post("/api/products"), { wh }).send({
-    sku, name: sku, type: "hardware", track_serial: trackSerial, accountable_quantity: qty,
+    sku, name: sku, type: "hardware", track_serial: trackSerial, accountable_quantity: trackSerial ? 0 : qty,
   });
+  // AP stock can't be created by quantity; the fixture sets it directly.
+  if (trackSerial && qty) {
+    await db.run("UPDATE products SET accountable_quantity = ? WHERE id = ?", [qty, res.body.data.id]);
+  }
   return res.body.data.id;
 }
 
@@ -62,14 +66,11 @@ async function addUnits(productId, serials, { wh = warehouseId } = {}) {
 const qtyOf = async (id) =>
   (await db.get("SELECT accountable_quantity FROM products WHERE id = ?", [id])).accountable_quantity;
 
-// Makes the next INSERT INTO transactions fail, to prove the surrounding writes roll back.
-function failTransactionInsert() {
-  const realRun = db.run;
-  jest.spyOn(db, "run").mockImplementation((sql, params) => {
-    if (/^\s*INSERT INTO transactions/.test(sql)) return Promise.reject(new Error("boom"));
-    return realRun(sql, params);
-  });
-}
+// Makes every INSERT INTO transactions fail, to prove the surrounding writes roll back.
+// A trigger, so it works however the code reaches the database.
+const failTransactionInsert = () =>
+  db.run("CREATE TEMP TRIGGER fail_tx_insert BEFORE INSERT ON transactions BEGIN SELECT RAISE(ABORT, 'boom'); END");
+const restoreTransactionInsert = () => db.run("DROP TRIGGER IF EXISTS fail_tx_insert");
 
 describe("A1 — POST /api/transactions 對 AP 有帳數量只允許朝在庫序號數對齊", () => {
   const postTx = (body) => auth(request(app).post("/api/transactions")).send({ tag_id: inboundTagId, ...body });
@@ -170,14 +171,14 @@ describe("A4 — /api/product-units 寫入需要 manager/admin", () => {
 describe("A5 — POST /api/product-units/bulk 全有或全無", () => {
   it("寫入 Transaction 失敗時，序號與數量都回滾", async () => {
     const id = await createProduct("A5-AP", { trackSerial: true });
-    failTransactionInsert();
+    await failTransactionInsert();
 
     const res = await auth(request(app).post("/api/product-units/bulk")).send({
       product_id: id, serial_numbers: ["A5-SN-1", "A5-SN-2"],
     });
 
     expect(res.status).toBe(500);
-    jest.restoreAllMocks();
+    await restoreTransactionInsert();
     expect(await db.get("SELECT COUNT(*) AS n FROM product_units WHERE product_id = ?", [id])).toEqual({ n: 0 });
     expect(await qtyOf(id)).toBe(0);
   });
@@ -225,12 +226,12 @@ describe("A6 — POST /api/product-units/transfer 限定來源倉庫並具 atomi
     const src = await createProduct("A6-SKU-3", { qty: 1, trackSerial: true });
     const dst = await createProduct("A6-SKU-3", { qty: 0, trackSerial: true, wh: otherWarehouseId });
     await addUnits(src, ["A6-SN-ATOMIC"]);
-    failTransactionInsert();
+    await failTransactionInsert();
 
     const res = await transfer({ serial_numbers: ["A6-SN-ATOMIC"], target_warehouse_id: otherWarehouseId });
 
     expect(res.status).toBe(500);
-    jest.restoreAllMocks();
+    await restoreTransactionInsert();
     expect((await db.get("SELECT product_id FROM product_units WHERE serial_number = 'A6-SN-ATOMIC'")).product_id).toBe(src);
     expect(await qtyOf(src)).toBe(1);
     expect(await qtyOf(dst)).toBe(0);

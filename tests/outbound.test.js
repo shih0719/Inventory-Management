@@ -50,9 +50,13 @@ async function createProduct(sku, { qty = 0, serials = [], wid = warehouseId } =
       name: sku,
       type: "hardware",
       track_serial: serials.length > 0,
-      accountable_quantity: serials.length > 0 ? serials.length : qty,
+      accountable_quantity: serials.length > 0 ? 0 : qty,
     });
   const productId = res.body.data.id;
+  // AP stock can't be created by quantity; the fixture sets it to match its serials.
+  if (serials.length > 0) {
+    await db.run("UPDATE products SET accountable_quantity = ? WHERE id = ?", [serials.length, productId]);
+  }
   for (const sn of serials) {
     await db.run(
       "INSERT INTO product_units (product_id, serial_number, status) VALUES (?, ?, 'in_stock')",

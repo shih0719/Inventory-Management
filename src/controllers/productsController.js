@@ -1,5 +1,6 @@
 const db = require("../config/database");
 const auditService = require("../services/auditService");
+const stockLedger = require("../services/stockLedger");
 
 // GET /api/products/lookup?sku=X&warehouse_id=Y
 async function lookup(req, res) {
@@ -176,28 +177,46 @@ async function create(req, res) {
       });
     }
 
-    const result = await db.run(
-      `INSERT INTO products (warehouse_id, type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        warehouse_id,
-        resolvedType,
-        sku,
-        name,
-        model || "",
-        accountable_quantity || 0,
-        non_accountable_quantity || 0,
-        min_stock != null ? parseInt(min_stock) : 0,
-        track_serial ? 1 : 0,
-      ],
-    );
+    // Starts at 0; the initial quantities are an ADJUSTMENT through the Stock Ledger,
+    // which also rejects initial accountable stock on an AP product (serials come in by inbound).
+    const productId = await db.transaction(async (tx) => {
+      const result = await tx.run(
+        `INSERT INTO products (warehouse_id, type, sku, name, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial)
+               VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?)`,
+        [
+          warehouse_id,
+          resolvedType,
+          sku,
+          name,
+          model || "",
+          min_stock != null ? parseInt(min_stock) : 0,
+          track_serial ? 1 : 0,
+        ],
+      );
+      await auditService.logAction(req.user?.id, "CREATE", "product", result.id, warehouse_id);
 
-    const newProduct = await db.get("SELECT * FROM products WHERE id = ?", [
-      result.id,
-    ]);
-    await auditService.logAction(req.user?.id, "CREATE", "product", result.id, newProduct.warehouse_id);
+      const movements = [
+        { quantityType: "accountable", delta: Number(accountable_quantity || 0) },
+        { quantityType: "non_accountable", delta: Number(non_accountable_quantity || 0) },
+      ]
+        .filter((m) => m.delta !== 0)
+        .map((m) => ({ ...m, productId: result.id, remarks: "建立商品時的初始數量" }));
+      if (movements.length > 0) {
+        await stockLedger.apply(tx, movements, {
+          tag: { name: "ADJUSTMENT" },
+          source: "adjust",
+          actor: { userId: req.user?.id, username: req.user?.username || "unknown" },
+        });
+      }
+      return result.id;
+    });
+
+    const newProduct = await db.get("SELECT * FROM products WHERE id = ?", [productId]);
     res.status(201).json({ success: true, data: newProduct });
   } catch (error) {
+    if (error instanceof stockLedger.LedgerError) {
+      return res.status(400).json({ success: false, error: error.errors.map((e) => e.reason).join("; ") || error.message });
+    }
     console.error("Error creating product:", error);
     if (error.message.includes("UNIQUE constraint failed")) {
       return res.status(400).json({

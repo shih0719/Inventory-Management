@@ -1,6 +1,7 @@
 const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
+const { AsyncLocalStorage } = require("async_hooks");
 require("dotenv").config();
 
 const DB_PATH = process.env.DB_PATH || "./database/inventory.db";
@@ -553,7 +554,7 @@ function initDatabase() {
 }
 
 // Promisified database methods
-function run(sql, params = []) {
+function rawRun(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
       if (err) {
@@ -565,7 +566,7 @@ function run(sql, params = []) {
   });
 }
 
-function get(sql, params = []) {
+function rawGet(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
       if (err) {
@@ -577,7 +578,7 @@ function get(sql, params = []) {
   });
 }
 
-function all(sql, params = []) {
+function rawAll(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
       if (err) {
@@ -587,6 +588,54 @@ function all(sql, params = []) {
       }
     });
   });
+}
+
+// All requests share one connection, so an open transaction would absorb any query
+// another request issues. Plain queries wait until the open transaction finishes;
+// queries made from inside the transaction's async context (txContext) go straight through.
+const txContext = new AsyncLocalStorage();
+const txHandle = { run: rawRun, get: rawGet, all: rawAll };
+let openTransaction = null;
+
+function gated(fn) {
+  return async (sql, params) => {
+    if (!txContext.getStore()) {
+      while (openTransaction) await openTransaction.catch(() => {});
+    }
+    return fn(sql, params);
+  };
+}
+
+const run = gated(rawRun);
+const get = gated(rawGet);
+const all = gated(rawAll);
+
+/**
+ * Run `fn(tx)` inside BEGIN/COMMIT; ROLLBACK and rethrow if it throws.
+ * Transactions run one at a time. Calling it from inside a transaction joins that one.
+ */
+async function transaction(fn) {
+  if (txContext.getStore()) return fn(txHandle);
+
+  // No await between the last check and claiming openTransaction, or two callers could both start.
+  while (openTransaction) await openTransaction.catch(() => {});
+  const work = txContext.run(true, async () => {
+    await rawRun("BEGIN TRANSACTION");
+    try {
+      const result = await fn(txHandle);
+      await rawRun("COMMIT");
+      return result;
+    } catch (error) {
+      await rawRun("ROLLBACK").catch(() => {});
+      throw error;
+    }
+  });
+  openTransaction = work;
+  try {
+    return await work;
+  } finally {
+    if (openTransaction === work) openTransaction = null;
+  }
 }
 
 // Close database connection
@@ -612,5 +661,6 @@ module.exports = {
   run,
   get,
   all,
+  transaction,
   closeDatabase,
 };
