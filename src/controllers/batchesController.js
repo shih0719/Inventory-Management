@@ -1,5 +1,5 @@
 const db = require("../config/database");
-const quantityStateService = require("../services/quantityStateService");
+const stockLedger = require("../services/stockLedger");
 const auditService = require("../services/auditService");
 const { formatTimestamps } = require("../utils/formatTimestamps");
 
@@ -125,35 +125,31 @@ async function createBatch(req, res) {
         continue;
       }
 
-      const currentQuantity =
-        quantity_type === "accountable"
-          ? product.accountable_quantity
-          : product.non_accountable_quantity;
-
-      // Validate using QuantityState module
-      const validation = quantityStateService.validate(currentQuantity, quantity_change, {
-        quantityType: quantity_type,
-      });
-
-      if (!validation.ok) {
-        validationErrors.push(`${index} (${product.name}): ${validation.reason}`);
-        continue;
-      }
-
-      const newQuantity = validation.newQuantity;
-
       validatedItems.push({
+        label: index,
         product_id,
         product_name: product.name,
         quantity_type,
         quantity_change: parseInt(quantity_change),
         remarks: remarks || "",
-        quantityField: quantity_type === "accountable" ? "accountable_quantity" : "non_accountable_quantity",
-        currentQuantity,
-        newQuantity,
         warehouseId: product.warehouse_id,
         serialPlan,
       });
+    }
+
+    // Quantity rules (non-negative, running balance per product) come from the Stock Ledger.
+    // An AP line's serials don't exist yet, so its plan stands in for unitIds — same count.
+    const toMovement = (item, unitIds) => ({
+      productId: item.product_id,
+      quantityType: item.quantity_type,
+      delta: item.quantity_change,
+      remarks: item.remarks,
+      unitIds,
+    });
+    const quantityErrors = await stockLedger.check(db, validatedItems.map((item) => toMovement(item, item.serialPlan || undefined)));
+    for (const { index, reason } of quantityErrors) {
+      const item = validatedItems[index];
+      validationErrors.push(`${item.label} (${item.product_name}): ${reason}`);
     }
 
     // If ANY item failed validation → reject the entire batch
@@ -169,78 +165,56 @@ async function createBatch(req, res) {
     const timestamp = new Date().getTime();
     const batchNumber = `BATCH-${timestamp}`;
 
-    await db.run("BEGIN TRANSACTION");
-
-    try {
+    const batchId = await db.transaction(async (tx) => {
       const createdByUser = req.user?.username || "unknown";
-      const batchResult = await db.run(
+      const batchResult = await tx.run(
         "INSERT INTO batches (batch_number, description, created_by_user) VALUES (?, ?, ?)",
         [batchNumber, description || "", createdByUser],
       );
-      const batchId = batchResult.id;
 
-      auditService.logAction(
+      await auditService.logAction(
         req.user?.id,
         "CREATE",
         "batch",
-        batchId,
+        batchResult.id,
         req.warehouseId
       );
 
+      const movements = [];
       for (const item of validatedItems) {
-        const unitIds = item.serialPlan ? await applyInboundSerials(item.serialPlan, item.product_id, item.warehouseId) : null;
-        const txResult = await db.run(
-          `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, quantity_type, quantity_before, quantity_after, source, remarks, product_unit_ids, created_by_user)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            item.product_id,
-            tag_id,
-            batchId,
-            item.quantity_change,
-              item.quantity_type,
-            item.currentQuantity,
-            item.newQuantity,
-            "batch",
-            `[${item.quantity_type === "accountable" ? "有帳" : "無帳"}] ${item.remarks}`,
-            unitIds ? JSON.stringify(unitIds) : null,
-            createdByUser,
-          ],
-        );
-
-        // Log transaction creation
-        auditService.logAction(
-          req.user?.id,
-          "CREATE",
-          "transaction",
-          txResult.id
-        );
-
-        await db.run(
-          `UPDATE products SET ${item.quantityField} = ? WHERE id = ?`,
-          [item.newQuantity, item.product_id],
-        );
+        const unitIds = item.serialPlan ? await applyInboundSerials(item.serialPlan, item.product_id, item.warehouseId) : undefined;
+        movements.push(toMovement(item, unitIds));
       }
-
-      await db.run("COMMIT");
-
-      const processedItems = validatedItems.map(({ product_id, product_name, quantity_type, quantity_change }) => ({
-        product_id, product_name, quantity_type, quantity_change,
-      }));
-
-      res.status(201).json({
-        success: true,
-        message: `Batch created successfully. Processed ${processedItems.length} items.`,
-        data: {
-          batch_id: batchId,
-          batch_number: batchNumber,
-          processed_items: processedItems,
-        },
+      await stockLedger.apply(tx, movements, {
+        tag: { id: tag_id },
+        source: "batch",
+        batchId: batchResult.id,
+        actor: { userId: req.user?.id, username: createdByUser },
       });
-    } catch (error) {
-      await db.run("ROLLBACK");
-      throw error;
-    }
+      return batchResult.id;
+    });
+
+    const processedItems = validatedItems.map(({ product_id, product_name, quantity_type, quantity_change }) => ({
+      product_id, product_name, quantity_type, quantity_change,
+    }));
+
+    res.status(201).json({
+      success: true,
+      message: `Batch created successfully. Processed ${processedItems.length} items.`,
+      data: {
+        batch_id: batchId,
+        batch_number: batchNumber,
+        processed_items: processedItems,
+      },
+    });
   } catch (error) {
+    if (error instanceof stockLedger.LedgerError) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        errors: error.errors.map((e) => e.reason),
+      });
+    }
     console.error("Error creating batch:", error);
     res.status(500).json({ success: false, error: error.message });
   }

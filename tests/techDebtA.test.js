@@ -48,8 +48,12 @@ const auth = (req, { tk = token, wh = warehouseId } = {}) =>
 
 async function createProduct(sku, { qty = 0, trackSerial = false, wh = warehouseId } = {}) {
   const res = await auth(request(app).post("/api/products"), { wh }).send({
-    sku, name: sku, type: "hardware", track_serial: trackSerial, accountable_quantity: qty,
+    sku, name: sku, type: "hardware", track_serial: trackSerial, accountable_quantity: trackSerial ? 0 : qty,
   });
+  // AP stock can't be created by quantity; the fixture sets it directly.
+  if (trackSerial && qty) {
+    await db.run("UPDATE products SET accountable_quantity = ? WHERE id = ?", [qty, res.body.data.id]);
+  }
   return res.body.data.id;
 }
 

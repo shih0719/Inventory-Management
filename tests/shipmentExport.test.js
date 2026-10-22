@@ -44,7 +44,9 @@ beforeAll(async () => {
 
   const create = (body) => auth(request(app).post("/api/products")).send(body);
   const cableId = (await create({ sku: "EX-CABLE", name: "網路線", type: "hardware", accountable_quantity: 10 })).body.data.id;
-  const apId = (await create({ sku: "EX-AP", name: "基地台", type: "hardware", track_serial: true, accountable_quantity: 2 })).body.data.id;
+  const apId = (await create({ sku: "EX-AP", name: "基地台", type: "hardware", track_serial: true })).body.data.id;
+  // AP stock can't be created by quantity; the fixture sets it to match its serials.
+  await db.run("UPDATE products SET accountable_quantity = 2 WHERE id = ?", [apId]);
   for (const sn of ["EX-SN-2", "EX-SN-1"]) {
     await db.run("INSERT INTO product_units (product_id, serial_number, status) VALUES (?, ?, 'in_stock')", [apId, sn]);
   }
