@@ -39,16 +39,16 @@
 
 這幾項由探索 agent 回報，尚未逐行確認，或可能是刻意的設計。
 
-- [ ] **B1. 共用連線上的 transaction 互相干擾**
+- [x] **B1. 共用連線上的 transaction 互相干擾** — 已由 C3 解決（`945b874`）
   `database.js` 只有一條 sqlite3 連線，並行請求各自下 `BEGIN`/`COMMIT` 時，可能把別的請求的寫入捲進自己的 transaction。`logAction` 在 transaction 內呼叫但沒有 await。
 
-- [ ] **B2. 倉庫隔離不完整**
+- [ ] **B2. 倉庫隔離不完整**（寫入部分已由 C1 解決：所有 Transaction 由 Stock Ledger 寫入，`warehouse_id` 取自商品；查詢部分留給 C6）
   多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。
 
 - [ ] **B3. AP 狀態與數量的漂移是否為刻意設計？**
   `PUT /api/product-units/:id` 改 status 不動數量，也不寫 Transaction。CONTEXT.md 只說明「單筆建立/刪除」不動數量，沒涵蓋改 status。
 
-- [ ] **B4. CSV 匯入直接覆寫數量且不留 Transaction**
+- [x] **B4. CSV 匯入直接覆寫數量且不留 Transaction** — 決議：CSV 數量為目標值，差額經 Stock Ledger 寫成 ADJUSTMENT（[ADR 0003](adr/0003-stock-ledger.md)，`46dc623`）
   `csvController.js:201-235`。這和「Transaction 是不可變的歷史紀錄」原則衝突，需決定是否為刻意設計。
 
 - [ ] **B5. migration 寫死預設使用者 `eric`**
@@ -61,13 +61,13 @@
 
 依建議順序排列。詳細的 before/after 見審查報告。
 
-- [ ] **C1. Stock Ledger module** — *Strong*
+- [x] **C1. Stock Ledger module** — *Strong* — `src/services/stockLedger.js`，[ADR 0003](adr/0003-stock-ledger.md)（`4511f83`、`46dc623`）
   「寫 Transaction + 更新 Product 數量」目前散在 7 處：transactions、batches、outbound、AP bulk、AP transfer、CSV、products.create。收斂成單一 interface（例如 `ledger.apply(movements, actor, { tag, batch })`），由它負責欄位選擇、非負檢查、snapshot、`warehouse_id`、audit、AP 必須帶序號，以及 atomicity。這一項可一併解決 A1、A5，以及部分的 A6、B2。
 
 - [ ] **C2. AP 生命週期 module** — *Strong*（依賴 C1）
   序號正規化有 9 份（後端 3、前端 6），in_stock ↔ sold 的轉換散在 4 處。改成集中在一個 module，數量變動交給 Stock Ledger；前端改用 lookup 結果，不再複製驗證規則。
 
-- [ ] **C3. `db.transaction()` helper 與可注入的連線** — *Worth exploring*（建議與 C1 一起做）
+- [x] **C3. `db.transaction()` helper 與可注入的連線** — *Worth exploring*（建議與 C1 一起做）— `945b874`
   取代 14 處手寫 `BEGIN`/`COMMIT`，並解決 B1。
 
 - [ ] **C4. Shipment 綁定 module** — *Worth exploring*
@@ -81,4 +81,6 @@
 
 ## 測試缺口
 
-目前沒有測試覆蓋：`POST /api/transactions`、product-units bulk/transfer/update/delete、shipments 綁定衝突、CSV 數量語意、並行寫入、前端。
+目前沒有測試覆蓋：product-units update/delete、前端。
+
+（C1/C3 補上：`tests/dbTransaction.test.js`、`tests/stockLedger.test.js`（含並行 lost update）、`tests/stockLedgerRoutes.test.js`（CSV 數量語意、建立商品、batch、AP bulk）。）
