@@ -510,7 +510,7 @@ export function BatchFlow({
           {' · '}
           <span
             style={{
-              color: isInbound ? 'var(--ok)' : 'var(--accent)',
+              color: isInbound ? 'var(--ok)' : 'var(--out)',
               fontWeight: 600,
               whiteSpace: 'nowrap',
             }}

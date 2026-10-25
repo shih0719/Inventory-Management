@@ -284,20 +284,20 @@ export function ProductCombobox({
                     <div className="combobox-item-head">
                       <span className="combobox-item-sku">{p.sku}</span>
                       {!!p.track_serial && (
-                        <span className="pill" style={{ fontSize: 9, padding: '0 4px' }}>
+                        <span className="pill" style={{ fontSize: 10, padding: '0 4px' }}>
                           AP
                         </span>
                       )}
                       {p.accountable_quantity < p.min_stock && (
                         <span
                           className={'pill ' + (p.accountable_quantity === 0 ? 'alert' : '')}
-                          style={{ fontSize: 9, padding: '0 4px' }}
+                          style={{ fontSize: 10, padding: '0 4px' }}
                         >
                           {p.accountable_quantity === 0 ? t.out : t.low}
                         </span>
                       )}
                       {inRecent && (
-                        <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--ink-3)' }}>↺</span>
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)' }}>↺</span>
                       )}
                     </div>
                     <div className="combobox-item-name">{p.name}</div>

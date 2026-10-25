@@ -145,7 +145,7 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
                   <div className="low-row-head">
                     <span className="sku">{p.sku}</span>
                     {!!p.track_serial && (
-                      <span className="pill" style={{ fontSize: 9, padding: '0 5px', marginLeft: 6 }}>
+                      <span className="pill" style={{ fontSize: 10, padding: '0 5px', marginLeft: 6 }}>
                         AP
                       </span>
                     )}
@@ -247,11 +247,11 @@ export function Dashboard({ products, transactions, lang, onAdjustProduct, onMan
                     <div className="tx-main">
                       <div className="tx-head">
                         <span className="sku">{tx.sku}</span>
-                        <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
+                        <span className="pill" style={{ fontSize: 10, padding: '0 5px' }}>
                           {tagLabel(tx.tag_name, lang)}
                         </span>
                         {tx.quantity_type === 'non_accountable' && (
-                          <span className="pill" style={{ fontSize: 9, padding: '0 5px' }}>
+                          <span className="pill" style={{ fontSize: 10, padding: '0 5px' }}>
                             {t.nonAcctShort}
                           </span>
                         )}

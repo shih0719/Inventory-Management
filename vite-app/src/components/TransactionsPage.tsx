@@ -274,7 +274,7 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
                       ? (lang === 'en' ? 'Non-acct' : '無帳')
                       : (lang === 'en' ? 'Acct' : '有帳')}
                   </td>
-                  <td style={{ padding: '8px 10px', fontWeight: 600, color: isIn ? 'var(--ok)' : 'var(--accent)' }}>
+                  <td style={{ padding: '8px 10px', fontWeight: 600, color: isIn ? 'var(--ok)' : 'var(--out)' }}>
                     {isIn ? '+' : ''}{tx.quantity_change}
                   </td>
                   <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', color: 'var(--ink-2)' }}>

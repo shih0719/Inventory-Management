@@ -161,7 +161,7 @@ export function Topbar({
           onClick={onOutbound}
           disabled={bootState !== 'ready'}
         >
-          <span style={{ color: 'var(--accent)', fontWeight: 700 }}>↓</span> {t.outbound}
+          <span style={{ color: 'var(--out)', fontWeight: 700 }}>↓</span> {t.outbound}
         </button>
       )}
 
