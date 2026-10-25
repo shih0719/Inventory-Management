@@ -101,8 +101,8 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
                 style={{
                   display: 'inline-block',
                   padding: '4px 8px',
-                  backgroundColor: isInbound ? 'var(--ok-soft)' : 'var(--accent-soft)',
-                  color: isInbound ? 'var(--ok)' : 'var(--accent)',
+                  backgroundColor: isInbound ? 'var(--ok-soft)' : 'var(--out-soft)',
+                  color: isInbound ? 'var(--ok)' : 'var(--out)',
                   borderRadius: 4,
                   fontSize: 12,
                   fontWeight: 500,
@@ -134,7 +134,7 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
               style={{
                 fontSize: 24,
                 fontWeight: 700,
-                color: isInbound ? 'var(--ok)' : 'var(--accent)',
+                color: isInbound ? 'var(--ok)' : 'var(--out)',
               }}
             >
               {isInbound ? '+' : ''}{transaction.quantity_change}
@@ -225,8 +225,8 @@ export function TransactionDetailModal({ transactionId, lang, onClose }: Transac
                     <span
                       style={{
                         padding: '2px 8px',
-                        backgroundColor: unit.status === 'sold' ? 'var(--accent-soft)' : 'var(--ok-soft)',
-                        color: unit.status === 'sold' ? 'var(--accent)' : 'var(--ok)',
+                        backgroundColor: unit.status === 'sold' ? 'var(--out-soft)' : 'var(--ok-soft)',
+                        color: unit.status === 'sold' ? 'var(--out)' : 'var(--ok)',
                         borderRadius: 3,
                         fontSize: 10,
                         fontWeight: 600,

@@ -146,7 +146,7 @@ export function APProductModal({
                 <div style={{ fontSize: 11, color: 'var(--ink-2)', marginBottom: 4 }}>
                   {lang === 'en' ? 'Sold' : '已出售'}
                 </div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--accent)' }}>
+                <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--out)' }}>
                   {soldCount}
                 </div>
               </div>
@@ -232,7 +232,7 @@ export function APProductModal({
                             unit.status === 'in_stock'
                               ? 'var(--ok)'
                               : unit.status === 'sold'
-                                ? 'var(--accent)'
+                                ? 'var(--out)'
                                 : 'var(--ink-2)',
                         }}
                       >

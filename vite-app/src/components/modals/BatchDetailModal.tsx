@@ -169,8 +169,8 @@ export function BatchDetailModal({ batchId, lang, onClose }: BatchDetailModalPro
                             style={{
                               display: 'inline-block',
                               padding: '2px 6px',
-                              backgroundColor: tx.quantity_change > 0 ? 'var(--ok-soft)' : 'var(--accent-soft)',
-                              color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--accent)',
+                              backgroundColor: tx.quantity_change > 0 ? 'var(--ok-soft)' : 'var(--out-soft)',
+                              color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--out)',
                               borderRadius: 3,
                               fontSize: 10,
                               fontWeight: 600,
@@ -180,7 +180,7 @@ export function BatchDetailModal({ batchId, lang, onClose }: BatchDetailModalPro
                           </span>
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
-                          <span style={{ color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--accent)' }}>
+                          <span style={{ color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--out)' }}>
                             {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change}
                           </span>
                         </td>

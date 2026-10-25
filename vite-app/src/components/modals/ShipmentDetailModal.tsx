@@ -122,7 +122,7 @@ export function ShipmentDetailModal({ shipmentId, lang, onClose }: ShipmentDetai
               <div style={{ fontSize: 11, color: 'var(--ink-2)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
                 {lang === 'en' ? 'Total Qty' : lang === 'zh' ? '總數量' : '合計数量'}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--out)' }}>
                 {totalQuantity}
               </div>
             </div>
@@ -176,8 +176,8 @@ export function ShipmentDetailModal({ shipmentId, lang, onClose }: ShipmentDetai
                             style={{
                               display: 'inline-block',
                               padding: '2px 6px',
-                              backgroundColor: tx.quantity_change > 0 ? 'var(--ok-soft)' : 'var(--accent-soft)',
-                              color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--accent)',
+                              backgroundColor: tx.quantity_change > 0 ? 'var(--ok-soft)' : 'var(--out-soft)',
+                              color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--out)',
                               borderRadius: 3,
                               fontSize: 10,
                               fontWeight: 600,
@@ -187,7 +187,7 @@ export function ShipmentDetailModal({ shipmentId, lang, onClose }: ShipmentDetai
                           </span>
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600 }}>
-                          <span style={{ color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--accent)' }}>
+                          <span style={{ color: tx.quantity_change > 0 ? 'var(--ok)' : 'var(--out)' }}>
                             {tx.quantity_change > 0 ? '+' : ''}{tx.quantity_change}
                           </span>
                         </td>
