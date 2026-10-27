@@ -298,29 +298,29 @@ async function update(req, res) {
     const { id } = req.params;
     const { status, project_case, sold_to, remarks } = req.body;
 
+    // 狀態只能經由出貨／退貨流程改變（數量才會經過 Stock Ledger）
+    if (status !== undefined) {
+      return res.status(400).json({ success: false, error: "不能直接修改狀態，請使用出貨或退貨流程" });
+    }
+
     const unit = await db.get("SELECT * FROM product_units WHERE id = ?", [id]);
     if (!unit) return res.status(404).json({ success: false, error: "序號品不存在" });
 
-    let newStatus = status || unit.status;
     let newProjectCase = project_case !== undefined ? project_case : unit.project_case;
     let newSoldTo = sold_to !== undefined ? sold_to : unit.sold_to;
-    let newSoldAt = unit.sold_at;
     let newRemarks = remarks !== undefined ? remarks : unit.remarks;
 
-    if (newStatus === "sold") {
+    if (unit.status === "sold") {
       if (!newProjectCase || !newProjectCase.trim()) {
         return res.status(400).json({ success: false, error: "案子（project_case）為必填" });
       }
-      if (unit.status !== "sold") newSoldAt = new Date().toISOString();
-    } else if (newStatus === "in_stock") {
-      newProjectCase = null;
-      newSoldTo = null;
-      newSoldAt = null;
+    } else if (project_case !== undefined || sold_to !== undefined) {
+      return res.status(400).json({ success: false, error: "在庫的序號品沒有出貨資訊可修改" });
     }
 
     await db.run(
-      "UPDATE product_units SET status = ?, project_case = ?, sold_to = ?, sold_at = ?, remarks = ? WHERE id = ?",
-      [newStatus, newProjectCase || null, newSoldTo || null, newSoldAt, newRemarks || null, id],
+      "UPDATE product_units SET project_case = ?, sold_to = ?, remarks = ? WHERE id = ?",
+      [newProjectCase || null, newSoldTo || null, newRemarks || null, id],
     );
 
     const updated = await db.get(

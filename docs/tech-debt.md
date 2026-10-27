@@ -45,7 +45,7 @@
 - [ ] **B2. 倉庫隔離不完整**（寫入部分已由 C1 解決：所有 Transaction 由 Stock Ledger 寫入，`warehouse_id` 取自商品；查詢部分留給 C6）
   多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。
 
-- [ ] **B3. AP 狀態與數量的漂移是否為刻意設計？**
+- [x] **B3. AP 狀態與數量的漂移是否為刻意設計？** — 決議：PUT 不能改 status，狀態只經由出貨／退貨改變（兩者都經過 Stock Ledger）；`tests/productUnitUpdate.test.js`
   `PUT /api/product-units/:id` 改 status 不動數量，也不寫 Transaction。CONTEXT.md 只說明「單筆建立/刪除」不動數量，沒涵蓋改 status。
 
 - [x] **B4. CSV 匯入直接覆寫數量且不留 Transaction** — 決議：CSV 數量為目標值，差額經 Stock Ledger 寫成 ADJUSTMENT（[ADR 0003](adr/0003-stock-ledger.md)，`46dc623`）

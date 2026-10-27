@@ -23,7 +23,7 @@
 
 > **命名對照**：領域語言中統稱「**AP**」或「**序號品**」；資料表名為 `product_units`；REST API 前綴為 `/api/product-units`。文件、討論、註解一律使用「AP / 序號品」；schema 與 URL 維持 `product_units` / `product-units` 以與既有 `/api/products` 風格一致。
 
-對 `track_serial = 1` 的 Product，每一個實體個體即一個 AP（中文：**序號品**），由全域唯一的 `serial_number` 欄位識別。一個 Product 可有 0~N 個 AP。AP 有自己的生命週期狀態（`in_stock` ↔ `sold` 雙向自由流轉，支援出貨與退貨/誤標修正；轉成 `sold` 時自動填 `sold_at`、`sold_to`、`project_case`），與 Product 的 `accountable_quantity` 在**資料上獨立、語意上對應**——本系統不強制兩者數值一致，由 UI 提示漂移。
+對 `track_serial = 1` 的 Product，每一個實體個體即一個 AP（中文：**序號品**），由全域唯一的 `serial_number` 欄位識別。一個 Product 可有 0~N 個 AP。AP 有自己的生命週期狀態（`in_stock` → `sold` 只經由出貨，`sold` → `in_stock` 只經由退貨（RETURN）入庫，兩者都會同時經 Stock Ledger 寫入數量；`PUT /api/product-units/:id` 不能改 status，只能修改出貨欄位與 remarks；轉成 `sold` 時自動填 `sold_at`、`sold_to`、`project_case`），與 Product 的 `accountable_quantity` 在**資料上獨立、語意上對應**——本系統不強制兩者數值一致，由 UI 提示漂移。
 
 > ⚠️ **「序號品」是實體名稱**（那一台具體的設備）；**「serial_number」是欄位**（識別該實體的字串編碼）。撰寫文件時兩者不可互換使用。
 
@@ -39,7 +39,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 - `project_case`（案子）— **必填**，後端強制驗證。系統設計假設「**出貨一定屬於某個案子**」，案子是 AP 出貨的主要歸屬單位
 - `sold_to`（客戶/收件人）— 選填，案子內部不一定需要指定收件人
 - `sold_at` — 由系統在 status 轉為 `sold` 的瞬間自動填入，不由使用者輸入
-- 當 status 從 `sold` 改回 `in_stock` 時，`project_case` / `sold_to` / `sold_at` 三欄**自動清空**，避免殘留資訊誤導
+- 當 status 從 `sold` 改回 `in_stock` 時，`project_case` / `sold_to` / `sold_at` 三欄**自動清空**，避免殘留資訊誤導；在庫的序號不能填出貨欄位
 - AP 商品不能用數量出庫，必須在「出貨」頁掃描序號（避免 `accountable_quantity` 減少但序號仍是 `in_stock`）。
 - AP 商品進貨同樣必須掃描序號（「進貨」頁，批次明細帶 `serial_numbers`，數量 = 序號數）。新序號直接建立；已出庫的序號只有在「退貨」（RETURN）標籤下可改回 `in_stock`，並清空 `project_case` / `sold_to` / `sold_at`。
 

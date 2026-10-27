@@ -66,7 +66,7 @@
 | GET | `/api/product-units/lookup/:serial` | 已登入 | 以序號查詢目前倉庫的 AP（找不到回 404） |
 | POST | `/api/outbound` | manager / admin | 統一出庫：數量明細 + AP 序號，OUTBOUND 標籤自動建立出貨單（全有或全無） |
 | POST | `/api/product-units/transfer` | 已登入 | 跨倉調撥 AP |
-| PUT | `/api/product-units/:id` | 已登入 | 修改 AP |
+| PUT | `/api/product-units/:id` | manager／admin | 修改 AP 的出貨欄位與 remarks（不能改 status） |
 | DELETE | `/api/product-units/:id` | 已登入 | 刪除 AP（硬刪除） |
 | GET | `/api/product-units/export` | 已登入 | 匯出 AP CSV |
 | GET | `/api/audit-logs` | admin | 查詢 audit log |
