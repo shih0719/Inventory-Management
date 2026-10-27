@@ -133,6 +133,21 @@ async function create(req, res) {
 
     const newQuantity = validation.newQuantity;
 
+    // AP accountable stock moves with serials (inbound/outbound pages). Here it may only
+    // be reconciled toward the in-stock serial count, never pushed further away from it.
+    if (product.track_serial && quantity_type === "accountable") {
+      const { inStock } = await db.get(
+        "SELECT COUNT(*) AS inStock FROM product_units WHERE product_id = ? AND status = 'in_stock'",
+        [product_id],
+      );
+      if (Math.abs(newQuantity - inStock) >= Math.abs(currentQuantity - inStock)) {
+        return res.status(400).json({
+          success: false,
+          error: `AP 商品的有帳數量只能朝在庫序號數（${inStock}）對齊；一般進出貨請在進貨/出貨頁掃描序號`,
+        });
+      }
+    }
+
     // Start transaction
     await db.run("BEGIN TRANSACTION");
 

@@ -31,7 +31,7 @@
 
 **AP 只對應 `accountable_quantity`**——「無帳」庫存（樣品、維修件）維持純數量制，不產生 AP。
 
-⚠️ **新增/刪除 AP 不會自動更動 Product 的 `accountable_quantity`**。AP 的數量對齊由使用者透過既有 Transaction 介面手動維護；UI 會在 `accountable_quantity ≠ COUNT(AP WHERE status='in_stock')` 時顯示黃色警示。
+⚠️ **新增/刪除 AP 不會自動更動 Product 的 `accountable_quantity`**。AP 的數量對齊由使用者透過既有 Transaction 介面手動維護——該介面（`POST /api/transactions`）對 AP 商品的有帳數量**只接受朝在庫序號數對齊**的異動（差距必須縮小），一般進出貨必須走序號流程；UI 會在 `accountable_quantity ≠ COUNT(AP WHERE status='in_stock')` 時顯示黃色警示。
 
 AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫 Transaction 並更新 Product 的 `accountable_quantity`**（若驗證通過）。單筆建立/刪除則不會自動更動數量，由使用者自行維護一致性。
 

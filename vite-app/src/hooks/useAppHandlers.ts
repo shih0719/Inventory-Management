@@ -138,7 +138,7 @@ export function useAppHandlers(
           });
           suffix = result.shipment_number ?? `${items.length + payload.outbound.serials.length} ${t.lines}`;
         } else {
-          await createBatch({ name: payload.name, tag_id: payload.tagId, items });
+          await createBatch({ description: payload.name, tag_id: payload.tagId, items });
         }
         await Promise.all([refetchProducts(), refetchTransactions()]);
         navigateTo({ kind: 'dashboard' });
