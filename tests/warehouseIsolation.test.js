@@ -35,10 +35,11 @@ beforeAll(async () => {
 
   const batchRes = await as(whB, "post", "/api/batches").send({
     tag_id: inboundTagId,
-    items: [{ product_id: productB, quantity_change: 1, quantity_type: "non_accountable" }],
+    items: [{ product_id: productB, quantity_change: -1, quantity_type: "non_accountable" }],
   });
   batchB = batchRes.body.data.batch_id;
   txB = (await db.get("SELECT id FROM transactions WHERE batch_id = ?", [batchB])).id;
+  // Shipments bind outbound transactions only
   shipmentB = (await as(whB, "post", "/api/shipments").send({ transaction_ids: [txB] })).body.data.id;
 });
 
@@ -159,11 +160,13 @@ describe("shipments", () => {
   });
 
   it("POST / 綁定其他倉庫的異動 → 409（視為找不到），不建立", async () => {
-    const txA = (await db.get("SELECT id FROM transactions WHERE product_id = ?", [productA])).id;
-    const loose = (await db.run(
-      "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, warehouse_id) VALUES (?, ?, 1, 'non_accountable', ?)",
-      [productB, inboundTagId, whB]
-    )).id;
+    // Outbound rows (shipments bind outbound only), so the only error is the warehouse
+    const outRow = (productId, wh) => db.run(
+      "INSERT INTO transactions (product_id, tag_id, quantity_change, quantity_type, warehouse_id) VALUES (?, ?, -1, 'non_accountable', ?)",
+      [productId, inboundTagId, wh]
+    );
+    const txA = (await outRow(productA, whA)).id;
+    const loose = (await outRow(productB, whB)).id;
     const count = async () => (await db.get("SELECT COUNT(*) AS n FROM shipments")).n;
     const before = await count();
     const res = await asA("post", "/api/shipments").send({ transaction_ids: [txA, loose] });
