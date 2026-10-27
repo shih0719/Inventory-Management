@@ -365,6 +365,7 @@ function initDatabase() {
                         .then(() => backfillWarehouseIds(defaultId))
                           .then(() => ensureTransactionsQuantityType())
                         .then(() => fixProductsUniqueConstraint())
+                        .then(() => rebuildLegacyAuditLogs())
                         .then(() => { console.log("✅ Default warehouse ready"); r(); })
                         .catch(j);
                     });
@@ -441,6 +442,48 @@ function initDatabase() {
                       });
                     });
                   } // doMigration
+                });
+              });
+            });
+          }
+
+          // audit_logs from database/migrations/001 rejects every action except CREATE/UPDATE/DELETE
+          // and NULL user_id/resource_id, so login and admin events were silently dropped.
+          // SQLite can't drop a constraint: rebuild the table, keeping every row and id.
+          function rebuildLegacyAuditLogs() {
+            return new Promise((r, j) => {
+              db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'audit_logs'", (e, row) => {
+                if (e) { j(e); return; }
+                db.all("PRAGMA table_info(audit_logs)", (e2, cols) => {
+                  if (e2) { j(e2); return; }
+                  const strictCols = cols.some(c => ["user_id", "resource_id"].includes(c.name) && c.notnull);
+                  if (!/CHECK\s*\(\s*action/i.test(row.sql) && !strictCols) { r(); return; }
+
+                  console.log("⚠️  Detected legacy audit_logs constraints — rebuilding table...");
+                  const columns = "id, user_id, action, resource_type, resource_id, warehouse_id, event_category, metadata, ip_address, timestamp";
+                  db.exec(`
+                    BEGIN TRANSACTION;
+                    CREATE TABLE audit_logs_new (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      user_id INTEGER,
+                      action TEXT NOT NULL,
+                      resource_type TEXT NOT NULL,
+                      resource_id INTEGER,
+                      warehouse_id INTEGER,
+                      event_category TEXT NOT NULL DEFAULT 'transaction',
+                      metadata TEXT,
+                      ip_address TEXT,
+                      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );
+                    INSERT INTO audit_logs_new (${columns}) SELECT ${columns} FROM audit_logs;
+                    DROP TABLE audit_logs;
+                    ALTER TABLE audit_logs_new RENAME TO audit_logs;
+                    COMMIT;
+                  `, (e3) => {
+                    if (e3) { db.run("ROLLBACK", () => j(e3)); return; }
+                    console.log("✅ Rebuilt audit_logs without legacy constraints");
+                    r();
+                  });
                 });
               });
             });

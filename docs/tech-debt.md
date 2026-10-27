@@ -55,8 +55,9 @@
   `database.js:515-544`。密碼寫死為 `password`、角色為 admin；seed 後無條件執行，沒有判斷 `NODE_ENV`，正式環境也會建立。
   另外 `database.js:232` 每次啟動都把名為 `eric` 的 view 帳號升成 admin，已刪除。
 
-- [ ] **B6. `schema.sql` 與 migration 不一致**
+- [x] **B6. `schema.sql` 與 migration 不一致**
   `schema.sql` 沒有 `batches.warehouse_id` / `transactions.warehouse_id`（只在 migration 中補）；`webhook_*` 表沒有任何程式使用。
+  已完成：`schema.sql` 補齊啟動 migration 會加的表與欄位、拿掉 `webhook_*`（舊資料庫的保留不動）；`tests/schemaDrift.test.js` 檢查新資料庫不需要再 migration、舊資料庫啟動後形狀相同。順帶修掉：正式資料庫的 `audit_logs` 是 `database/migrations/001` 建的，CHECK 只允許 CREATE/UPDATE/DELETE 且 `user_id` 必填，登入與使用者／倉庫管理的 audit 一直被擋掉（`logAction` 吞掉錯誤）；啟動時改為重建這張表，保留原有紀錄。`database/migrations/*.sql` 從來不會被執行，真正的 migration 在 `src/config/database.js`。
 
 ## C. 架構重構（deepening）
 
