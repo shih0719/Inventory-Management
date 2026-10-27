@@ -15,19 +15,6 @@ import { listTransactions } from '../api/transactions';
 import { listTags } from '../api/tags';
 import { getCurrentUser } from '../api/auth';
 
-type View =
-  | { kind: 'dashboard' }
-  | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
-  | { kind: 'ap-products' }
-  | { kind: 'edit-products' }
-  | { kind: 'shipments' }
-  | { kind: 'transactions' }
-  | { kind: 'audit-logs' }
-  | { kind: 'reports' }
-  | { kind: 'warehouses' }
-  | { kind: 'users' }
-  | { kind: 'backup-settings' };
-
 type Modal =
   | null
   | { kind: 'adjust'; product: Product }
@@ -56,10 +43,6 @@ export interface AppState {
   setTags: (tags: Tag[]) => void;
   recentSkus: string[];
   setRecentSkus: (skus: string[]) => void;
-  view: View;
-  setView: (view: View) => void;
-  viewHistory: View[];
-  setViewHistory: Dispatch<SetStateAction<View[]>>;
   modal: Modal;
   setModal: (modal: Modal) => void;
   toast: ToastState | null;
@@ -116,8 +99,6 @@ export function useAppState(): AppState {
   const [tags, setTags] = useState<Tag[]>([]);
   const [recentSkus, setRecentSkus] = useState<string[]>(loadRecent);
 
-  const [view, setView] = useState<View>({ kind: 'dashboard' });
-  const [viewHistory, setViewHistory] = useState<View[]>([]);
   const [modal, setModal] = useState<Modal>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -178,20 +159,6 @@ export function useAppState(): AppState {
     }
   }, [isAuthenticated, activeWarehouse, loadAll]);
 
-  // ---- navigation
-  useEffect(() => {
-    const handlePopState = () => {
-      setViewHistory((prev) => {
-        if (prev.length === 0) return prev;
-        const last = prev[prev.length - 1];
-        setView(last);
-        return prev.slice(0, -1);
-      });
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
   // ---- restore current user on page refresh
   useEffect(() => {
     if (isAuthenticated && !currentUser) {
@@ -244,10 +211,6 @@ export function useAppState(): AppState {
     setTags,
     recentSkus,
     setRecentSkus,
-    view,
-    setView,
-    viewHistory,
-    setViewHistory,
     modal,
     setModal,
     toast,

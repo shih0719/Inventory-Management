@@ -17,19 +17,7 @@ import { createOutbound } from '../api/outbound';
 import { logout } from '../api/auth';
 import { exportProductsCsv, importProductsCsv } from '../api/csv';
 import { L } from '../lib/i18n';
-
-type View =
-  | { kind: 'dashboard' }
-  | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
-  | { kind: 'ap-products' }
-  | { kind: 'edit-products' }
-  | { kind: 'shipments' }
-  | { kind: 'transactions' }
-  | { kind: 'audit-logs' }
-  | { kind: 'reports' }
-  | { kind: 'warehouses' }
-  | { kind: 'users' }
-  | { kind: 'backup-settings' };
+import type { View } from '../lib/routes';
 
 type Modal =
   | null
@@ -47,7 +35,6 @@ export function useAppHandlers(
   products: Product[],
   tags: Tag[],
   setModal: (modal: Modal) => void,
-  setView: (view: View) => void,
   setIsAuthenticated: (auth: boolean) => void,
   setCurrentUser: (user: any) => void,
   setActiveWarehouse: (wh: ActiveWarehouse | null) => void,
@@ -192,20 +179,20 @@ export function useAppHandlers(
       localStorage.setItem('inv.warehouseId', String(wh.id));
       localStorage.setItem('inv.warehouseName', wh.name);
       setActiveWarehouse(wh);
-      setView({ kind: 'dashboard' });
+      // Stay on the current URL so a deep link survives picking a warehouse.
       void loadAll();
     },
-    [setActiveWarehouse, setView, loadAll],
+    [setActiveWarehouse, loadAll],
   );
 
   const handleSwitchWarehouse = useCallback(() => {
     setActiveWarehouse(null);
     localStorage.removeItem('inv.warehouseId');
     localStorage.removeItem('inv.warehouseName');
-    setView({ kind: 'dashboard' });
+    navigateTo({ kind: 'dashboard' });
     setProducts([]);
     setTransactions([]);
-  }, [setActiveWarehouse, setView, setProducts, setTransactions]);
+  }, [setActiveWarehouse, navigateTo, setProducts, setTransactions]);
 
   const handleExport = useCallback(async (skus?: string[]) => {
     try {

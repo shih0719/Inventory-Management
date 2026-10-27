@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { listAuditLogs, type AuditLog } from '../api/audit';
 import { type Lang } from '../lib/i18n';
 
@@ -53,36 +54,62 @@ export function AuditLogsPage({ lang, onResourceClick }: AuditLogsPageProps) {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [offset, setOffset] = useState(0);
-  const [category, setCategory] = useState<CategoryFilter>('all');
-
   const t = texts[lang];
   const limit = 8;
 
+  // Category and page live in the URL so refresh, back and shared links keep them.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category');
+  const category: CategoryFilter =
+    categoryParam === 'system' || categoryParam === 'transaction' ? categoryParam : 'all';
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+  const offset = (page - 1) * limit;
+
+  const updateParams = (changes: Record<string, string>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value) next.set(key, value);
+          else next.delete(key);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
+  const setOffset = (n: number) => updateParams({ page: n > 0 ? String(n / limit + 1) : '' });
+
   useEffect(() => {
+    // Ignore a response once the filters have moved on, so a slow request can't overwrite a newer one.
+    let ignore = false;
     const loadLogs = async () => {
       try {
         setLoading(true);
         setError(null);
         const cat = category === 'all' ? undefined : category;
         const res = await listAuditLogs(undefined, undefined, undefined, limit, offset, cat);
+        if (ignore) return;
 
         setTotalCount(res.pagination.total);
         setLogs(res.data);
       } catch (err) {
+        if (ignore) return;
         setError(t.loadError);
         console.error('Failed to load audit logs:', err);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     loadLogs();
+    return () => {
+      ignore = true;
+    };
   }, [offset, limit, t, category]);
 
   const handleCategoryChange = (cat: CategoryFilter) => {
-    setCategory(cat);
-    setOffset(0);
+    updateParams({ category: cat === 'all' ? '' : cat, page: '' });
   };
 
   const formatTime = (timestamp: string) => {
