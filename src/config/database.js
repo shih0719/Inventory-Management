@@ -1,6 +1,7 @@
 const sqlite3 = require("sqlite3").verbose();
 const fs = require("fs");
 const path = require("path");
+const { AsyncLocalStorage } = require("async_hooks");
 require("dotenv").config();
 
 const DB_PATH = process.env.DB_PATH || "./database/inventory.db";
@@ -510,8 +511,17 @@ function initDatabase() {
       }
 
       function createDefaultUserIfNotExists() {
+        // Default admin comes only from ADMIN_USERNAME / ADMIN_PASSWORD; skip when either is unset
+        const username = process.env.ADMIN_USERNAME;
+        const password = process.env.ADMIN_PASSWORD;
+        if (!username || !password) {
+          console.log("ℹ️  ADMIN_USERNAME / ADMIN_PASSWORD not set, skipping default admin");
+          resolve(db);
+          return;
+        }
+
         // Check if default user already exists
-        db.all("SELECT id FROM users WHERE username = 'eric' LIMIT 1", (checkErr, rows) => {
+        db.all("SELECT id FROM users WHERE username = ? LIMIT 1", [username], (checkErr, rows) => {
           if (checkErr) {
             console.error("❌ Failed to check for default user:", checkErr.message);
             resolve(db);
@@ -519,14 +529,14 @@ function initDatabase() {
           }
 
           if (rows && rows.length > 0) {
-            console.log("✅ Default user 'eric' already exists");
+            console.log(`✅ Default admin '${username}' already exists`);
             resolve(db);
             return;
           }
 
           // Create default user with bcrypt
           const bcrypt = require("bcrypt");
-          bcrypt.hash("password", 10, (hashErr, passwordHash) => {
+          bcrypt.hash(password, 10, (hashErr, passwordHash) => {
             if (hashErr) {
               console.error("❌ Failed to hash password:", hashErr.message);
               resolve(db);
@@ -535,12 +545,12 @@ function initDatabase() {
 
             db.run(
               "INSERT INTO users (username, password_hash, role, provider) VALUES (?, ?, 'admin', 'local')",
-              ["eric", passwordHash],
+              [username, passwordHash],
               function (insertErr) {
                 if (insertErr) {
                   console.error("❌ Failed to create default user:", insertErr.message);
                 } else {
-                  console.log("✅ Default user 'eric' created (password: 'password')");
+                  console.log(`✅ Default admin '${username}' created`);
                 }
                 resolve(db);
               }
@@ -553,7 +563,7 @@ function initDatabase() {
 }
 
 // Promisified database methods
-function run(sql, params = []) {
+function rawRun(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
       if (err) {
@@ -565,7 +575,7 @@ function run(sql, params = []) {
   });
 }
 
-function get(sql, params = []) {
+function rawGet(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
       if (err) {
@@ -577,7 +587,7 @@ function get(sql, params = []) {
   });
 }
 
-function all(sql, params = []) {
+function rawAll(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
       if (err) {
@@ -587,6 +597,54 @@ function all(sql, params = []) {
       }
     });
   });
+}
+
+// All requests share one connection, so an open transaction would absorb any query
+// another request issues. Plain queries wait until the open transaction finishes;
+// queries made from inside the transaction's async context (txContext) go straight through.
+const txContext = new AsyncLocalStorage();
+const txHandle = { run: rawRun, get: rawGet, all: rawAll };
+let openTransaction = null;
+
+function gated(fn) {
+  return async (sql, params) => {
+    if (!txContext.getStore()) {
+      while (openTransaction) await openTransaction.catch(() => {});
+    }
+    return fn(sql, params);
+  };
+}
+
+const run = gated(rawRun);
+const get = gated(rawGet);
+const all = gated(rawAll);
+
+/**
+ * Run `fn(tx)` inside BEGIN/COMMIT; ROLLBACK and rethrow if it throws.
+ * Transactions run one at a time. Calling it from inside a transaction joins that one.
+ */
+async function transaction(fn) {
+  if (txContext.getStore()) return fn(txHandle);
+
+  // No await between the last check and claiming openTransaction, or two callers could both start.
+  while (openTransaction) await openTransaction.catch(() => {});
+  const work = txContext.run(true, async () => {
+    await rawRun("BEGIN TRANSACTION");
+    try {
+      const result = await fn(txHandle);
+      await rawRun("COMMIT");
+      return result;
+    } catch (error) {
+      await rawRun("ROLLBACK").catch(() => {});
+      throw error;
+    }
+  });
+  openTransaction = work;
+  try {
+    return await work;
+  } finally {
+    if (openTransaction === work) openTransaction = null;
+  }
 }
 
 // Close database connection
@@ -612,5 +670,6 @@ module.exports = {
   run,
   get,
   all,
+  transaction,
   closeDatabase,
 };

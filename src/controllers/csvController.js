@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const iconv = require("iconv-lite");
 const { logAction } = require("../services/auditService");
+const stockLedger = require("../services/stockLedger");
 
 // Import products from CSV
 async function importCSV(req, res) {
@@ -192,48 +193,72 @@ async function importCSV(req, res) {
                 }
               }
 
-              // Check if product exists in this warehouse
-              const existing = await db.get(
-                "SELECT id, min_stock FROM products WHERE sku = ? AND warehouse_id = ?",
-                [trimmedSku, warehouseId],
-              );
+              // CSV quantities are targets: each row writes the difference as ADJUSTMENT
+              // movements through the Stock Ledger, and commits on its own.
+              const wasExisting = await db.transaction(async (tx) => {
+                const existing = await tx.get(
+                  "SELECT id, min_stock, accountable_quantity, non_accountable_quantity FROM products WHERE sku = ? AND warehouse_id = ?",
+                  [trimmedSku, warehouseId],
+                );
 
-              if (existing) {
-                const finalMinStock = hasMinStock ? minStockVal : existing.min_stock;
-                await db.run(
-                  `UPDATE products SET name = ?, type = ?, model = ?,
-                   accountable_quantity = ?, non_accountable_quantity = ?, min_stock = ?
-                   WHERE sku = ? AND warehouse_id = ?`,
-                  [
-                    Name.trim(),
-                    Type.trim(),
-                    Model ? Model.trim() : "",
-                    accountableQty,
-                    nonAccountableQty,
-                    finalMinStock,
-                    trimmedSku,
-                    warehouseId,
-                  ],
-                );
-                updated++;
-              } else {
-                await db.run(
-                  `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock, warehouse_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                  [
-                    trimmedSku,
-                    Name.trim(),
-                    Type.trim(),
-                    Model ? Model.trim() : "",
-                    accountableQty,
-                    nonAccountableQty,
-                    hasMinStock ? minStockVal : 0,
-                    warehouseId,
-                  ],
-                );
-                imported++;
-              }
+                let productId;
+                if (existing) {
+                  const finalMinStock = hasMinStock ? minStockVal : existing.min_stock;
+                  await tx.run(
+                    `UPDATE products SET name = ?, type = ?, model = ?, min_stock = ?
+                     WHERE id = ?`,
+                    [
+                      Name.trim(),
+                      Type.trim(),
+                      Model ? Model.trim() : "",
+                      finalMinStock,
+                      existing.id,
+                    ],
+                  );
+                  productId = existing.id;
+                } else {
+                  const created = await tx.run(
+                    `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock, warehouse_id)
+                     VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
+                    [
+                      trimmedSku,
+                      Name.trim(),
+                      Type.trim(),
+                      Model ? Model.trim() : "",
+                      hasMinStock ? minStockVal : 0,
+                      warehouseId,
+                    ],
+                  );
+                  productId = created.id;
+                }
+
+                const movements = [
+                  { quantityType: "accountable", delta: accountableQty - (existing?.accountable_quantity || 0) },
+                  { quantityType: "non_accountable", delta: nonAccountableQty - (existing?.non_accountable_quantity || 0) },
+                ]
+                  .filter((m) => m.delta !== 0)
+                  .map((m) => ({ ...m, productId, remarks: "CSV 匯入" }));
+                if (movements.length > 0) {
+                  await stockLedger.apply(tx, movements, {
+                    tag: { name: "ADJUSTMENT" },
+                    source: "csv-import",
+                    actor: { userId: req.user?.id, username: req.user?.username || "unknown" },
+                  });
+                }
+                return Boolean(existing);
+              });
+              if (wasExisting) updated++;
+              else imported++;
             } catch (error) {
+              if (error instanceof stockLedger.LedgerError) {
+                errors.push({
+                  row: rowNumber,
+                  reason: "QUANTITY_REJECTED",
+                  message: "數量異動被拒絕",
+                  details: error.errors.map((e) => e.reason).join("; ") || error.message
+                });
+                continue;
+              }
               // Database constraint violation
               if (error.message.includes("UNIQUE constraint failed")) {
                 errors.push({

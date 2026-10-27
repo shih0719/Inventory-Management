@@ -1,6 +1,6 @@
 // src/components/TransactionsPage.tsx
 // Dedicated transaction history page with server-side pagination & filters.
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Transaction, Tag, Lang } from '../types';
 import { listTransactions, exportTransactionsCsv } from '../api/transactions';
 import { tagLabel, L } from '../lib/i18n';
@@ -53,9 +53,12 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
   const [sort, setSort] = useState<SortKey>(loadSort);
   const [order, setOrder] = useState<'asc' | 'desc'>(loadOrder);
   const [exporting, setExporting] = useState(false);
+  const latestRequest = useRef(0);
 
   const load = useCallback(
     async (pageNum: number) => {
+      // Only the latest request may update the table; earlier ones can resolve later.
+      const requestId = ++latestRequest.current;
       setLoading(true);
       setError(null);
       try {
@@ -72,12 +75,14 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           sort,
           order,
         });
+        if (requestId !== latestRequest.current) return;
         setRows(res.data || []);
         setTotal(res.pagination?.total || 0);
       } catch (err) {
+        if (requestId !== latestRequest.current) return;
         setError(err instanceof Error ? err.message : 'Failed to load transactions');
       } finally {
-        setLoading(false);
+        if (requestId === latestRequest.current) setLoading(false);
       }
     },
     [from, to, direction, quantityType, tagId, sku, operator, sort, order],
@@ -87,10 +92,9 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
     void load(page);
   }, [load, page]);
 
+  // Filter state changes `load`, so the effect above refetches with the new values.
   const resetAndSearch = () => {
     setPage(1);
-    // trigger reload through effect (page already 1 -> force via load)
-    void load(1);
   };
 
   const handleExport = async () => {

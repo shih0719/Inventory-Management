@@ -86,6 +86,13 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 ### Transaction（庫存異動紀錄）
 一筆庫存的變動事件，附帶 `quantity_change`（正值=入庫，負值=出庫）、`tag_id`、可選的 `batch_id` 與 `location_id`、與 `remarks`。**Transaction 是不可變的歷史紀錄**——商品的當前數量是異動累積的結果，但每筆異動都留痕。
 
+### Stock Ledger（庫存帳本）
+**唯一**可以改動 Product 數量的模組（`src/services/stockLedger.js`）。呼叫端把數量變動描述為 **movement**（商品、Quantity Type、帶正負號的 delta、選填的序號 `unitIds`），交給 `ledger.apply(tx, movements, ctx)`；帳本在呼叫端的 DB transaction 內一次驗證全部 movement（非負、Tag 存在、AP 規則），再逐筆寫 Transaction、更新數量、記 audit。任一筆不通過就整批不寫入。
+
+- 任何新的進出貨、調整、匯入路徑都必須經過 Stock Ledger，**不得直接 `UPDATE products SET *_quantity`**
+- AP 商品的有帳 movement 必須帶序號（序號數 = |delta|），或標記為 `reconcile`（只能朝在庫序號數對齊）；序號本身的狀態由 AP 流程負責，帳本不檢查
+- 決策紀錄見 `docs/adr/0003-stock-ledger.md`
+
 ### Quantity Type（數量類型）
 一筆 Transaction 影響 Product 的兩種數量之一：
 
@@ -108,6 +115,7 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 
 ### CSV Import / Export
 透過 Big5 編碼的 CSV 檔批量建立/更新 Product。匯入時以 SKU 為 upsert key——存在則更新，不存在則建立。
+CSV 中的數量是**目標值**：匯入時計算與目前數量的差額，經 Stock Ledger 寫成 `ADJUSTMENT` 標籤、source `csv-import` 的 Transaction（差額為 0 則不寫）。逐列提交，失敗的列回報錯誤、不影響其他列。AP 商品的有帳數量不能用 CSV 改動（該列失敗）。
 
 ### Soft Delete（軟刪除）
 - **Product** — `is_deleted = 1`，記錄保留但從預設查詢中濾除
