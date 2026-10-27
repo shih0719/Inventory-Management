@@ -73,7 +73,7 @@
 - [ ] **C4. Shipment 綁定 module** — *Worth exploring*
   `shipmentsController` 的 create/update 與 `outboundService` 共用一個 `bind()`，負責編號、互斥檢查、倉庫與出庫檢查。可一併解決 A2。
 
-- [ ] **C5. 前端 App shell 拆分** — *Worth exploring*（導航部分已由 `0d88098` 完成：react-router，`View` 型別只剩 `lib/routes.ts` 一份）
+- [ ] **C5. 前端 App shell 拆分** — *Worth exploring*（導航部分已由 `8249193` 完成：react-router，`View` 型別只剩 `lib/routes.ts` 一份）
   剩下：`useAppHandlers` 有 16 個依位置傳入的參數、Topbar/AppContent 接收約 60 個 props、401 處理有兩份（`api/client.ts`、`useAppState.ts`）、`Modal` 型別複製了 3 份。拆成 `useSession`、inventory store。
 
 - [ ] **C6. Transaction 查詢 module** — *Speculative*
