@@ -80,8 +80,8 @@
 - [ ] **C5. 前端 App shell 拆分** — *Worth exploring*（導航部分已由 `8249193` 完成：react-router，`View` 型別只剩 `lib/routes.ts` 一份）
   剩下：`useAppHandlers` 有 16 個依位置傳入的參數、Topbar/AppContent 接收約 60 個 props、401 處理有兩份（`api/client.ts`、`useAppState.ts`）、`Modal` 型別複製了 3 份。拆成 `useSession`、inventory store。
 
-- [ ] **C6. Transaction 查詢 module** — *Speculative*
-  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。
+- [x] **C6. Transaction 查詢 module** — *Speculative* — `src/services/transactionQuery.js`
+  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。已完成：transactions 的列表／匯出／單筆／依商品，以及出貨單與批次明細共用同一份查詢（`tests/transactionReads.test.js`）。出貨單建立／修改回傳的 `items_summary` 與 Excel 匯出仍各自查詢，留給 C4。
 
 ## 測試缺口
 

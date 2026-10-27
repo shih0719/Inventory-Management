@@ -2,6 +2,7 @@ const db = require("../config/database");
 const stockLedger = require("../services/stockLedger");
 const auditService = require("../services/auditService");
 const apUnits = require("../services/apUnits");
+const transactionQuery = require("../services/transactionQuery");
 const { formatTimestamps } = require("../utils/formatTimestamps");
 
 // Create batch transaction (multiple products at once) — Strict Mode
@@ -205,18 +206,11 @@ async function getBatchById(req, res) {
       return res.status(404).json({ success: false, error: "Batch not found" });
     }
 
-    const transactions = await db.all(
-      `SELECT t.*, 
-              p.name as product_name, 
-              p.sku, 
-              tg.display_name as tag_name, 
-              tg.color as tag_color
-       FROM transactions t
-       JOIN products p ON t.product_id = p.id
-       JOIN tags tg ON t.tag_id = tg.id
-       WHERE t.batch_id = ?
-       ORDER BY t.created_at ASC`,
-      [id],
+    const transactions = await transactionQuery.list(
+      db,
+      req.warehouseId,
+      { batch_id: id },
+      { sort: "created_at", order: "asc" },
     );
 
     res.json({
