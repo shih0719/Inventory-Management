@@ -53,6 +53,7 @@
 
 - [x] **B5. migration 寫死預設 admin `eric` / `password`**（已確認，安全性問題）— 改由 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 建立，沒設定就不建立（`tests/defaultAdmin.test.js`）
   `database.js:515-544`。密碼寫死為 `password`、角色為 admin；seed 後無條件執行，沒有判斷 `NODE_ENV`，正式環境也會建立。
+  另外 `database.js:232` 每次啟動都把名為 `eric` 的 view 帳號升成 admin，已刪除。
 
 - [ ] **B6. `schema.sql` 與 migration 不一致**
   `schema.sql` 沒有 `batches.warehouse_id` / `transactions.warehouse_id`（只在 migration 中補）；`webhook_*` 表沒有任何程式使用。
