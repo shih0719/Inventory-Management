@@ -447,7 +447,7 @@ function initDatabase() {
             });
           }
 
-          // audit_logs from database/migrations/001 rejects every action except CREATE/UPDATE/DELETE
+          // audit_logs created by the old database/migrations/001 script rejects every action except CREATE/UPDATE/DELETE
           // and NULL user_id/resource_id, so login and admin events were silently dropped.
           // SQLite can't drop a constraint: rebuild the table, keeping every row and id.
           function rebuildLegacyAuditLogs() {

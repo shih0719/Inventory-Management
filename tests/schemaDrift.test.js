@@ -7,7 +7,7 @@ const sqlite3 = require("sqlite3");
 const SCHEMA = fs.readFileSync(path.join(__dirname, "../database/schema.sql"), "utf8");
 // database/schema.sql before B6 — the shape existing databases were created from
 const LEGACY_SCHEMA = fs.readFileSync(path.join(__dirname, "fixtures/legacy-schema.sql"), "utf8");
-// audit_logs as created by database/migrations/001 — what the production database has
+// audit_logs as created by the old database/migrations/001 script — what the production database has
 const LEGACY_AUDIT_LOGS = `
 CREATE TABLE audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

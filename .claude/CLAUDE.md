@@ -24,7 +24,7 @@ This project uses CodeGraph — a tree-sitter-parsed AST knowledge graph for fas
 - **src/middleware** — Auth, logging, error handling
 - **src/config** — Database, logger setup
 - **vite-app** — Frontend (React/Vue)
-- **database** — Schema migrations, seeders
+- **database** — `schema.sql` (new databases) and seeds; migrations live in `src/config/database.js`
 - **tests** — Unit & integration tests
 
 Module-specific rules are in `.claude/rules/` — loaded only when working in that directory.
