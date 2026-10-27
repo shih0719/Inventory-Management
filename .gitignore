@@ -3,6 +3,7 @@ node_modules/
 
 # Frontend build output (copied from vite-app/dist by scripts/copy-frontend.js)
 public/
+public_backup_*/
 
 # TypeScript incremental build cache
 *.tsbuildinfo

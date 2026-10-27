@@ -1,6 +1,7 @@
 // src/components/TransactionsPage.tsx
 // Dedicated transaction history page with server-side pagination & filters.
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useSearchParams } from 'react-router';
 import type { Transaction, Tag, Lang } from '../types';
 import { listTransactions, exportTransactionsCsv } from '../api/transactions';
 import { tagLabel, L } from '../lib/i18n';
@@ -10,10 +11,11 @@ type SortKey = 'created_at' | 'quantity_change' | 'sku' | 'product_name' | 'tag_
 const SORT_KEY = 'inv.txSort';
 const ORDER_KEY = 'inv.txOrder';
 
+const SORT_KEYS: SortKey[] = ['created_at', 'quantity_change', 'sku', 'product_name', 'tag_name', 'quantity_type', 'created_by_user'];
+
 function loadSort(): SortKey {
   const saved = (() => { try { return localStorage.getItem(SORT_KEY); } catch { return null; } })();
-  const valid: SortKey[] = ['created_at', 'quantity_change', 'sku', 'product_name', 'tag_name', 'quantity_type', 'created_by_user'];
-  return (saved && valid.includes(saved as SortKey)) ? (saved as SortKey) : 'created_at';
+  return (saved && SORT_KEYS.includes(saved as SortKey)) ? (saved as SortKey) : 'created_at';
 }
 
 function loadOrder(): 'asc' | 'desc' {
@@ -37,21 +39,25 @@ interface TransactionsPageProps {
 export function TransactionsPage({ lang, tags, onViewTransaction }: TransactionsPageProps) {
   const [rows, setRows] = useState<Transaction[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const limit = 20;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Filters
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [direction, setDirection] = useState<'' | 'in' | 'out'>('');
-  const [quantityType, setQuantityType] = useState('');
-  const [tagId, setTagId] = useState('');
-  const [sku, setSku] = useState('');
-  const [operator, setOperator] = useState('');
-  const [sort, setSort] = useState<SortKey>(loadSort);
-  const [order, setOrder] = useState<'asc' | 'desc'>(loadOrder);
+  // Page, filters and sort live in the URL so refresh, back and shared links keep them.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+  const from = searchParams.get('from') || '';
+  const to = searchParams.get('to') || '';
+  const dirParam = searchParams.get('direction');
+  const direction: '' | 'in' | 'out' = dirParam === 'in' || dirParam === 'out' ? dirParam : '';
+  const quantityType = searchParams.get('quantity_type') || '';
+  const tagId = searchParams.get('tag_id') || '';
+  const sku = searchParams.get('sku') || '';
+  const operator = searchParams.get('created_by_user') || '';
+  const sortParam = searchParams.get('sort') as SortKey | null;
+  const sort: SortKey = sortParam && SORT_KEYS.includes(sortParam) ? sortParam : loadSort();
+  const orderParam = searchParams.get('order');
+  const order: 'asc' | 'desc' = orderParam === 'asc' || orderParam === 'desc' ? orderParam : loadOrder();
   const [exporting, setExporting] = useState(false);
   const latestRequest = useRef(0);
 
@@ -92,10 +98,25 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
     void load(page);
   }, [load, page]);
 
-  // Filter state changes `load`, so the effect above refetches with the new values.
-  const resetAndSearch = () => {
-    setPage(1);
+  // A URL change changes `load`, so the effect above refetches with the new values.
+  const updateParams = (changes: Record<string, string>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [key, value] of Object.entries(changes)) {
+          if (value) next.set(key, value);
+          else next.delete(key);
+        }
+        return next;
+      },
+      { replace: true },
+    );
   };
+
+  /** Changing a filter goes back to page 1. */
+  const setFilter = (key: string, value: string) => updateParams({ [key]: value, page: '' });
+
+  const setPage = (n: number) => updateParams({ page: n > 1 ? String(n) : '' });
 
   const handleExport = async () => {
     setExporting(true);
@@ -131,10 +152,8 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
       nextSort = col;
       nextOrder = 'asc';
     }
-    setSort(nextSort);
-    setOrder(nextOrder);
     saveSort(nextSort, nextOrder);
-    setPage(1);
+    updateParams({ sort: nextSort, order: nextOrder, page: '' });
   };
 
   const sortArrow = (col: string): string => (sort === col ? (order === 'asc' ? ' ▲' : ' ▼') : '');
@@ -187,15 +206,15 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           <div className="field">
             <label>{lang === 'en' ? 'From' : '起日'}</label>
-            <input type="date" value={from} style={inputStyle} onChange={(e) => { setFrom(e.target.value); resetAndSearch(); }} />
+            <input type="date" value={from} style={inputStyle} onChange={(e) => setFilter('from', e.target.value)} />
           </div>
           <div className="field">
             <label>{lang === 'en' ? 'To' : '迄日'}</label>
-            <input type="date" value={to} style={inputStyle} onChange={(e) => { setTo(e.target.value); resetAndSearch(); }} />
+            <input type="date" value={to} style={inputStyle} onChange={(e) => setFilter('to', e.target.value)} />
           </div>
           <div className="field">
             <label>{lang === 'en' ? 'Direction' : '方向'}</label>
-            <select value={direction} style={inputStyle} onChange={(e) => { setDirection(e.target.value as '' | 'in' | 'out'); resetAndSearch(); }}>
+            <select value={direction} style={inputStyle} onChange={(e) => setFilter('direction', e.target.value)}>
               <option value="">{lang === 'en' ? 'All' : '全部'}</option>
               <option value="in">{lang === 'en' ? 'Inbound' : '進貨'}</option>
               <option value="out">{lang === 'en' ? 'Outbound' : '出貨'}</option>
@@ -203,7 +222,7 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           </div>
           <div className="field">
             <label>{lang === 'en' ? 'Type' : '帳別'}</label>
-            <select value={quantityType} style={inputStyle} onChange={(e) => { setQuantityType(e.target.value); resetAndSearch(); }}>
+            <select value={quantityType} style={inputStyle} onChange={(e) => setFilter('quantity_type', e.target.value)}>
               <option value="">{lang === 'en' ? 'All' : '全部'}</option>
               <option value="accountable">{lang === 'en' ? 'Accountable' : '有帳'}</option>
               <option value="non_accountable">{lang === 'en' ? 'Non-accountable' : '無帳'}</option>
@@ -211,7 +230,7 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           </div>
           <div className="field">
             <label>{lang === 'en' ? 'Tag' : '標籤'}</label>
-            <select value={tagId} style={inputStyle} onChange={(e) => { setTagId(e.target.value); resetAndSearch(); }}>
+            <select value={tagId} style={inputStyle} onChange={(e) => setFilter('tag_id', e.target.value)}>
               <option value="">{lang === 'en' ? 'All' : '全部'}</option>
               {tags.map((tg) => (
                 <option key={tg.id} value={tg.id}>{tagLabel(tg.name, lang)}</option>
@@ -220,11 +239,11 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           </div>
           <div className="field">
             <label>SKU</label>
-            <input value={sku} placeholder="SKU" style={inputStyle} onChange={(e) => { setSku(e.target.value); resetAndSearch(); }} />
+            <input value={sku} placeholder="SKU" style={inputStyle} onChange={(e) => setFilter('sku', e.target.value)} />
           </div>
           <div className="field">
             <label>{lang === 'en' ? 'Operator' : '操作者'}</label>
-            <input value={operator} style={inputStyle} onChange={(e) => { setOperator(e.target.value); resetAndSearch(); }} />
+            <input value={operator} style={inputStyle} onChange={(e) => setFilter('created_by_user', e.target.value)} />
           </div>
         </div>
       </div>
@@ -304,10 +323,10 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
           {lang === 'en' ? `Total ${total} · Page ${page}/${totalPages}` : `共 ${total} 筆 · 第 ${page}/${totalPages} 頁`}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn ghost" disabled={page <= 1 || loading} onClick={() => { setPage((p) => Math.max(1, p - 1)); }}>
+          <button className="btn ghost" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>
             {lang === 'en' ? '← Prev' : '← 上一頁'}
           </button>
-          <button className="btn ghost" disabled={page >= totalPages || loading} onClick={() => { setPage((p) => Math.min(totalPages, p + 1)); }}>
+          <button className="btn ghost" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>
             {lang === 'en' ? 'Next →' : '下一頁 →'}
           </button>
         </div>

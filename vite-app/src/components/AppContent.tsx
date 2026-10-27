@@ -21,19 +21,7 @@ import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { CreateProductModal } from './modals/CreateProductModal';
 import { Toast } from './Toast';
 import { Tour, type TourStep } from './Tour';
-
-type View =
-  | { kind: 'dashboard' }
-  | { kind: 'batch'; batchKind: 'inbound' | 'outbound' }
-  | { kind: 'ap-products' }
-  | { kind: 'edit-products' }
-  | { kind: 'shipments' }
-    | { kind: 'transactions' }
-  | { kind: 'audit-logs' }
-  | { kind: 'reports' }
-  | { kind: 'warehouses' }
-  | { kind: 'users' }
-  | { kind: 'backup-settings' };
+import type { View } from '../lib/routes';
 
 type Modal =
   | null

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router';
 import { LoginPage } from './components/LoginPage';
 import { WarehouseSelector } from './components/WarehouseSelector';
 import { Topbar } from './components/Topbar';
@@ -8,6 +9,7 @@ import { useAppHandlers } from './hooks/useAppHandlers';
 import { useAppHelpers } from './hooks/useAppHelpers';
 import { getTourSteps } from './lib/tourConfig';
 import { L } from './lib/i18n';
+import { pathForView, viewFromPath, type View } from './lib/routes';
 import './styles/tour.css';
 
 export function App() {
@@ -25,9 +27,6 @@ export function App() {
     transactions,
     tags,
     recentSkus,
-    view,
-    setView,
-    setViewHistory,
     modal,
     setModal,
     bootState,
@@ -37,14 +36,14 @@ export function App() {
 
   const t = L[lang];
 
-  // Navigation
+  // Navigation — the URL decides which page is shown.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const matchedView = viewFromPath(location.pathname);
+  const view: View = matchedView ?? { kind: 'dashboard' };
   const navigateTo = useCallback(
-    (newView: Parameters<typeof setView>[0]) => {
-      setViewHistory((prev) => [...prev, view]);
-      setView(newView);
-      window.history.pushState({}, '');
-    },
-    [view, setView, setViewHistory],
+    (newView: View) => navigate(pathForView(newView)),
+    [navigate],
   );
 
   const openPicker = useCallback((onPick: (p: any) => void) => {
@@ -78,7 +77,6 @@ export function App() {
     products,
     tags,
     setModal,
-    setView,
     setIsAuthenticated,
     setCurrentUser,
     setActiveWarehouse,
@@ -105,8 +103,8 @@ export function App() {
         onLoginSuccess={(user) => {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          if (window.location.pathname === '/login') {
-            window.history.replaceState({}, '', '/');
+          if (location.pathname === '/login') {
+            navigate('/', { replace: true });
           }
         }}
         lang={lang}
@@ -123,6 +121,8 @@ export function App() {
       />
     );
   }
+
+  if (!matchedView) return <Navigate to="/" replace />;
 
   return (
     <div className="app-shell">
