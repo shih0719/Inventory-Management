@@ -1,167 +1,98 @@
 const db = require("../config/database");
 const iconv = require("iconv-lite");
 const stockLedger = require("../services/stockLedger");
+const apUnits = require("../services/apUnits");
 
-function normalizeSerial(sn) {
-  return sn.trim().toUpperCase();
+function sendError(res, error, context) {
+  if (error instanceof apUnits.ApUnitError) {
+    return res.status(error.status).json({ success: false, error: error.message });
+  }
+  if (error instanceof stockLedger.LedgerError) {
+    return res.status(400).json({ success: false, error: error.errors.map((e) => e.reason).join("; ") || error.message });
+  }
+  console.error(`Error ${context}:`, error);
+  res.status(500).json({ success: false, error: error.message });
 }
 
 // GET /api/product-units
 async function getAll(req, res) {
   try {
-    const {
-      product_id, sku, status, serial_number, sold_to, project_case,
-      page = 1, limit = 20,
-    } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-
-    let where = "WHERE 1=1";
-    const params = [];
-    const countParams = [];
-
-    if (product_id) { where += " AND pu.product_id = ?"; params.push(product_id); countParams.push(product_id); }
-    if (sku) { where += " AND p.sku LIKE ?"; params.push(`%${sku}%`); countParams.push(`%${sku}%`); }
-    if (status) { where += " AND pu.status = ?"; params.push(status); countParams.push(status); }
-    if (serial_number) { where += " AND pu.serial_number LIKE ?"; params.push(`%${serial_number}%`); countParams.push(`%${serial_number}%`); }
-    if (sold_to) { where += " AND pu.sold_to LIKE ?"; params.push(`%${sold_to}%`); countParams.push(`%${sold_to}%`); }
-    if (project_case) { where += " AND pu.project_case LIKE ?"; params.push(`%${project_case}%`); countParams.push(`%${project_case}%`); }
-
-    const countSql = `SELECT COUNT(*) as total FROM product_units pu JOIN products p ON pu.product_id = p.id ${where}`;
-    const sql = `
-      SELECT pu.*, p.sku, p.name AS product_name
-      FROM product_units pu
-      JOIN products p ON pu.product_id = p.id
-      ${where}
-      ORDER BY pu.created_at DESC
-      LIMIT ? OFFSET ?
-    `;
-
-    const totalResult = await db.get(countSql, countParams);
-    params.push(parseInt(limit), offset);
-    const rows = await db.all(sql, params);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const { total, rows } = await apUnits.list(db, req.warehouseId, req.query, { limit, offset: (page - 1) * limit });
 
     res.json({
       success: true,
       data: rows,
-      pagination: {
-        total: totalResult.total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(totalResult.total / parseInt(limit)),
-      },
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
-    console.error("Error fetching product units:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "fetching product units");
+  }
+}
+
+// GET /api/product-units/:id
+async function getById(req, res) {
+  try {
+    res.json({ success: true, data: await apUnits.getById(db, req.params.id, req.warehouseId) });
+  } catch (error) {
+    sendError(res, error, "fetching product unit");
   }
 }
 
 // GET /api/product-units/lookup/:serial — exact serial in the current warehouse
 async function lookupBySerial(req, res) {
   try {
-    const sn = normalizeSerial(req.params.serial);
-    const unit = await db.get(
-      `SELECT pu.id, pu.serial_number, pu.status, pu.product_id, p.sku, p.name AS product_name
-       FROM product_units pu JOIN products p ON pu.product_id = p.id
-       WHERE pu.serial_number = ? AND p.warehouse_id = ? AND p.is_deleted = 0`,
-      [sn, req.warehouseId]
-    );
+    const unit = await apUnits.findBySerial(db, req.params.serial, req.warehouseId);
     if (!unit) return res.status(404).json({ success: false, error: "此倉庫找不到序號" });
     res.json({ success: true, data: unit });
   } catch (error) {
-    console.error("Error looking up serial:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "looking up serial");
   }
 }
 
-// POST /api/product-units
+// POST /api/product-units — single unit, no quantity change (see CONTEXT.md)
 async function create(req, res) {
   try {
     const { product_id, serial_number, remarks } = req.body;
-
     if (!product_id || !serial_number) {
       return res.status(400).json({ success: false, error: "product_id 和 serial_number 為必填" });
     }
 
-    const sn = normalizeSerial(serial_number);
-    if (!sn) return res.status(400).json({ success: false, error: "serial_number 不可為空" });
-
-    const product = await db.get("SELECT * FROM products WHERE id = ? AND is_deleted = 0", [product_id]);
-    if (!product) return res.status(400).json({ success: false, error: "商品不存在" });
-    if (!product.track_serial) return res.status(400).json({ success: false, error: "該商品未開啟序號追蹤" });
-
-    const result = await db.run(
-      "INSERT INTO product_units (product_id, serial_number, remarks) VALUES (?, ?, ?)",
-      [product_id, sn, remarks || null],
-    );
-    const unit = await db.get("SELECT pu.*, p.sku, p.name AS product_name FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.id = ?", [result.id]);
-    res.status(201).json({ success: true, data: unit });
+    const product = await apUnits.getApProduct(db, product_id, req.warehouseId);
+    const id = await apUnits.create(db, product, serial_number, remarks);
+    res.status(201).json({ success: true, data: await apUnits.getById(db, id, req.warehouseId) });
   } catch (error) {
-    if (error.message.includes("UNIQUE constraint failed")) {
-      return res.status(400).json({ success: false, error: "序號已存在" });
-    }
-    console.error("Error creating product unit:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "creating product unit");
   }
 }
 
-// POST /api/product-units/bulk
+// POST /api/product-units/bulk — new serials plus one INBOUND movement
 async function bulkCreate(req, res) {
   try {
-    const { product_id, serial_numbers, remarks, warehouse_id } = req.body;
+    const { product_id, serial_numbers, remarks } = req.body;
     const createdByUser = req.user?.username || "unknown";
 
     if (!product_id || !Array.isArray(serial_numbers) || serial_numbers.length === 0) {
       return res.status(400).json({ success: false, error: "product_id 和 serial_numbers 陣列為必填" });
     }
 
-    const product = await db.get("SELECT * FROM products WHERE id = ? AND is_deleted = 0", [product_id]);
-    if (!product) return res.status(400).json({ success: false, error: "商品不存在" });
-    if (!product.track_serial) return res.status(400).json({ success: false, error: "該商品未開啟序號追蹤" });
-
-    const insertedIds = [];
-    const errors = [];
-    const seenInBatch = new Set();
+    const product = await apUnits.getApProduct(db, product_id, req.warehouseId);
 
     // Serial inserts and the inbound movement commit together.
-    await db.transaction(async (tx) => {
-      for (let i = 0; i < serial_numbers.length; i++) {
-        const raw = serial_numbers[i];
-        if (!raw || !raw.trim()) {
-          errors.push({ index: i, serial_number: raw, reason: "序號不可為空" });
-          continue;
-        }
-        const sn = normalizeSerial(raw);
-        if (seenInBatch.has(sn)) {
-          errors.push({ index: i, serial_number: sn, reason: "批次內序號重複" });
-          continue;
-        }
-        seenInBatch.add(sn);
-        try {
-          const result = await tx.run(
-            "INSERT INTO product_units (product_id, serial_number, remarks, warehouse_id) VALUES (?, ?, ?, ?)",
-            [product_id, sn, remarks || null, warehouse_id || null],
-          );
-          insertedIds.push(result.id);
-        } catch (e) {
-          if (e.message.includes("UNIQUE constraint failed")) {
-            errors.push({ index: i, serial_number: sn, reason: "序號已存在" });
-          } else {
-            throw e;
-          }
-        }
-      }
-
-      if (insertedIds.length > 0) {
+    const { ids, errors } = await db.transaction(async (tx) => {
+      const created = await apUnits.createMany(tx, product, serial_numbers, remarks);
+      if (created.ids.length > 0) {
         await stockLedger.apply(
           tx,
-          [{ productId: product.id, quantityType: "accountable", delta: insertedIds.length, unitIds: insertedIds, remarks: "系統自動" }],
+          [{ productId: product.id, quantityType: "accountable", delta: created.ids.length, unitIds: created.ids, remarks: "系統自動" }],
           { tag: { name: "INBOUND" }, source: "ap-bulk", actor: { userId: req.user?.id, username: createdByUser } },
         );
       }
+      return created;
     });
 
-    const inserted = insertedIds.length;
+    const inserted = ids.length;
     if (inserted === 0 && errors.length > 0) {
       const errorMsg = errors.map((e) => `${e.serial_number}: ${e.reason}`).join('; ');
       return res.status(400).json({ success: false, error: errorMsg, errors });
@@ -173,8 +104,7 @@ async function bulkCreate(req, res) {
 
     res.status(201).json({ success: true, data: { inserted, failed: errors.length, errors, message } });
   } catch (error) {
-    console.error("Error bulk creating product units:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "bulk creating product units");
   }
 }
 
@@ -197,84 +127,13 @@ async function transfer(req, res) {
       return res.status(403).json({ success: false, error: "無目標倉庫的存取權限" });
     }
 
-    const errors = [];
-    const validUnits = [];
-
-    for (const raw of serial_numbers) {
-      const sn = normalizeSerial(raw);
-      // Only units in the current warehouse can be moved out.
-      const unit = await db.get(
-        "SELECT pu.*, p.sku, p.warehouse_id AS src_warehouse_id FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.serial_number = ? AND p.warehouse_id = ?",
-        [sn, req.warehouseId]
-      );
-      if (!unit) {
-        errors.push({ serial_number: sn, reason: "此倉庫找不到序號" });
-      } else if (unit.status !== "in_stock") {
-        errors.push({ serial_number: sn, reason: "非在庫狀態" });
-      } else if (unit.src_warehouse_id === Number(target_warehouse_id)) {
-        errors.push({ serial_number: sn, reason: "已在目標倉庫" });
-      } else {
-        // Find the same SKU product in the target warehouse
-        const targetProduct = await db.get(
-          "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
-          [unit.sku, target_warehouse_id]
-        );
-        if (!targetProduct) {
-          errors.push({ serial_number: sn, reason: `目標倉庫無此 SKU (${unit.sku})` });
-        } else {
-          validUnits.push({ ...unit, targetProduct });
-        }
-      }
-    }
-
+    const { errors, units } = await apUnits.planTransfer(db, serial_numbers, req.warehouseId, warehouse.id);
     if (errors.length > 0) {
       return res.status(400).json({ success: false, errors });
     }
 
     await db.transaction(async (tx) => {
-      // Ensure target products are AP type with serial tracking enabled
-      for (const { targetProduct } of validUnits) {
-        if (!targetProduct.track_serial || targetProduct.type !== 'ap') {
-          await tx.run(
-            "UPDATE products SET type = 'ap', track_serial = 1 WHERE id = ?",
-            [targetProduct.id]
-          );
-          targetProduct.type = 'ap';
-          targetProduct.track_serial = 1;
-        }
-      }
-
-      // Update each unit to new product + warehouse
-      for (const unit of validUnits) {
-        await tx.run(
-          "UPDATE product_units SET product_id = ?, warehouse_id = ? WHERE id = ?",
-          [unit.targetProduct.id, target_warehouse_id, unit.id]
-        );
-      }
-
-      // One TRANSFER movement per source product (out) and per target product (in)
-      const bySourceProduct = new Map();
-      const byTargetProduct = new Map();
-      for (const unit of validUnits) {
-        if (!bySourceProduct.has(unit.product_id)) bySourceProduct.set(unit.product_id, []);
-        bySourceProduct.get(unit.product_id).push(unit);
-        if (!byTargetProduct.has(unit.targetProduct.id)) byTargetProduct.set(unit.targetProduct.id, []);
-        byTargetProduct.get(unit.targetProduct.id).push(unit);
-      }
-      const srcWarehouseNames = {};
-      for (const wid of new Set(validUnits.map((u) => u.src_warehouse_id))) {
-        const wh = await tx.get("SELECT name FROM warehouses WHERE id = ?", [wid]);
-        srcWarehouseNames[wid] = wh ? wh.name : String(wid);
-      }
-
-      const movements = [];
-      for (const [productId, units] of bySourceProduct) {
-        movements.push({ productId, quantityType: "accountable", delta: -units.length, unitIds: units.map((u) => u.id), remarks: `移倉至 ${warehouse.name}` });
-      }
-      for (const [productId, units] of byTargetProduct) {
-        const srcName = srcWarehouseNames[units[0].src_warehouse_id];
-        movements.push({ productId, quantityType: "accountable", delta: units.length, unitIds: units.map((u) => u.id), remarks: `從 ${srcName} 移入` });
-      }
+      const movements = await apUnits.applyTransfer(tx, units, warehouse);
       await stockLedger.apply(tx, movements, {
         tag: { name: "TRANSFER" },
         source: "ap-transfer",
@@ -282,102 +141,43 @@ async function transfer(req, res) {
       });
     });
 
-    res.json({ success: true, data: { transferred: validUnits.length } });
+    res.json({ success: true, data: { transferred: units.length } });
   } catch (error) {
-    if (error instanceof stockLedger.LedgerError) {
-      return res.status(400).json({ success: false, error: error.errors.map((e) => e.reason).join("; ") || error.message });
-    }
-    console.error("Error transferring product units:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "transferring product units");
   }
 }
 
 // PUT /api/product-units/:id
 async function update(req, res) {
   try {
-    const { id } = req.params;
-    const { status, project_case, sold_to, remarks } = req.body;
-
     // 狀態只能經由出貨／退貨流程改變（數量才會經過 Stock Ledger）
-    if (status !== undefined) {
+    if (req.body.status !== undefined) {
       return res.status(400).json({ success: false, error: "不能直接修改狀態，請使用出貨或退貨流程" });
     }
 
-    const unit = await db.get("SELECT * FROM product_units WHERE id = ?", [id]);
-    if (!unit) return res.status(404).json({ success: false, error: "序號品不存在" });
-
-    let newProjectCase = project_case !== undefined ? project_case : unit.project_case;
-    let newSoldTo = sold_to !== undefined ? sold_to : unit.sold_to;
-    let newRemarks = remarks !== undefined ? remarks : unit.remarks;
-
-    if (unit.status === "sold") {
-      if (!newProjectCase || !newProjectCase.trim()) {
-        return res.status(400).json({ success: false, error: "案子（project_case）為必填" });
-      }
-    } else if (project_case !== undefined || sold_to !== undefined) {
-      return res.status(400).json({ success: false, error: "在庫的序號品沒有出貨資訊可修改" });
-    }
-
-    await db.run(
-      "UPDATE product_units SET project_case = ?, sold_to = ?, remarks = ? WHERE id = ?",
-      [newProjectCase || null, newSoldTo || null, newRemarks || null, id],
-    );
-
-    const updated = await db.get(
-      "SELECT pu.*, p.sku, p.name AS product_name FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.id = ?",
-      [id],
-    );
-    res.json({ success: true, data: updated });
+    const unit = await apUnits.getById(db, req.params.id, req.warehouseId);
+    await apUnits.edit(db, unit, req.body);
+    res.json({ success: true, data: await apUnits.getById(db, unit.id, req.warehouseId) });
   } catch (error) {
-    console.error("Error updating product unit:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "updating product unit");
   }
 }
 
-// DELETE /api/product-units/:id
+// DELETE /api/product-units/:id — no quantity change (see CONTEXT.md)
 async function remove(req, res) {
   try {
-    const { id } = req.params;
-    const unit = await db.get("SELECT * FROM product_units WHERE id = ?", [id]);
-    if (!unit) return res.status(404).json({ success: false, error: "序號品不存在" });
-
-    await db.run("DELETE FROM product_units WHERE id = ?", [id]);
+    const unit = await apUnits.getById(db, req.params.id, req.warehouseId);
+    await apUnits.remove(db, unit);
     res.json({ success: true, message: "序號品已刪除" });
   } catch (error) {
-    console.error("Error deleting product unit:", error);
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "deleting product unit");
   }
 }
 
 // GET /api/product-units/export
 async function exportCSV(req, res) {
   try {
-    const {
-      product_id, sku, status, serial_number, sold_to, project_case,
-      sold_at_from, sold_at_to, created_at_from, created_at_to,
-    } = req.query;
-
-    let where = "WHERE 1=1";
-    const params = [];
-
-    if (product_id) { where += " AND pu.product_id = ?"; params.push(product_id); }
-    if (sku) { where += " AND p.sku LIKE ?"; params.push(`%${sku}%`); }
-    if (status) { where += " AND pu.status = ?"; params.push(status); }
-    if (serial_number) { where += " AND pu.serial_number LIKE ?"; params.push(`%${serial_number}%`); }
-    if (sold_to) { where += " AND pu.sold_to LIKE ?"; params.push(`%${sold_to}%`); }
-    if (project_case) { where += " AND pu.project_case LIKE ?"; params.push(`%${project_case}%`); }
-    if (sold_at_from) { where += " AND pu.sold_at >= ?"; params.push(sold_at_from); }
-    if (sold_at_to) { where += " AND pu.sold_at <= ?"; params.push(sold_at_to); }
-    if (created_at_from) { where += " AND pu.created_at >= ?"; params.push(created_at_from); }
-    if (created_at_to) { where += " AND pu.created_at <= ?"; params.push(created_at_to); }
-
-    const rows = await db.all(`
-      SELECT pu.*, p.sku, p.name AS product_name
-      FROM product_units pu
-      JOIN products p ON pu.product_id = p.id
-      ${where}
-      ORDER BY pu.created_at DESC
-    `, params);
+    const { rows } = await apUnits.list(db, req.warehouseId, req.query);
 
     const headers = "SKU,ProductName,SerialNumber,Status,ProjectCase,SoldTo,SoldAt,Remarks,CreatedAt\r\n";
     const dataRows = rows.map((r) => {
@@ -395,22 +195,7 @@ async function exportCSV(req, res) {
     res.setHeader("Content-Disposition", `attachment; filename="product_units_${Date.now()}.csv"`);
     res.send(buf);
   } catch (error) {
-    console.error("Error exporting product units CSV:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-}
-
-async function getById(req, res) {
-  try {
-    const { id } = req.params;
-    const unit = await db.get(
-      "SELECT pu.*, p.sku, p.name AS product_name FROM product_units pu JOIN products p ON pu.product_id = p.id WHERE pu.id = ?",
-      [id],
-    );
-    if (!unit) return res.status(404).json({ success: false, error: "序號品不存在" });
-    res.json({ success: true, data: unit });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    sendError(res, error, "exporting product units CSV");
   }
 }
 

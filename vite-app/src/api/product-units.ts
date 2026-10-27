@@ -10,18 +10,14 @@ export async function listProductUnits(productId: number, status?: string): Prom
   return res.data;
 }
 
+/** The units belong to the product's warehouse, which must be the current one. */
 export async function bulkCreateUnits(
   productId: number,
   serialNumbers: string[],
-  warehouseId?: number,
 ): Promise<{ inserted: number; failed: number; errors: unknown[]; message: string }> {
   const res = await api.post<{ inserted: number; failed: number; errors: unknown[]; message: string }>(
     '/api/product-units/bulk',
-    {
-      product_id: productId,
-      serial_numbers: serialNumbers,
-      ...(warehouseId && { warehouse_id: warehouseId }),
-    },
+    { product_id: productId, serial_numbers: serialNumbers },
   );
   return res.data;
 }

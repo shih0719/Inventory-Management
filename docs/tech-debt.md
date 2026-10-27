@@ -43,7 +43,7 @@
   `database.js` 只有一條 sqlite3 連線，並行請求各自下 `BEGIN`/`COMMIT` 時，可能把別的請求的寫入捲進自己的 transaction。`logAction` 在 transaction 內呼叫但沒有 await。
 
 - [ ] **B2. 倉庫隔離不完整**（寫入部分已由 C1 解決：所有 Transaction 由 Stock Ledger 寫入，`warehouse_id` 取自商品；查詢部分留給 C6）
-  多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。
+  多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。`POST /api/batches` 查商品也只用 `product_id`，可以對其他倉庫的商品進貨。（`/api/product-units` 已由 C2 限定倉庫。）
 
 - [x] **B3. AP 狀態與數量的漂移是否為刻意設計？** — 決議：PUT 不能改 status，狀態只經由出貨／退貨改變（兩者都經過 Stock Ledger）；`tests/productUnitUpdate.test.js`
   `PUT /api/product-units/:id` 改 status 不動數量，也不寫 Transaction。CONTEXT.md 只說明「單筆建立/刪除」不動數量，沒涵蓋改 status。
@@ -64,8 +64,11 @@
 - [x] **C1. Stock Ledger module** — *Strong* — `src/services/stockLedger.js`，[ADR 0003](adr/0003-stock-ledger.md)（`4511f83`、`46dc623`）
   「寫 Transaction + 更新 Product 數量」目前散在 7 處：transactions、batches、outbound、AP bulk、AP transfer、CSV、products.create。收斂成單一 interface（例如 `ledger.apply(movements, actor, { tag, batch })`），由它負責欄位選擇、非負檢查、snapshot、`warehouse_id`、audit、AP 必須帶序號，以及 atomicity。這一項可一併解決 A1、A5，以及部分的 A6、B2。
 
-- [ ] **C2. AP 生命週期 module** — *Strong*（依賴 C1）
-  序號正規化有 9 份（後端 3、前端 6），in_stock ↔ sold 的轉換散在 4 處。改成集中在一個 module，數量變動交給 Stock Ledger；前端改用 lookup 結果，不再複製驗證規則。
+- [x] **C2. AP 生命週期 module**（後端）— *Strong*（依賴 C1）— `src/services/apUnits.js`
+  序號正規化有 9 份（後端 3、前端 6），in_stock ↔ sold 的轉換散在 4 處。改成集中在一個 module，數量變動交給 Stock Ledger。後端已完成：`apUnits` 是唯一寫 `product_units` 的模組，`/api/product-units` 全部限定目前倉庫（`tests/apUnitsWarehouse.test.js`）；`bulk` 不再接受 body 的 `warehouse_id`，前端 client 已同步移除。
+
+- [ ] **C2b. 前端改用後端的序號規則** — *Worth exploring*（依賴 C2，可併入 C5）
+  前端仍有 6 份「trim + 轉大寫」：`BatchFlow.tsx`（2）、`CameraScanner.tsx`、`InboundSerialEntry.tsx`、`OutboundExtras.tsx`、`CreateProductUnitsModal.tsx`；`InboundSerialEntry.tsx:44`、`OutboundExtras.tsx:110` 只 trim 不轉大寫，`APProductModal.tsx:63` 也只 trim。改成只做顯示用整理，判斷以 lookup／API 回應為準。契約見 `docs/api/README.md` 的 AP 共通規則。
 
 - [x] **C3. `db.transaction()` helper 與可注入的連線** — *Worth exploring*（建議與 C1 一起做）— `945b874`
   取代 14 處手寫 `BEGIN`/`COMMIT`，並解決 B1。
@@ -81,6 +84,8 @@
 
 ## 測試缺口
 
-目前沒有測試覆蓋：product-units update/delete 的行為（`techDebtA.test.js` 只測了角色限制）、前端。
+目前沒有測試覆蓋：product-units delete 的成功路徑（只測了角色與跨倉庫）、前端。
+
+（B3/C2 補上：`tests/productUnitUpdate.test.js`、`tests/apUnitsWarehouse.test.js`。）
 
 （C1/C3 補上：`tests/dbTransaction.test.js`、`tests/stockLedger.test.js`（含並行 lost update）、`tests/stockLedgerRoutes.test.js`（CSV 數量語意、建立商品、batch、AP bulk）。）

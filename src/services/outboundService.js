@@ -1,6 +1,7 @@
 const db = require("../config/database");
 const stockLedger = require("./stockLedger");
 const auditService = require("./auditService");
+const apUnits = require("./apUnits");
 const { generateShipmentNumber } = require("./shipmentService");
 
 class OutboundError extends Error {
@@ -9,10 +10,6 @@ class OutboundError extends Error {
     this.name = "OutboundError";
     this.errors = errors;
   }
-}
-
-function normalizeSerial(sn) {
-  return String(sn || "").trim().toUpperCase();
 }
 
 /**
@@ -91,40 +88,12 @@ async function createOutbound(input, actor) {
     if (serials.length > 0 && !projectCase) {
       errors.push("出貨含 AP 序號時，案子（project_case）為必填");
     }
-    const seen = new Set();
-    const unitsByProduct = new Map();
-    for (const raw of serials) {
-      const sn = normalizeSerial(raw);
-      if (!sn) {
-        errors.push({ serial_number: "", reason: "序號不可為空" });
-        continue;
-      }
-      if (seen.has(sn)) {
-        errors.push({ serial_number: sn, reason: "批次內序號重複" });
-        continue;
-      }
-      seen.add(sn);
-      const unit = await tx.get(
-        `SELECT pu.id, pu.status, pu.product_id, p.sku
-         FROM product_units pu JOIN products p ON pu.product_id = p.id
-         WHERE pu.serial_number = ? AND p.warehouse_id = ? AND p.is_deleted = 0`,
-        [sn, actor.warehouseId]
-      );
-      if (!unit) {
-        errors.push({ serial_number: sn, reason: "此倉庫找不到序號" });
-      } else if (unit.status !== "in_stock") {
-        errors.push({ serial_number: sn, reason: "已出庫" });
-      } else {
-        if (!unitsByProduct.has(unit.product_id)) unitsByProduct.set(unit.product_id, { sku: unit.sku, unitIds: [] });
-        unitsByProduct.get(unit.product_id).unitIds.push(unit.id);
-      }
-    }
-    const apMovements = [];
-    const apLabels = [];
-    for (const [productId, { sku, unitIds }] of unitsByProduct) {
-      apMovements.push({ productId, quantityType: "accountable", delta: -unitIds.length, remarks: description, unitIds });
-      apLabels.push(sku);
-    }
+    const serialPlan = await apUnits.planOutbound(tx, serials, actor.warehouseId);
+    errors.push(...serialPlan.errors);
+    const apMovements = serialPlan.groups.map(({ productId, unitIds }) => ({
+      productId, quantityType: "accountable", delta: -unitIds.length, remarks: description, unitIds,
+    }));
+    const apLabels = serialPlan.groups.map((g) => g.sku);
 
     // Quantity rules come from the Stock Ledger; report them together with the errors above.
     for (const { index, reason } of await stockLedger.check(tx, lineMovements)) {
@@ -148,12 +117,7 @@ async function createOutbound(input, actor) {
     await auditService.logAction(actor.userId, "CREATE", "batch", batch.id, actor.warehouseId);
 
     for (const { unitIds } of apMovements) {
-      for (const unitId of unitIds) {
-        await tx.run(
-          "UPDATE product_units SET status = 'sold', project_case = ?, sold_to = ?, sold_at = ? WHERE id = ?",
-          [projectCase, customer, soldAt, unitId]
-        );
-      }
+      await apUnits.markSold(tx, unitIds, { projectCase, soldTo: customer, soldAt });
     }
 
     const ctx = { tag: { id: tag.id }, batchId: batch.id, actor };

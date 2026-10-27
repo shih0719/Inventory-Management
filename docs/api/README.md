@@ -59,16 +59,18 @@
 | POST | `/api/csv/import` | manager/admin | 匯入商品 CSV（multipart/form-data） |
 | GET | `/api/csv/imports` | 已登入 | 列出匯入歷史 |
 | GET | `/api/csv/imports/:importId` | 已登入 | 取得匯入詳情 |
-| GET | `/api/product-units` | 已登入 | 列出序號品（AP） |
-| GET | `/api/product-units/:id` | 已登入 | 取得單筆 AP |
-| POST | `/api/product-units` | 已登入 | 建立單筆 AP |
-| POST | `/api/product-units/bulk` | 已登入 | 批次建立 AP |
+| GET | `/api/product-units` | 已登入 | 列出目前倉庫的序號品（AP） |
+| GET | `/api/product-units/:id` | 已登入 | 取得單筆 AP（其他倉庫的回 404） |
+| POST | `/api/product-units` | manager／admin | 建立單筆 AP（不動數量；商品須屬目前倉庫） |
+| POST | `/api/product-units/bulk` | manager／admin | 批次建立 AP 並寫一筆 INBOUND（商品須屬目前倉庫；部分成功） |
 | GET | `/api/product-units/lookup/:serial` | 已登入 | 以序號查詢目前倉庫的 AP（找不到回 404） |
 | POST | `/api/outbound` | manager / admin | 統一出庫：數量明細 + AP 序號，OUTBOUND 標籤自動建立出貨單（全有或全無） |
-| POST | `/api/product-units/transfer` | 已登入 | 跨倉調撥 AP |
+| POST | `/api/product-units/transfer` | manager／admin | 把目前倉庫的在庫 AP 調撥到另一倉庫同 SKU 的商品 |
 | PUT | `/api/product-units/:id` | manager／admin | 修改 AP 的出貨欄位與 remarks（不能改 status） |
-| DELETE | `/api/product-units/:id` | 已登入 | 刪除 AP（硬刪除） |
-| GET | `/api/product-units/export` | 已登入 | 匯出 AP CSV |
+| DELETE | `/api/product-units/:id` | manager／admin | 刪除 AP（硬刪除，不動數量；其他倉庫的回 404） |
+| GET | `/api/product-units/export` | 已登入 | 匯出目前倉庫的 AP CSV |
+
+> **AP（`/api/product-units`）共通規則**：所有路由只看得到、改得到 `X-Warehouse-Id` 倉庫的序號品，倉庫取自序號品所屬商品；body 不接受 `warehouse_id`。序號一律正規化為「去頭尾空白 + 轉大寫」，前端可只做顯示用的整理，以後端回應為準。序號狀態只能經由出貨（`/api/outbound`）與退貨入庫（`/api/batches`，RETURN 標籤）改變。
 | GET | `/api/audit-logs` | admin | 查詢 audit log |
 | GET | `/api/reports/inventory` | 已登入 | 庫存報表 |
 
