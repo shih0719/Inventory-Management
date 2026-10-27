@@ -511,8 +511,17 @@ function initDatabase() {
       }
 
       function createDefaultUserIfNotExists() {
+        // Default admin comes only from ADMIN_USERNAME / ADMIN_PASSWORD; skip when either is unset
+        const username = process.env.ADMIN_USERNAME;
+        const password = process.env.ADMIN_PASSWORD;
+        if (!username || !password) {
+          console.log("ℹ️  ADMIN_USERNAME / ADMIN_PASSWORD not set, skipping default admin");
+          resolve(db);
+          return;
+        }
+
         // Check if default user already exists
-        db.all("SELECT id FROM users WHERE username = 'eric' LIMIT 1", (checkErr, rows) => {
+        db.all("SELECT id FROM users WHERE username = ? LIMIT 1", [username], (checkErr, rows) => {
           if (checkErr) {
             console.error("❌ Failed to check for default user:", checkErr.message);
             resolve(db);
@@ -520,14 +529,14 @@ function initDatabase() {
           }
 
           if (rows && rows.length > 0) {
-            console.log("✅ Default user 'eric' already exists");
+            console.log(`✅ Default admin '${username}' already exists`);
             resolve(db);
             return;
           }
 
           // Create default user with bcrypt
           const bcrypt = require("bcrypt");
-          bcrypt.hash("password", 10, (hashErr, passwordHash) => {
+          bcrypt.hash(password, 10, (hashErr, passwordHash) => {
             if (hashErr) {
               console.error("❌ Failed to hash password:", hashErr.message);
               resolve(db);
@@ -536,12 +545,12 @@ function initDatabase() {
 
             db.run(
               "INSERT INTO users (username, password_hash, role, provider) VALUES (?, ?, 'admin', 'local')",
-              ["eric", passwordHash],
+              [username, passwordHash],
               function (insertErr) {
                 if (insertErr) {
                   console.error("❌ Failed to create default user:", insertErr.message);
                 } else {
-                  console.log("✅ Default user 'eric' created (password: 'password')");
+                  console.log(`✅ Default admin '${username}' created`);
                 }
                 resolve(db);
               }
