@@ -1,65 +1,8 @@
 const db = require("../config/database");
 const stockLedger = require("../services/stockLedger");
 const auditService = require("../services/auditService");
+const apUnits = require("../services/apUnits");
 const { formatTimestamps } = require("../utils/formatTimestamps");
-
-/**
- * Validate the serials of one inbound AP line. New serials are created; a sold
- * serial of the same product comes back to stock only under the RETURN tag.
- * Returns { errors: string[], plan: Array<{ serial } | { returnUnitId }> }.
- */
-async function planInboundSerials(product, quantityChange, quantityType, serials, tagName, seenSerials) {
-  if (serials.length === 0) return { errors: ["AP 商品必須掃描序號進貨"], plan: [] };
-  if (parseInt(quantityChange) <= 0) return { errors: ["AP 商品出庫請使用出貨頁"], plan: [] };
-  if (quantityType !== "accountable") return { errors: ["AP 商品只能計入有帳數量"], plan: [] };
-  if (parseInt(quantityChange) !== serials.length) {
-    return { errors: [`數量 ${quantityChange} 與序號數 ${serials.length} 不符`], plan: [] };
-  }
-
-  const errors = [];
-  const plan = [];
-  for (const raw of serials) {
-    const sn = String(raw || "").trim().toUpperCase();
-    if (!sn) { errors.push("序號不可為空"); continue; }
-    if (seenSerials.has(sn)) { errors.push(`${sn} 批次內序號重複`); continue; }
-    seenSerials.add(sn);
-
-    const unit = await db.get("SELECT id, status, product_id FROM product_units WHERE serial_number = ?", [sn]);
-    if (!unit) {
-      plan.push({ serial: sn });
-    } else if (unit.status === "in_stock") {
-      errors.push(`${sn} 已在庫`);
-    } else if (tagName !== "RETURN") {
-      errors.push(`${sn} 已出庫，退貨請選「退貨」標籤`);
-    } else if (unit.product_id !== product.id) {
-      errors.push(`${sn} 屬於其他商品`);
-    } else {
-      plan.push({ returnUnitId: unit.id });
-    }
-  }
-  return { errors, plan };
-}
-
-/** Write a planned set of inbound serials; returns the product_unit ids. Call inside a DB transaction. */
-async function applyInboundSerials(plan, productId, warehouseId) {
-  const ids = [];
-  for (const p of plan) {
-    if (p.returnUnitId) {
-      await db.run(
-        "UPDATE product_units SET status = 'in_stock', project_case = NULL, sold_to = NULL, sold_at = NULL WHERE id = ?",
-        [p.returnUnitId],
-      );
-      ids.push(p.returnUnitId);
-    } else {
-      const result = await db.run(
-        "INSERT INTO product_units (product_id, serial_number, warehouse_id) VALUES (?, ?, ?)",
-        [productId, p.serial, warehouseId],
-      );
-      ids.push(result.id);
-    }
-  }
-  return ids;
-}
 
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
@@ -110,11 +53,16 @@ async function createBatch(req, res) {
         continue;
       }
 
-      // AP (serial-tracked) products come in by serial only; see planInboundSerials.
+      // AP (serial-tracked) products come in by serial only; see apUnits.planInbound.
       const serialList = Array.isArray(serial_numbers) ? serial_numbers : [];
       let serialPlan = null;
       if (product.track_serial) {
-        const planned = await planInboundSerials(product, quantity_change, quantity_type, serialList, tag?.name, seenSerials);
+        const planned = await apUnits.planInbound(
+          db,
+          product,
+          { quantityChange: quantity_change, quantityType: quantity_type, serials: serialList, tagName: tag?.name },
+          seenSerials,
+        );
         if (planned.errors.length > 0) {
           validationErrors.push(...planned.errors.map((e) => `${index} (${product.name}): ${e}`));
           continue;
@@ -132,7 +80,7 @@ async function createBatch(req, res) {
         quantity_type,
         quantity_change: parseInt(quantity_change),
         remarks: remarks || "",
-        warehouseId: product.warehouse_id,
+        product,
         serialPlan,
       });
     }
@@ -182,7 +130,7 @@ async function createBatch(req, res) {
 
       const movements = [];
       for (const item of validatedItems) {
-        const unitIds = item.serialPlan ? await applyInboundSerials(item.serialPlan, item.product_id, item.warehouseId) : undefined;
+        const unitIds = item.serialPlan ? await apUnits.applyInbound(tx, item.serialPlan, item.product) : undefined;
         movements.push(toMovement(item, unitIds));
       }
       await stockLedger.apply(tx, movements, {

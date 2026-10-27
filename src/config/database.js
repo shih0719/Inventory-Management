@@ -228,8 +228,6 @@ function initDatabase() {
               db.run("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'view' CHECK(role IN ('admin','manager','view'))", () => {});
               db.run("ALTER TABLE users ADD COLUMN provider TEXT NOT NULL DEFAULT 'local'", () => {});
               db.run("ALTER TABLE users ADD COLUMN email TEXT", () => {});
-              // Promote first user (eric) to admin if they got the default 'view' role from migration
-              db.run("UPDATE users SET role = 'admin' WHERE username = 'eric' AND role = 'view'", () => {});
 
               console.log("✅ Users table ready");
 
