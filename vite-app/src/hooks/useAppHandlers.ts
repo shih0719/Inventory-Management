@@ -1,54 +1,35 @@
-import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef } from 'react';
 import type {
   Product,
   Transaction,
-  Tag,
   Lang,
   CreateTransactionInput,
   CreateBatchItem,
+  Modal,
   ToastState,
 } from '../types';
-import type { ActiveWarehouse } from '../context/ActiveWarehouseContext';
 import type { BatchSubmitPayload } from '../components/BatchFlow';
+import type { Inventory } from './useInventory';
 import { ApiError } from '../api/client';
 import { createTransaction } from '../api/transactions';
 import { createBatch } from '../api/batches';
 import { createOutbound } from '../api/outbound';
-import { logout } from '../api/auth';
 import { exportProductsCsv, importProductsCsv } from '../api/csv';
 import { L } from '../lib/i18n';
 import type { View } from '../lib/routes';
 
-type Modal =
-  | null
-  | { kind: 'adjust'; product: Product }
-  | { kind: 'picker'; onPick: (p: Product) => void }
-  | { kind: 'ap-product'; product: Product }
-  | { kind: 'transaction-detail'; transactionId: number }
-  | { kind: 'batch-detail'; batchId: number }
-  | { kind: 'shipment-detail'; shipmentId: number }
-  | { kind: 'change-password' }
-  | { kind: 'create-product' };
+export interface AppHandlersDeps {
+  lang: Lang;
+  inventory: Inventory;
+  showToast: (text: string, opts?: Partial<ToastState>) => void;
+  setModal: (modal: Modal) => void;
+  navigateTo: (view: View) => void;
+}
 
-export function useAppHandlers(
-  lang: Lang,
-  products: Product[],
-  tags: Tag[],
-  setModal: (modal: Modal) => void,
-  setIsAuthenticated: (auth: boolean) => void,
-  setCurrentUser: (user: any) => void,
-  setActiveWarehouse: (wh: ActiveWarehouse | null) => void,
-  setProducts: (products: Product[]) => void,
-  setTransactions: Dispatch<SetStateAction<Transaction[]>>,
-  trackRecent: (product: Product | null | undefined) => void,
-  showToast: (text: string, opts?: Partial<ToastState>) => void,
-  refetchProducts: () => Promise<void>,
-  refetchTransactions: () => Promise<void>,
-  adjustTag: Tag | undefined,
-  navigateTo: (view: View) => void,
-  loadAll: () => Promise<void>,
-) {
+/** Stock-changing actions started from the app shell (adjust, batch, CSV import/export). */
+export function useAppHandlers({ lang, inventory, showToast, setModal, navigateTo }: AppHandlersDeps) {
   const t = L[lang];
+  const { products, tags, adjustTag, trackRecent, refetchProducts, refetchTransactions, prependTransaction } = inventory;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleAdjustProduct = useCallback(
@@ -69,7 +50,7 @@ export function useAppHandlers(
           sku: newTx.sku || sku,
           tag_name: newTx.tag_name || tags.find((tg) => tg.id === payload.tag_id)?.name || '',
         };
-        setTransactions((prev) => [enriched, ...prev]);
+        prependTransaction(enriched);
         setModal(null);
         void refetchProducts();
 
@@ -85,10 +66,7 @@ export function useAppHandlers(
                   tag_id: undoTagId,
                   remarks: `Undo · ${payload.remarks || ''}`.trim(),
                 });
-                setTransactions((prev) => [
-                  { ...reverse, sku: reverse.sku || sku, tag_name: reverse.tag_name || '' },
-                  ...prev,
-                ]);
+                prependTransaction({ ...reverse, sku: reverse.sku || sku, tag_name: reverse.tag_name || '' });
                 void refetchProducts();
                 showToast(lang === 'en' ? 'Reversed' : lang.startsWith('zh') ? '已復原' : '取り消されました');
               } catch (err) {
@@ -102,7 +80,7 @@ export function useAppHandlers(
         showToast(`❌ ${message}`, { kind: 'alert', duration: 6000 });
       }
     },
-    [tags, setTransactions, setModal, refetchProducts, adjustTag, showToast, t.txSaved, lang],
+    [tags, prependTransaction, setModal, refetchProducts, adjustTag, showToast, t.txSaved, lang],
   );
 
   const handleBatchSubmit = useCallback(
@@ -160,40 +138,6 @@ export function useAppHandlers(
     [trackRecent, setModal],
   );
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await logout();
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      setIsAuthenticated(false);
-      setCurrentUser(null);
-      setActiveWarehouse(null);
-      localStorage.removeItem('inv.warehouseId');
-      localStorage.removeItem('inv.warehouseName');
-    }
-  }, [setIsAuthenticated, setCurrentUser, setActiveWarehouse]);
-
-  const handleWarehouseSelect = useCallback(
-    (wh: ActiveWarehouse) => {
-      localStorage.setItem('inv.warehouseId', String(wh.id));
-      localStorage.setItem('inv.warehouseName', wh.name);
-      setActiveWarehouse(wh);
-      // Stay on the current URL so a deep link survives picking a warehouse.
-      void loadAll();
-    },
-    [setActiveWarehouse, loadAll],
-  );
-
-  const handleSwitchWarehouse = useCallback(() => {
-    setActiveWarehouse(null);
-    localStorage.removeItem('inv.warehouseId');
-    localStorage.removeItem('inv.warehouseName');
-    navigateTo({ kind: 'dashboard' });
-    setProducts([]);
-    setTransactions([]);
-  }, [setActiveWarehouse, navigateTo, setProducts, setTransactions]);
-
   const handleExport = useCallback(async (skus?: string[]) => {
     try {
       await exportProductsCsv({ skus });
@@ -233,9 +177,6 @@ export function useAppHandlers(
     handleAdjustSubmit,
     handleBatchSubmit,
     handleTopbarPick,
-    handleLogout,
-    handleWarehouseSelect,
-    handleSwitchWarehouse,
     handleExport,
     handleImportClick,
     handleImportFile,

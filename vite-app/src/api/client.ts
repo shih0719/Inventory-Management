@@ -56,6 +56,14 @@ export function clearToken(): void {
   }
 }
 
+/** Call `listener` whenever the token is set or cleared; returns the unsubscribe function. */
+export function onTokenChange(listener: (token: string | null) => void): () => void {
+  tokenListeners.add(listener);
+  return () => {
+    tokenListeners.delete(listener);
+  };
+}
+
 function notifyTokenListeners(token: string | null): void {
   tokenListeners.forEach((listener) => listener(token));
 }
@@ -112,13 +120,8 @@ async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data:
   }
 
   if (!res.ok) {
-    if (res.status === 401) {
-      const hadToken = !!getToken();
-      clearToken();
-      if (hadToken) {
-        window.location.href = '/login';
-      }
-    }
+    // Ends the session: useSession listens for the token being cleared.
+    if (res.status === 401) clearToken();
     const message =
       (payload && 'error' in payload && payload.error) ||
       (payload && 'message' in payload && payload.message) ||

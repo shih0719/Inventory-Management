@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Product, Lang } from '../types';
 import { ProductCombobox } from './ProductCombobox';
 import { Dropdown, DropdownItem } from './Dropdown';
+import type { View } from '../lib/routes';
 
 interface TopbarProps {
   lang: Lang;
@@ -14,18 +15,7 @@ interface TopbarProps {
   isAdmin: boolean;
   activeWarehouse: { id: number; name: string } | null;
   currentUser: { username: string; provider: string } | null;
-  onLogoClick: () => void;
-  onInbound: () => void;
-  onOutbound: () => void;
-  onAPProducts: () => void;
-  onEditProducts: () => void;
-  onShipments: () => void;
-    onTransactions: () => void;
-  onReports: () => void;
-  onAuditLogs: () => void;
-  onUsers: () => void;
-  onWarehouses: () => void;
-  onBackupSettings: () => void;
+  onNavigate: (view: View) => void;
   onLanguageChange: (lang: Lang) => void;
   onSwitchWarehouse: () => void;
   onChangePassword: () => void;
@@ -60,18 +50,7 @@ export function Topbar({
   isAdmin,
   activeWarehouse,
   currentUser,
-  onLogoClick,
-  onInbound,
-  onOutbound,
-  onAPProducts,
-  onEditProducts,
-  onShipments,
-    onTransactions,
-  onReports,
-  onAuditLogs,
-  onUsers,
-  onWarehouses,
-  onBackupSettings,
+  onNavigate,
   onLanguageChange,
   onSwitchWarehouse,
   onChangePassword,
@@ -83,6 +62,20 @@ export function Topbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const ready = bootState === 'ready';
   const tx = (en: string, zh: string, ja: string) => (lang === 'en' ? en : lang.startsWith('zh') ? zh : ja);
+
+  const to = (view: View) => () => onNavigate(view);
+  const onLogoClick = to({ kind: 'dashboard' });
+  const onInbound = to({ kind: 'batch', batchKind: 'inbound' });
+  const onOutbound = to({ kind: 'batch', batchKind: 'outbound' });
+  const onAPProducts = to({ kind: 'ap-products' });
+  const onEditProducts = to({ kind: 'edit-products' });
+  const onShipments = to({ kind: 'shipments' });
+  const onTransactions = to({ kind: 'transactions' });
+  const onReports = to({ kind: 'reports' });
+  const onAuditLogs = to({ kind: 'audit-logs' });
+  const onUsers = to({ kind: 'users' });
+  const onWarehouses = to({ kind: 'warehouses' });
+  const onBackupSettings = to({ kind: 'backup-settings' });
 
   useEffect(() => {
     if (!menuOpen) return;

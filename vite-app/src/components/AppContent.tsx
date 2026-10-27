@@ -1,5 +1,7 @@
 import React from 'react';
-import type { Product, Transaction, Tag, Lang, ToastState } from '../types';
+import type { Product, Lang, Modal } from '../types';
+import type { Inventory } from '../hooks/useInventory';
+import type { Toasts } from '../hooks/useToast';
 import { Dashboard } from './Dashboard';
 import { BatchFlow, type BatchSubmitPayload } from './BatchFlow';
 import { APProductsPage } from './APProductsPage';
@@ -23,43 +25,21 @@ import { Toast } from './Toast';
 import { Tour, type TourStep } from './Tour';
 import type { View } from '../lib/routes';
 
-type Modal =
-  | null
-  | { kind: 'adjust'; product: Product }
-  | { kind: 'picker'; onPick: (p: Product) => void }
-  | { kind: 'ap-product'; product: Product }
-  | { kind: 'transaction-detail'; transactionId: number }
-  | { kind: 'batch-detail'; batchId: number }
-  | { kind: 'shipment-detail'; shipmentId: number }
-  | { kind: 'change-password' }
-  | { kind: 'create-product' };
-
 interface AppContentProps {
   view: View;
   modal: Modal;
-  bootState: 'loading' | 'ready' | 'error';
-  bootError: string | null;
-  products: Product[];
-  transactions: Transaction[];
-  tags: Tag[];
-  recentSkus: string[];
-  toast: ToastState | null;
+  inventory: Inventory;
+  toasts: Toasts;
   lang: Lang;
   t: Record<string, string>;
   isAdmin: boolean;
   onSetModal: (modal: Modal) => void;
-  onLoadAll: () => Promise<void>;
   onAdjustProduct: (product: Product) => void;
   onBatchSubmit: (payload: BatchSubmitPayload) => Promise<void>;
   onQuickOutbound: () => void;
   onAdjustSubmit: (input: any) => Promise<void>;
   onAdjustTopbar: (id: number | '', product: Product | null) => void;
   onOpenPicker: (callback: (p: Product) => void) => void;
-  onTrackRecent: (product: Product | null | undefined) => void;
-  onRefetchProducts: () => Promise<void>;
-  onRefetchTransactions: () => Promise<void>;
-  onShowToast: (text: string, opts?: Partial<ToastState>) => void;
-  onDismissToast: (id: number) => void;
   tourSteps: TourStep[];
   canWrite: boolean;
   onImportClick: () => void;
@@ -71,29 +51,18 @@ interface AppContentProps {
 export function AppContent({
   view,
   modal,
-  bootState,
-  bootError,
-  products,
-  transactions,
-  tags,
-  recentSkus,
-  toast,
+  inventory,
+  toasts,
   lang,
   t,
   isAdmin,
   onSetModal,
-  onLoadAll,
   onAdjustProduct,
   onBatchSubmit,
   onQuickOutbound,
   onAdjustSubmit,
   onAdjustTopbar,
   onOpenPicker,
-  onTrackRecent,
-  onRefetchProducts,
-  onRefetchTransactions,
-  onShowToast,
-  onDismissToast,
   tourSteps,
   canWrite,
   onImportClick,
@@ -101,6 +70,12 @@ export function AppContent({
   fileInputRef,
   onImportFile,
 }: AppContentProps) {
+  const {
+    products, transactions, tags, recentSkus, bootState, bootError,
+    loadAll: onLoadAll, trackRecent: onTrackRecent, refetchProducts: onRefetchProducts,
+  } = inventory;
+  const { toast, showToast: onShowToast, dismissToast: onDismissToast } = toasts;
+
   if (bootState === 'loading') {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--ink-2)', fontSize: 13 }}>

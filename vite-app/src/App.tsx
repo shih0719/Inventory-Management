@@ -1,38 +1,27 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { LoginPage } from './components/LoginPage';
 import { WarehouseSelector } from './components/WarehouseSelector';
 import { Topbar } from './components/Topbar';
 import { AppContent } from './components/AppContent';
-import { useAppState } from './hooks/useAppState';
+import { useSession } from './hooks/useSession';
+import { useLang } from './hooks/useLang';
+import { useToast } from './hooks/useToast';
+import { useInventory } from './hooks/useInventory';
 import { useAppHandlers } from './hooks/useAppHandlers';
-import { useAppHelpers } from './hooks/useAppHelpers';
 import { getTourSteps } from './lib/tourConfig';
 import { L } from './lib/i18n';
 import { pathForView, viewFromPath, type View } from './lib/routes';
+import type { Modal } from './types';
 import './styles/tour.css';
 
 export function App() {
-  const appState = useAppState();
-  const {
-    lang,
-    setLang,
-    currentUser,
-    setCurrentUser,
-    isAuthenticated,
-    setIsAuthenticated,
-    activeWarehouse,
-    setActiveWarehouse,
-    products,
-    transactions,
-    tags,
-    recentSkus,
-    modal,
-    setModal,
-    bootState,
-    bootError,
-    loadAll,
-  } = appState;
+  const [lang, setLang] = useLang();
+  const session = useSession();
+  const { currentUser, isAuthenticated, activeWarehouse } = session;
+  const toasts = useToast(lang);
+  const inventory = useInventory(lang, isAuthenticated ? activeWarehouse?.id ?? null : null, toasts.showToast);
+  const [modal, setModal] = useState<Modal>(null);
 
   const t = L[lang];
 
@@ -48,48 +37,23 @@ export function App() {
 
   const openPicker = useCallback((onPick: (p: any) => void) => {
     setModal({ kind: 'picker', onPick });
-  }, [setModal]);
+  }, []);
 
-  const { trackRecent, showToast, dismissToast, refetchProducts, refetchTransactions, adjustTag } = useAppHelpers(
-    lang,
-    products,
-    tags,
-    appState.setRecentSkus,
-    appState.setToast,
-    appState.setProducts,
-    appState.setTransactions,
-  );
+  const handleSwitchWarehouse = useCallback(() => {
+    session.leaveWarehouse();
+    navigateTo({ kind: 'dashboard' });
+  }, [session.leaveWarehouse, navigateTo]);
 
   const {
     handleAdjustProduct,
     handleAdjustSubmit,
     handleBatchSubmit,
     handleTopbarPick,
-    handleLogout,
-    handleWarehouseSelect,
-    handleSwitchWarehouse,
     handleExport,
     handleImportClick,
     handleImportFile,
     fileInputRef,
-  } = useAppHandlers(
-    lang,
-    products,
-    tags,
-    setModal,
-    setIsAuthenticated,
-    setCurrentUser,
-    setActiveWarehouse,
-    appState.setProducts,
-    appState.setTransactions,
-    trackRecent,
-    showToast,
-    refetchProducts,
-    refetchTransactions,
-    adjustTag,
-    navigateTo,
-    loadAll,
-  );
+  } = useAppHandlers({ lang, inventory, showToast: toasts.showToast, setModal, navigateTo });
 
   const canWrite = currentUser?.role === 'manager' || currentUser?.role === 'admin';
   const isAdmin = currentUser?.role === 'admin';
@@ -101,8 +65,7 @@ export function App() {
     return (
       <LoginPage
         onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
+          session.login(user);
           if (location.pathname === '/login') {
             navigate('/', { replace: true });
           }
@@ -116,7 +79,8 @@ export function App() {
     return (
       <WarehouseSelector
         userWarehouseIds={currentUser?.warehouses ?? []}
-        onSelect={handleWarehouseSelect}
+        // Stay on the current URL so a deep link survives picking a warehouse.
+        onSelect={session.selectWarehouse}
         lang={lang}
       />
     );
@@ -129,29 +93,18 @@ export function App() {
       <Topbar
         lang={lang}
         currentView={view.kind}
-        products={products}
-        recentSkus={recentSkus}
-        bootState={bootState}
+        products={inventory.products}
+        recentSkus={inventory.recentSkus}
+        bootState={inventory.bootState}
         canWrite={canWrite}
         isAdmin={isAdmin}
         activeWarehouse={activeWarehouse}
         currentUser={currentUser}
-        onLogoClick={() => navigateTo({ kind: 'dashboard' })}
-        onInbound={() => navigateTo({ kind: 'batch', batchKind: 'inbound' })}
-        onOutbound={() => navigateTo({ kind: 'batch', batchKind: 'outbound' })}
-        onAPProducts={() => navigateTo({ kind: 'ap-products' })}
-        onEditProducts={() => navigateTo({ kind: 'edit-products' })}
-        onShipments={() => navigateTo({ kind: 'shipments' })}
-          onTransactions={() => navigateTo({ kind: 'transactions' })}
-        onReports={() => navigateTo({ kind: 'reports' })}
-        onAuditLogs={() => navigateTo({ kind: 'audit-logs' })}
-        onUsers={() => navigateTo({ kind: 'users' })}
-        onWarehouses={() => navigateTo({ kind: 'warehouses' })}
-        onBackupSettings={() => navigateTo({ kind: 'backup-settings' })}
+        onNavigate={navigateTo}
         onLanguageChange={setLang}
         onSwitchWarehouse={handleSwitchWarehouse}
         onChangePassword={() => setModal({ kind: 'change-password' })}
-        onLogout={handleLogout}
+        onLogout={session.logout}
         onProductPick={handleTopbarPick}
         onOpenPicker={openPicker}
         t={t}
@@ -159,29 +112,18 @@ export function App() {
       <AppContent
         view={view}
         modal={modal}
-        bootState={bootState}
-        bootError={bootError}
-        products={products}
-        transactions={transactions}
-        tags={tags}
-        recentSkus={recentSkus}
-        toast={appState.toast}
+        inventory={inventory}
+        toasts={toasts}
         lang={lang}
         t={t}
         isAdmin={isAdmin}
         onSetModal={setModal}
-        onLoadAll={loadAll}
         onAdjustProduct={handleAdjustProduct}
         onBatchSubmit={handleBatchSubmit}
         onQuickOutbound={() => navigateTo({ kind: 'batch', batchKind: 'outbound' })}
         onAdjustSubmit={handleAdjustSubmit}
         onAdjustTopbar={handleTopbarPick}
         onOpenPicker={openPicker}
-        onTrackRecent={trackRecent}
-        onRefetchProducts={refetchProducts}
-        onRefetchTransactions={refetchTransactions}
-        onShowToast={showToast}
-        onDismissToast={dismissToast}
         tourSteps={tourSteps}
         canWrite={canWrite}
         onImportClick={handleImportClick}

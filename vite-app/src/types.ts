@@ -190,3 +190,17 @@ export interface CreateShipmentInput {
   project_case?: string;
   shipment_date?: string;
 }
+
+// ---- App shell ----------------------------------------------------------------
+
+/** The modal the app shell is showing, if any. */
+export type Modal =
+  | null
+  | { kind: 'adjust'; product: Product }
+  | { kind: 'picker'; onPick: (p: Product) => void }
+  | { kind: 'ap-product'; product: Product }
+  | { kind: 'transaction-detail'; transactionId: number }
+  | { kind: 'batch-detail'; batchId: number }
+  | { kind: 'shipment-detail'; shipmentId: number }
+  | { kind: 'change-password' }
+  | { kind: 'create-product' };
