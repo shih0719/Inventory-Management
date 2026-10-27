@@ -5,6 +5,7 @@ import { bulkCreateUnits } from '../../api/product-units';
 import { ApiError } from '../../api/client';
 import { ConfirmModal } from './ConfirmModal';
 import { CameraScanner } from '../CameraScanner';
+import { normalizeSerial, parseSerialList } from '../../lib/serial';
 
 export interface CreateProductUnitsModalProps {
   product: Product;
@@ -30,20 +31,17 @@ export function CreateProductUnitsModal({
 
   /** Append a scanned code as a new line. Serials are stored upper-case, so compare that way. */
   const addScanned = (code: string): boolean => {
-    const norm = code.trim().toUpperCase();
+    const norm = normalizeSerial(code);
     const prev = serialsRef.current;
-    if (prev.split('\n').some((s) => s.trim().toUpperCase() === norm)) return false;
+    if (parseSerialList(prev).includes(norm)) return false;
     const next = prev + (prev && !prev.endsWith('\n') ? '\n' : '') + norm + '\n';
     serialsRef.current = next;
     setSerials(next);
     return true;
   };
 
-  // Parse input: split by newlines, filter empty lines, trim whitespace
-  const serialList = serials
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  // What will be stored: one normalized serial per non-blank line
+  const serialList = parseSerialList(serials);
 
   const handleSubmit = async () => {
     if (serialList.length === 0) return;

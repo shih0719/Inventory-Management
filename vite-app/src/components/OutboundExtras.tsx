@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SerialLookup } from '../types';
 import { CameraScanner } from './CameraScanner';
 import type { Lang } from '../lib/i18n';
+import { normalizeSerial } from '../lib/serial';
 
 export interface ShipmentDraft {
   customer: string;
@@ -217,7 +218,7 @@ export function SerialSection({
           lang={lang}
           count={units.length}
           onDetect={(code) => {
-            const sn = code.trim().toUpperCase();
+            const sn = normalizeSerial(code);
             if (unitsRef.current.some((u) => u.serial_number === sn)) return false;
             void onScan(sn);
             return true;

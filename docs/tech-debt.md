@@ -69,8 +69,9 @@
 - [x] **C2. AP 生命週期 module**（後端）— *Strong*（依賴 C1）— `src/services/apUnits.js`
   序號正規化有 9 份（後端 3、前端 6），in_stock ↔ sold 的轉換散在 4 處。改成集中在一個 module，數量變動交給 Stock Ledger。後端已完成：`apUnits` 是唯一寫 `product_units` 的模組，`/api/product-units` 全部限定目前倉庫（`tests/apUnitsWarehouse.test.js`）；`bulk` 不再接受 body 的 `warehouse_id`，前端 client 已同步移除。
 
-- [ ] **C2b. 前端改用後端的序號規則** — *Worth exploring*（依賴 C2，可併入 C5）
+- [x] **C2b. 前端改用後端的序號規則** — *Worth exploring*（依賴 C2，可併入 C5）
   前端仍有 6 份「trim + 轉大寫」：`BatchFlow.tsx`（2）、`CameraScanner.tsx`、`InboundSerialEntry.tsx`、`OutboundExtras.tsx`、`CreateProductUnitsModal.tsx`；`InboundSerialEntry.tsx:44`、`OutboundExtras.tsx:110` 只 trim 不轉大寫，`APProductModal.tsx:63` 也只 trim。改成只做顯示用整理，判斷以 lookup／API 回應為準。契約見 `docs/api/README.md` 的 AP 共通規則。
+  已完成：`vite-app/src/lib/serial.ts`（`normalizeSerial`、`parseSerialList`）與後端同一規則，所有序號比對與輸入清單都改用它。`InboundSerialEntry`／`OutboundExtras` 的手打輸入只 trim 是刻意的：交給 `onAdd`／`onScan` 時才正規化，原文用來還原輸入框。
 
 - [x] **C3. `db.transaction()` helper 與可注入的連線** — *Worth exploring*（建議與 C1 一起做）— `945b874`
   取代 14 處手寫 `BEGIN`/`COMMIT`，並解決 B1。

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CameraScanner } from './CameraScanner';
 import type { Lang } from '../lib/i18n';
+import { normalizeSerial } from '../lib/serial';
 
 export interface InboundSerial {
   serial_number: string;
@@ -105,7 +106,7 @@ export function InboundSerialEntry({
           lang={lang}
           count={serials.length}
           onDetect={(code) => {
-            const sn = code.trim().toUpperCase();
+            const sn = normalizeSerial(code);
             if (serialsRef.current.some((s) => s.serial_number === sn)) return false;
             void onAdd(sn);
             return true;

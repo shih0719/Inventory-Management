@@ -6,6 +6,7 @@ import { listWarehouses, type Warehouse } from '../../api/warehouses';
 import { lookupProduct } from '../../api/products';
 import { ApiError } from '../../api/client';
 import { CreateProductUnitsModal } from './CreateProductUnitsModal';
+import { parseSerialList } from '../../lib/serial';
 
 export interface APProductModalProps {
   product: Product;
@@ -58,10 +59,7 @@ export function APProductModal({
     await onProductUpdated?.();
   };
 
-  const serialList = transferSerialInput
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const serialList = parseSerialList(transferSerialInput);
 
   const openTransfer = () => {
     setTransferSerialInput('');

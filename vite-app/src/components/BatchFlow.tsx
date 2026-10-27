@@ -7,6 +7,7 @@ import { ShipmentFields, SerialSection, type SerialCandidates, type ShipmentDraf
 import { listProductUnits, lookupSerial } from '../api/product-units';
 import { ApiError } from '../api/client';
 import { InboundSerialEntry, type InboundSerial } from './InboundSerialEntry';
+import { normalizeSerial } from '../lib/serial';
 
 export interface BatchSubmitPayload {
   name: string;
@@ -96,7 +97,7 @@ export function BatchFlow({
    * scanned into a product field (no SKU matched); focus then returns to that line.
    */
   const handleSerialScan = async (text: string, lineId?: number): Promise<boolean> => {
-    const sn = text.trim().toUpperCase();
+    const sn = normalizeSerial(text);
     if (serialUnits.some((u) => u.serial_number === sn)) {
       setScanError(lang === 'en' ? `${sn} is already in the list` : `${sn} 已在清單中`);
       return false;
@@ -187,7 +188,7 @@ export function BatchFlow({
 
   /** Check a serial for an inbound AP line: new serials are fine; a sold one only comes back under RETURN. */
   const addInboundSerial = async (lineId: number, product: Product, text: string): Promise<boolean> => {
-    const sn = text.trim().toUpperCase();
+    const sn = normalizeSerial(text);
     const fail = (msg: string) => {
       setInboundSerialError({ lineId, msg });
       return false;

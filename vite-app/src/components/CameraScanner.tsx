@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Lang } from '../lib/i18n';
+import { normalizeSerial } from '../lib/serial';
 
 export interface CameraScannerProps {
   lang: Lang;
@@ -69,7 +70,7 @@ export function CameraScanner({ lang, onDetect, onClose, count }: CameraScannerP
           videoRef.current,
           (result) => {
             if (!result) return;
-            const code = result.getText().trim().toUpperCase();
+            const code = normalizeSerial(result.getText());
             if (!code) return;
             const now = Date.now();
             const seen = lastSeen.current;
