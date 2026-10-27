@@ -60,6 +60,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 **核心關係**：
 - **一對多** — 一個 Shipment 包含多筆 Transactions
 - **排他性** — 一個 Transaction 同時只能屬於一個 Shipment（或不屬於任何 Shipment）
+- **只綁出庫** — 只能綁定同倉庫的出庫異動（`quantity_change < 0`）
 - **獨立性** — Transaction 先獨立存在，Shipment 後續選擇性綁定；刪除 Shipment 不刪除 Transaction，僅解除關聯
 
 **業務欄位**（全部選填，可後補修改）：
@@ -73,9 +74,11 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 
 **操作規則**：
 0. **自動建立（主要途徑）** — 「出貨」頁送出且標籤為 `OUTBOUND` 時，`POST /api/outbound` 在同一個 DB transaction 內建立異動、將 AP 序號標為 `sold`、並建立 Shipment 綁定所有異動。其他標籤不建立 Shipment。含 AP 序號時 `project_case` 必填，並同時寫入 Shipment 與 AP；AP 的 `sold_to` 取自 Shipment 的 `customer`。下方「建立」改為補綁既有異動用。
-1. **建立** — 提供 `transaction_ids`；如果某 ID 已屬於其他 Shipment，API 返回 409 Conflict（防止誤加）
-2. **修改** — 通過 `PUT /shipments/:id` 提供完整新的 `transaction_ids` 列表，覆蓋舊值；所有業務欄位也可修改
-3. **刪除** — 軟刪除，Transactions 保留並自動解除關聯（shipment_id → NULL）；已刪除 Shipment 仍可查詢
+1. **建立** — 提供 `transaction_ids`；任一筆不存在於目前倉庫、不是出庫、或已屬於其他 Shipment，API 返回 409 Conflict 並逐筆列出原因，整張單不建立。重複的 ID 只綁一次
+2. **修改** — 通過 `PUT /shipments/:id` 提供完整新的 `transaction_ids` 列表，覆蓋舊值（規則同建立）；不帶 `transaction_ids` 則只改業務欄位，沒給的欄位保持原值
+3. **刪除** — 軟刪除，Transactions 保留並自動解除關聯（shipment_id → NULL）；記錄留在資料庫，API 不再列出或回傳
+
+**出貨單模組**（`src/services/shipmentService.js`）是唯一寫入 `shipments` 與 `shipment_transactions` 的模組：負責編號、綁定檢查（倉庫、出庫、排他）與明細查詢。手動建立和 `POST /api/outbound` 都走同一個 `create`；綁定檢查和寫入在同一個 DB transaction 內，兩個請求不會把同一筆異動綁進兩張單。建立、修改、單筆查詢與 Excel 匯出的明細都來自 `getDetail`。
 
 **無狀態設計**：Shipment 不追蹤 pending/confirmed/shipped/delivered 等狀態。一旦建立就是有效單據，無生命週期轉移。
 

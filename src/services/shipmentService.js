@@ -7,7 +7,6 @@
  * see the same rows (transactions run one at a time).
  */
 
-const db = require("../config/database");
 const auditService = require("./auditService");
 const transactionQuery = require("./transactionQuery");
 
@@ -21,7 +20,7 @@ class ShipmentError extends Error {
 }
 
 // Generate shipment number in format SHP-YYYYMMDD-XXX
-async function generateShipmentNumber(shipmentDate, conn = db) {
+async function generateShipmentNumber(shipmentDate, conn) {
   const date = new Date(shipmentDate);
   const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');
 
@@ -122,6 +121,20 @@ async function remove(conn, id, warehouseId) {
   return shipment;
 }
 
+/** Active shipments of the warehouse, newest first, with `transaction_count`. */
+async function list(conn, warehouseId, { limit, offset }) {
+  return conn.all(
+    `SELECT s.*, COUNT(st.transaction_id) as transaction_count
+     FROM shipments s
+     LEFT JOIN shipment_transactions st ON s.id = st.shipment_id
+     WHERE s.is_deleted = 0 AND s.warehouse_id = ?
+     GROUP BY s.id
+     ORDER BY s.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [warehouseId, limit, offset]
+  );
+}
+
 /**
  * The shipment with its bound transactions (oldest first, serials attached),
  * or null when it is not an active shipment of the warehouse.
@@ -135,4 +148,4 @@ async function getDetail(conn, id, warehouseId) {
   return { shipment, transactionIds, items };
 }
 
-module.exports = { ShipmentError, generateShipmentNumber, create, update, remove, getDetail };
+module.exports = { ShipmentError, create, update, remove, list, getDetail };

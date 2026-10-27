@@ -1,5 +1,6 @@
 const ExcelJS = require("exceljs");
 const db = require("../config/database");
+const shipmentService = require("./shipmentService");
 
 const UNIT_STATUS_LABEL = { sold: "已出貨", in_stock: "已退回（在庫）" };
 
@@ -12,37 +13,18 @@ const stripTypePrefix = (remarks) => (remarks || "").replace(/^\[(有帳|無帳)
  * Returns null when the shipment does not exist in the warehouse or was deleted.
  */
 async function buildShipmentWorkbook(shipmentId, warehouseId) {
-  const shipment = await db.get("SELECT * FROM shipments WHERE id = ? AND warehouse_id = ? AND is_deleted = 0", [shipmentId, warehouseId]);
-  if (!shipment) return null;
+  const detail = await shipmentService.getDetail(db, shipmentId, warehouseId);
+  if (!detail) return null;
+  const { shipment, items: transactions } = detail;
 
   const warehouse = await db.get("SELECT name FROM warehouses WHERE id = ?", [warehouseId]);
-  const transactions = await db.all(
-    `SELECT t.*, p.sku, p.name AS product_name, tg.display_name AS tag_name
-     FROM shipment_transactions st
-     JOIN transactions t ON t.id = st.transaction_id
-     JOIN products p ON p.id = t.product_id
-     JOIN tags tg ON tg.id = t.tag_id
-     WHERE st.shipment_id = ?
-     ORDER BY t.created_at ASC, t.id ASC`,
-    [shipmentId]
-  );
-
   const units = [];
   for (const tx of transactions) {
-    let ids = [];
-    try {
-      ids = JSON.parse(tx.product_unit_ids || "[]");
-    } catch {
-      ids = [];
-    }
-    tx.serialCount = Array.isArray(ids) ? ids.length : 0;
-    if (tx.serialCount === 0) continue;
-    const rows = await db.all(
-      `SELECT serial_number, status FROM product_units WHERE id IN (${ids.map(() => "?").join(",")})`,
-      ids
-    );
+    tx.serialCount = tx.product_units?.length || 0;
     // Shipped time comes from this shipment's transaction: a unit's own sold_at is cleared on return.
-    for (const u of rows) units.push({ ...u, sku: tx.sku, product_name: tx.product_name, shipped_at: tx.created_at });
+    for (const u of tx.product_units || []) {
+      units.push({ serial_number: u.serial_number, status: u.status, sku: tx.sku, product_name: tx.product_name, shipped_at: tx.created_at });
+    }
   }
   units.sort((a, b) => a.sku.localeCompare(b.sku) || a.serial_number.localeCompare(b.serial_number));
 

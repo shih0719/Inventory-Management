@@ -2,7 +2,7 @@ const db = require("../config/database");
 const stockLedger = require("./stockLedger");
 const auditService = require("./auditService");
 const apUnits = require("./apUnits");
-const { generateShipmentNumber } = require("./shipmentService");
+const shipmentService = require("./shipmentService");
 
 class OutboundError extends Error {
   constructor(message, errors = []) {
@@ -130,20 +130,11 @@ async function createOutbound(input, actor) {
     let shipmentId = null;
     let shipmentNumber = null;
     if (createShipment) {
-      shipmentNumber = await generateShipmentNumber(shipmentDate);
-      const created = await tx.run(
-        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user, warehouse_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [shipmentNumber, customer, projectCase, shipmentDate, actor.username, actor.warehouseId]
-      );
-      shipmentId = created.id;
-      for (const txId of transactionIds) {
-        await tx.run(
-          "INSERT INTO shipment_transactions (shipment_id, transaction_id) VALUES (?, ?)",
-          [shipmentId, txId]
-        );
-      }
-      await auditService.logAction(actor.userId, "CREATE", "shipment", shipmentId, actor.warehouseId);
+      ({ id: shipmentId, shipment_number: shipmentNumber } = await shipmentService.create(
+        tx,
+        { transactionIds, customer, projectCase, shipmentDate },
+        actor,
+      ));
     }
 
     return {

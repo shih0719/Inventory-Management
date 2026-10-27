@@ -74,14 +74,14 @@
 - [x] **C3. `db.transaction()` helper 與可注入的連線** — *Worth exploring*（建議與 C1 一起做）— `945b874`
   取代 14 處手寫 `BEGIN`/`COMMIT`，並解決 B1。
 
-- [ ] **C4. Shipment 綁定 module** — *Worth exploring*
-  `shipmentsController` 的 create/update 與 `outboundService` 共用一個 `bind()`，負責編號、互斥檢查、倉庫與出庫檢查。可一併解決 A2。
+- [x] **C4. Shipment 綁定 module** — *Worth exploring* — `src/services/shipmentService.js`
+  `shipmentsController` 的 create/update 與 `outboundService` 共用一個 `bind()`，負責編號、互斥檢查、倉庫與出庫檢查。可一併解決 A2。已完成：綁定檢查移進寫入的 DB transaction（修掉並發重複綁定），只接受出庫異動，建立／修改／匯出的明細都改用 `getDetail`（`tests/shipmentBinding.test.js`）。
 
 - [ ] **C5. 前端 App shell 拆分** — *Worth exploring*（導航部分已由 `8249193` 完成：react-router，`View` 型別只剩 `lib/routes.ts` 一份）
   剩下：`useAppHandlers` 有 16 個依位置傳入的參數、Topbar/AppContent 接收約 60 個 props、401 處理有兩份（`api/client.ts`、`useAppState.ts`）、`Modal` 型別複製了 3 份。拆成 `useSession`、inventory store。
 
 - [x] **C6. Transaction 查詢 module** — *Speculative* — `src/services/transactionQuery.js`
-  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。已完成：transactions 的列表／匯出／單筆／依商品，以及出貨單與批次明細共用同一份查詢（`tests/transactionReads.test.js`）。出貨單建立／修改回傳的 `items_summary` 與 Excel 匯出仍各自查詢，留給 C4。
+  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。已完成：transactions 的列表／匯出／單筆／依商品，以及出貨單與批次明細共用同一份查詢（`tests/transactionReads.test.js`）。出貨單建立／修改回傳的 `items_summary` 與 Excel 匯出已在 C4 改用同一份查詢。
 
 ## 測試缺口
 

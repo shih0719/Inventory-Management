@@ -63,16 +63,7 @@ async function getAll(req, res) {
   try {
     const { limit = 50, offset = 0 } = req.query;
 
-    const shipments = await db.all(
-      `SELECT s.*, COUNT(st.transaction_id) as transaction_count
-       FROM shipments s
-       LEFT JOIN shipment_transactions st ON s.id = st.shipment_id
-       WHERE s.is_deleted = 0 AND s.warehouse_id = ?
-       GROUP BY s.id
-       ORDER BY s.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [req.warehouseId, parseInt(limit), parseInt(offset)]
-    );
+    const shipments = await shipmentService.list(db, req.warehouseId, { limit: parseInt(limit), offset: parseInt(offset) });
 
     res.json({ success: true, data: shipments });
   } catch (error) {

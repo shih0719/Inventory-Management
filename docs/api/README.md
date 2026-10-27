@@ -51,8 +51,8 @@
 | GET | `/api/shipments` | 已登入 | 列出出貨單據 |
 | GET | `/api/shipments/:id` | 已登入 | 取得單筆出貨單 |
 | GET | `/api/shipments/:id/export` | 已登入 | 匯出出貨單 Excel（工作表：出貨明細、序號表） |
-| POST | `/api/shipments` | manager/admin | 建立出貨單 |
-| PUT | `/api/shipments/:id` | manager/admin | 修改出貨單 |
+| POST | `/api/shipments` | manager/admin | 建立出貨單並綁定異動（只能綁目前倉庫、未綁定的出庫異動，否則 409；回應同 GET /:id） |
+| PUT | `/api/shipments/:id` | manager/admin | 修改出貨單；帶 `transaction_ids` 時整組換綁（規則同建立），沒給的欄位保持原值；回應同 GET /:id |
 | DELETE | `/api/shipments/:id` | manager/admin | 軟刪除出貨單 |
 | GET | `/api/tags` | 已登入 | 列出交易標籤 |
 | GET | `/api/csv/export` | 已登入 | 匯出商品 CSV |
