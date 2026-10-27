@@ -1,5 +1,51 @@
 -- Inventory Management System Database Schema
 -- SQLite3 Compatible
+--
+-- The complete schema of a new database. Existing databases are brought to the
+-- same shape by the startup migrations in src/config/database.js; when a column
+-- is added there, add it here too (tests/schemaDrift.test.js checks both).
+
+-- Users Table
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT,
+    role TEXT NOT NULL DEFAULT 'view' CHECK(role IN ('admin','manager','view')),
+    provider TEXT NOT NULL DEFAULT 'local',
+    email TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Audit Logs Table
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id INTEGER,
+    warehouse_id INTEGER,
+    event_category TEXT NOT NULL DEFAULT 'transaction',
+    metadata TEXT,
+    ip_address TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Warehouses Table
+CREATE TABLE IF NOT EXISTS warehouses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- User Warehouses Table (which warehouses each user can access)
+CREATE TABLE IF NOT EXISTS user_warehouses (
+    user_id INTEGER NOT NULL,
+    warehouse_id INTEGER NOT NULL,
+    PRIMARY KEY (user_id, warehouse_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
+);
 
 -- Products Table
 CREATE TABLE IF NOT EXISTS products (
@@ -51,6 +97,8 @@ CREATE TABLE IF NOT EXISTS batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_number TEXT NOT NULL UNIQUE,
     description TEXT,
+    created_by_user TEXT,
+    warehouse_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -68,6 +116,8 @@ CREATE TABLE IF NOT EXISTS transactions (
     source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'adjust', 'batch', 'ap-bulk', 'ap-sell', 'ap-transfer', 'csv-import', 'shipment')),
     remarks TEXT,
     product_unit_ids TEXT,
+    created_by_user TEXT,
+    warehouse_id INTEGER,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (tag_id) REFERENCES tags(id),
@@ -85,6 +135,7 @@ CREATE TABLE IF NOT EXISTS product_units (
     sold_to TEXT,
     sold_at DATETIME,
     remarks TEXT,
+    warehouse_id INTEGER,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (product_id) REFERENCES products(id)
@@ -127,33 +178,6 @@ BEGIN
     UPDATE locations SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = OLD.id;
 END;
 
--- Webhook Subscriptions Table
-CREATE TABLE IF NOT EXISTS webhook_subscriptions (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    url        TEXT NOT NULL,
-    events     TEXT NOT NULL DEFAULT '["inventory.changed","batch.created","inventory.low"]',
-    is_active  INTEGER NOT NULL DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Webhook Delivery Logs Table
-CREATE TABLE IF NOT EXISTS webhook_logs (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    subscription_id INTEGER NOT NULL,
-    event           TEXT NOT NULL,
-    payload         TEXT NOT NULL,
-    status_code     INTEGER,
-    attempts        INTEGER NOT NULL DEFAULT 0,
-    success         INTEGER NOT NULL DEFAULT 0,
-    error_message   TEXT,
-    created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (subscription_id) REFERENCES webhook_subscriptions(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_webhook_logs_subscription_id ON webhook_logs(subscription_id);
-CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at);
-
 -- CSV Imports Audit Table
 CREATE TABLE IF NOT EXISTS csv_imports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,6 +201,8 @@ CREATE TABLE IF NOT EXISTS shipments (
     customer TEXT,
     project_case TEXT,
     shipment_date DATE,
+    created_by_user TEXT,
+    warehouse_id INTEGER,
     is_deleted BOOLEAN NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
