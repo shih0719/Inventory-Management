@@ -9,10 +9,10 @@ const stripTypePrefix = (remarks) => (remarks || "").replace(/^\[(有帳|無帳)
 /**
  * Build the export workbook for one shipment: sheet「出貨明細」(header, one row per
  * transaction, totals, sign-off) and sheet「序號表」(one row per AP unit).
- * Returns null when the shipment does not exist or was deleted.
+ * Returns null when the shipment does not exist in the warehouse or was deleted.
  */
 async function buildShipmentWorkbook(shipmentId, warehouseId) {
-  const shipment = await db.get("SELECT * FROM shipments WHERE id = ? AND is_deleted = 0", [shipmentId]);
+  const shipment = await db.get("SELECT * FROM shipments WHERE id = ? AND warehouse_id = ? AND is_deleted = 0", [shipmentId, warehouseId]);
   if (!shipment) return null;
 
   const warehouse = await db.get("SELECT name FROM warehouses WHERE id = ?", [warehouseId]);

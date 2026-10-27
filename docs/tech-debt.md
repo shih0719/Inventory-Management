@@ -42,7 +42,7 @@
 - [x] **B1. 共用連線上的 transaction 互相干擾** — 已由 C3 解決（`945b874`）
   `database.js` 只有一條 sqlite3 連線，並行請求各自下 `BEGIN`/`COMMIT` 時，可能把別的請求的寫入捲進自己的 transaction。`logAction` 在 transaction 內呼叫但沒有 await。
 
-- [ ] **B2. 倉庫隔離不完整**（寫入部分已由 C1 解決：所有 Transaction 由 Stock Ledger 寫入，`warehouse_id` 取自商品；查詢部分留給 C6）
+- [x] **B2. 倉庫隔離不完整** — products、transactions、batches、shipments 的讀寫全部限定目前倉庫，其他倉庫回 404；batches／shipments 建立時寫入 `warehouse_id`，舊資料啟動時回填（`tests/warehouseIsolation.test.js`、`tests/warehouseBackfill.test.js`）。CSV 匯入歷史仍是全域的（`csv_imports` 沒有 `warehouse_id`），刻意不處理。
   多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。`POST /api/batches` 查商品也只用 `product_id`，可以對其他倉庫的商品進貨。（`/api/product-units` 已由 C2 限定倉庫。）
 
 - [x] **B3. AP 狀態與數量的漂移是否為刻意設計？** — 決議：PUT 不能改 status，狀態只經由出貨／退貨改變（兩者都經過 Stock Ledger）；`tests/productUnitUpdate.test.js`

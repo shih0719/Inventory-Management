@@ -44,8 +44,8 @@ async function createBatch(req, res) {
       }
 
       const product = await db.get(
-        "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-        [product_id],
+        "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+        [product_id, req.warehouseId],
       );
 
       if (!product) {
@@ -116,8 +116,8 @@ async function createBatch(req, res) {
     const batchId = await db.transaction(async (tx) => {
       const createdByUser = req.user?.username || "unknown";
       const batchResult = await tx.run(
-        "INSERT INTO batches (batch_number, description, created_by_user) VALUES (?, ?, ?)",
-        [batchNumber, description || "", createdByUser],
+        "INSERT INTO batches (batch_number, description, created_by_user, warehouse_id) VALUES (?, ?, ?, ?)",
+        [batchNumber, description || "", createdByUser, req.warehouseId],
       );
 
       await auditService.logAction(
@@ -180,10 +180,11 @@ async function getAllBatches(req, res) {
               SUM(CASE WHEN t.quantity_change < 0 THEN ABS(t.quantity_change) ELSE 0 END) as total_out
        FROM batches b
        LEFT JOIN transactions t ON b.id = t.batch_id
+       WHERE b.warehouse_id = ?
        GROUP BY b.id
        ORDER BY b.created_at DESC
        LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)],
+      [req.warehouseId, parseInt(limit), parseInt(offset)],
     );
 
     res.json({ success: true, data: formatTimestamps(batches) });
@@ -198,7 +199,7 @@ async function getBatchById(req, res) {
   try {
     const { id } = req.params;
 
-    const batch = await db.get("SELECT * FROM batches WHERE id = ?", [id]);
+    const batch = await db.get("SELECT * FROM batches WHERE id = ? AND warehouse_id = ?", [id, req.warehouseId]);
 
     if (!batch) {
       return res.status(404).json({ success: false, error: "Batch not found" });

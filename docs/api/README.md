@@ -83,6 +83,8 @@ Authorization: Bearer <token>
 X-Warehouse-Id: <warehouse_id>   # 倉庫範圍路由必填
 ```
 
+倉庫範圍路由只看得到、改得到 `X-Warehouse-Id` 倉庫的資料：其他倉庫的資源一律回 404（綁定出貨單時回 409「not found」），列表不會列出。建立資料時倉庫一律取自標頭，body 的 `warehouse_id` 會被忽略。例外：`GET /api/products/lookup` 的 `warehouse_id` 可以是使用者有權限的其他倉庫（調撥時查目標倉庫），沒有權限回 403。
+
 ## 角色說明
 
 | 角色 | 權限 |

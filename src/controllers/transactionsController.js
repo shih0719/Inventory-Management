@@ -98,8 +98,8 @@ async function create(req, res) {
 
     // Check if product exists
     const product = await db.get(
-      "SELECT id, track_serial FROM products WHERE id = ? AND is_deleted = 0",
-      [product_id],
+      "SELECT id, track_serial FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [product_id, req.warehouseId],
     );
 
     if (!product) {
@@ -146,6 +146,11 @@ async function create(req, res) {
 async function getByProduct(req, res) {
   try {
     const { productId } = req.params;
+
+    const product = await db.get("SELECT id FROM products WHERE id = ? AND warehouse_id = ?", [productId, req.warehouseId]);
+    if (!product) {
+      return res.status(404).json({ success: false, error: "Product not found" });
+    }
 
     const transactions = await db.all(
       `SELECT t.*,
@@ -279,8 +284,8 @@ async function getById(req, res) {
        JOIN tags tg ON t.tag_id = tg.id
        LEFT JOIN batches b ON t.batch_id = b.id
        LEFT JOIN locations loc ON t.location_id = loc.id
-       WHERE t.id = ?`,
-      [id],
+       WHERE t.id = ? AND p.warehouse_id = ?`,
+      [id, req.warehouseId],
     );
 
     if (!transaction) {

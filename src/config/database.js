@@ -362,6 +362,7 @@ function initDatabase() {
                           );
                         }))
                         .then(() => ensureWarehouseIdOnTables(defaultId))
+                        .then(() => backfillWarehouseIds(defaultId))
                           .then(() => ensureTransactionsQuantityType())
                         .then(() => fixProductsUniqueConstraint())
                         .then(() => { console.log("✅ Default warehouse ready"); r(); })
@@ -463,6 +464,32 @@ function initDatabase() {
                 });
               }));
             }, Promise.resolve());
+          }
+
+          // Rows written before every path stamped warehouse_id: take it from the product
+          // (transactions, units) or from the products of their transactions (batches, shipments).
+          // Batches/shipments without any transaction fall back to the default warehouse.
+          function backfillWarehouseIds(defaultId) {
+            const statements = [
+              `UPDATE transactions SET warehouse_id = (SELECT p.warehouse_id FROM products p WHERE p.id = transactions.product_id)
+               WHERE warehouse_id IS NULL`,
+              `UPDATE product_units SET warehouse_id = (SELECT p.warehouse_id FROM products p WHERE p.id = product_units.product_id)
+               WHERE warehouse_id IS NULL`,
+              `UPDATE batches SET warehouse_id = (
+                 SELECT p.warehouse_id FROM transactions t JOIN products p ON p.id = t.product_id
+                 WHERE t.batch_id = batches.id LIMIT 1)
+               WHERE warehouse_id IS NULL`,
+              `UPDATE shipments SET warehouse_id = (
+                 SELECT p.warehouse_id FROM shipment_transactions st
+                 JOIN transactions t ON t.id = st.transaction_id JOIN products p ON p.id = t.product_id
+                 WHERE st.shipment_id = shipments.id LIMIT 1)
+               WHERE warehouse_id IS NULL`,
+              `UPDATE batches SET warehouse_id = ${Number(defaultId)} WHERE warehouse_id IS NULL`,
+              `UPDATE shipments SET warehouse_id = ${Number(defaultId)} WHERE warehouse_id IS NULL`,
+            ];
+            return statements.reduce((chain, sql) => chain.then(() => new Promise((r, j) => {
+              db.run(sql, (e) => (e ? j(e) : r()));
+            })), Promise.resolve());
           }
 
             function ensureTransactionsQuantityType() {
