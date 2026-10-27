@@ -42,7 +42,7 @@
 - [x] **B1. 共用連線上的 transaction 互相干擾** — 已由 C3 解決（`945b874`）
   `database.js` 只有一條 sqlite3 連線，並行請求各自下 `BEGIN`/`COMMIT` 時，可能把別的請求的寫入捲進自己的 transaction。`logAction` 在 transaction 內呼叫但沒有 await。
 
-- [ ] **B2. 倉庫隔離不完整**（寫入部分已由 C1 解決：所有 Transaction 由 Stock Ledger 寫入，`warehouse_id` 取自商品；查詢部分留給 C6）
+- [x] **B2. 倉庫隔離不完整** — products、transactions、batches、shipments 的讀寫全部限定目前倉庫，其他倉庫回 404；batches／shipments 建立時寫入 `warehouse_id`，舊資料啟動時回填（`tests/warehouseIsolation.test.js`、`tests/warehouseBackfill.test.js`）。CSV 匯入歷史仍是全域的（`csv_imports` 沒有 `warehouse_id`），刻意不處理。
   多數寫入路徑沒寫 `transactions.warehouse_id`。`shipments` 的 `getAll` / `getById`，以及 `transactions` 的 `getById` / `getByProduct`，查詢時都沒限定倉庫。`POST /api/batches` 查商品也只用 `product_id`，可以對其他倉庫的商品進貨。（`/api/product-units` 已由 C2 限定倉庫。）
 
 - [x] **B3. AP 狀態與數量的漂移是否為刻意設計？** — 決議：PUT 不能改 status，狀態只經由出貨／退貨改變（兩者都經過 Stock Ledger）；`tests/productUnitUpdate.test.js`
@@ -80,8 +80,8 @@
 - [ ] **C5. 前端 App shell 拆分** — *Worth exploring*（導航部分已由 `8249193` 完成：react-router，`View` 型別只剩 `lib/routes.ts` 一份）
   剩下：`useAppHandlers` 有 16 個依位置傳入的參數、Topbar/AppContent 接收約 60 個 props、401 處理有兩份（`api/client.ts`、`useAppState.ts`）、`Modal` 型別複製了 3 份。拆成 `useSession`、inventory store。
 
-- [ ] **C6. Transaction 查詢 module** — *Speculative*
-  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。
+- [x] **C6. Transaction 查詢 module** — *Speculative* — `src/services/transactionQuery.js`
+  JOIN 與 enrich 邏輯有 4 份；倉庫參數改為 interface 的必填欄位。可一併解決 B2 的查詢部分。已完成：transactions 的列表／匯出／單筆／依商品，以及出貨單與批次明細共用同一份查詢（`tests/transactionReads.test.js`）。出貨單建立／修改回傳的 `items_summary` 與 Excel 匯出仍各自查詢，留給 C4。
 
 ## 測試缺口
 

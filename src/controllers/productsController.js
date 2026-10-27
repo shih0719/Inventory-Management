@@ -2,12 +2,15 @@ const db = require("../config/database");
 const auditService = require("../services/auditService");
 const stockLedger = require("../services/stockLedger");
 
-// GET /api/products/lookup?sku=X&warehouse_id=Y
+// GET /api/products/lookup?sku=X&warehouse_id=Y — Y may be another warehouse the user can access (transfer target)
 async function lookup(req, res) {
   try {
     const { sku, warehouse_id } = req.query;
     if (!sku || !warehouse_id) {
       return res.status(400).json({ success: false, error: "sku 和 warehouse_id 為必填" });
+    }
+    if (!(req.user?.warehouses || []).includes(Number(warehouse_id))) {
+      return res.status(403).json({ success: false, error: "無該倉庫的存取權限" });
     }
     const product = await db.get(
       "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
@@ -114,8 +117,8 @@ async function getById(req, res) {
   try {
     const { id } = req.params;
     const product = await db.get(
-      "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-      [id],
+      "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId],
     );
 
     if (!product) {
@@ -143,7 +146,6 @@ async function create(req, res) {
       non_accountable_quantity,
       min_stock,
       track_serial,
-      warehouse_id: bodyWarehouseId,
     } = req.body;
 
     if (!sku || !name) {
@@ -157,12 +159,8 @@ async function create(req, res) {
     // AP serial-number tracking). type='ap' iff track_serial is truthy.
     const resolvedType = track_serial ? "ap" : "normal";
 
-    // Resolve warehouse_id: from body, or header (Phase 2), or Default warehouse
-    let warehouse_id = bodyWarehouseId || (req.warehouseId) || null;
-    if (!warehouse_id) {
-      const defaultWh = await db.get("SELECT id FROM warehouses WHERE name = 'default'");
-      warehouse_id = defaultWh ? defaultWh.id : null;
-    }
+    // Always the current warehouse (X-Warehouse-Id, checked by requireWarehouse)
+    const warehouse_id = req.warehouseId;
 
     // Check if SKU already exists in same warehouse
     const existing = await db.get(
@@ -235,8 +233,8 @@ async function update(req, res) {
     const { type, name, model, min_stock, track_serial } = req.body;
 
     const product = await db.get(
-      "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-      [id],
+      "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId],
     );
     if (!product) {
       return res
@@ -298,8 +296,8 @@ async function softDelete(req, res) {
     const { id } = req.params;
 
     const product = await db.get(
-      "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-      [id],
+      "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId],
     );
     if (!product) {
       return res
@@ -332,7 +330,7 @@ async function getProductLocations(req, res) {
   try {
     const { sku } = req.params;
 
-    const product = await db.get("SELECT id, name, sku FROM products WHERE sku = ? AND is_deleted = 0", [sku]);
+    const product = await db.get("SELECT id, name, sku FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0", [sku, req.warehouseId]);
     if (!product) {
       return res.status(404).json({ success: false, error: "Product not found" });
     }

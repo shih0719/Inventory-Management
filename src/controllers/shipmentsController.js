@@ -2,6 +2,7 @@ const db = require("../config/database");
 const auditService = require("../services/auditService");
 const { generateShipmentNumber } = require("../services/shipmentService");
 const { buildShipmentWorkbook } = require("../services/shipmentExportService");
+const transactionQuery = require("../services/transactionQuery");
 
 // Create new shipment
 async function create(req, res) {
@@ -24,9 +25,10 @@ async function create(req, res) {
     for (const txId of transaction_ids) {
       const transaction = await db.get(
         `SELECT st.shipment_id FROM transactions t
+         JOIN products p ON p.id = t.product_id
          LEFT JOIN shipment_transactions st ON t.id = st.transaction_id
-         WHERE t.id = ?`,
-        [txId]
+         WHERE t.id = ? AND p.warehouse_id = ?`,
+        [txId, req.warehouseId]
       );
 
       if (!transaction) {
@@ -63,9 +65,9 @@ async function create(req, res) {
     const shipmentId = await db.transaction(async (tx) => {
       const createdByUser = req.user?.username || "unknown";
       const result = await tx.run(
-        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user)
-         VALUES (?, ?, ?, ?, ?)`,
-        [shipmentNumber, customer || null, project_case || null, finalDate, createdByUser]
+        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user, warehouse_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [shipmentNumber, customer || null, project_case || null, finalDate, createdByUser, req.warehouseId]
       );
 
       await auditService.logAction(
@@ -126,11 +128,11 @@ async function getAll(req, res) {
       `SELECT s.*, COUNT(st.transaction_id) as transaction_count
        FROM shipments s
        LEFT JOIN shipment_transactions st ON s.id = st.shipment_id
-       WHERE s.is_deleted = 0
+       WHERE s.is_deleted = 0 AND s.warehouse_id = ?
        GROUP BY s.id
        ORDER BY s.created_at DESC
        LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)]
+      [req.warehouseId, parseInt(limit), parseInt(offset)]
     );
 
     res.json({ success: true, data: shipments });
@@ -146,8 +148,8 @@ async function getById(req, res) {
     const { id } = req.params;
 
     const shipment = await db.get(
-      "SELECT * FROM shipments WHERE id = ? AND is_deleted = 0",
-      [id]
+      "SELECT * FROM shipments WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId]
     );
 
     if (!shipment) {
@@ -159,36 +161,12 @@ async function getById(req, res) {
       [id]
     );
 
-    const transactions = await db.all(
-      `SELECT t.*, p.name as product_name, p.sku, p.type as product_type, tg.display_name as tag_name, tg.color as tag_color
-       FROM transactions t
-       JOIN products p ON t.product_id = p.id
-       JOIN tags tg ON t.tag_id = tg.id
-       WHERE t.id IN (${transactionIds.map(tx => tx.transaction_id).join(',') || 'NULL'})
-       ORDER BY t.created_at ASC`
+    const transactions = await transactionQuery.list(
+      db,
+      req.warehouseId,
+      { ids: transactionIds.map((tx) => tx.transaction_id) },
+      { sort: "created_at", order: "asc" },
     );
-
-    // Enrich transactions with product_units details
-    for (const tx of transactions) {
-      if (tx.product_unit_ids) {
-        try {
-          const unitIds = JSON.parse(tx.product_unit_ids);
-          if (Array.isArray(unitIds) && unitIds.length > 0) {
-            const placeholders = unitIds.map(() => '?').join(',');
-            const units = await db.all(
-              `SELECT id, serial_number, status FROM product_units WHERE id IN (${placeholders})`,
-              unitIds
-            );
-            tx.product_units = units;
-          }
-        } catch (e) {
-          console.error("Error parsing product_unit_ids:", e);
-          tx.product_units = [];
-        }
-      } else {
-        tx.product_units = null;
-      }
-    }
 
     res.json({
       success: true,
@@ -234,8 +212,8 @@ async function update(req, res) {
     const { transaction_ids, customer, project_case, shipment_date } = req.body;
 
     const shipment = await db.get(
-      "SELECT * FROM shipments WHERE id = ? AND is_deleted = 0",
-      [id]
+      "SELECT * FROM shipments WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId]
     );
 
     if (!shipment) {
@@ -250,9 +228,10 @@ async function update(req, res) {
       for (const txId of transaction_ids) {
         const transaction = await db.get(
           `SELECT st.shipment_id FROM transactions t
+           JOIN products p ON p.id = t.product_id
            LEFT JOIN shipment_transactions st ON t.id = st.transaction_id
-           WHERE t.id = ?`,
-          [txId]
+           WHERE t.id = ? AND p.warehouse_id = ?`,
+          [txId, req.warehouseId]
         );
 
         if (!transaction) {
@@ -358,8 +337,8 @@ async function delete_(req, res) {
     const { id } = req.params;
 
     const shipment = await db.get(
-      "SELECT * FROM shipments WHERE id = ? AND is_deleted = 0",
-      [id]
+      "SELECT * FROM shipments WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+      [id, req.warehouseId]
     );
 
     if (!shipment) {

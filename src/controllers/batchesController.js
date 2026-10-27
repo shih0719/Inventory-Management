@@ -2,6 +2,7 @@ const db = require("../config/database");
 const stockLedger = require("../services/stockLedger");
 const auditService = require("../services/auditService");
 const apUnits = require("../services/apUnits");
+const transactionQuery = require("../services/transactionQuery");
 const { formatTimestamps } = require("../utils/formatTimestamps");
 
 // Create batch transaction (multiple products at once) — Strict Mode
@@ -44,8 +45,8 @@ async function createBatch(req, res) {
       }
 
       const product = await db.get(
-        "SELECT * FROM products WHERE id = ? AND is_deleted = 0",
-        [product_id],
+        "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
+        [product_id, req.warehouseId],
       );
 
       if (!product) {
@@ -116,8 +117,8 @@ async function createBatch(req, res) {
     const batchId = await db.transaction(async (tx) => {
       const createdByUser = req.user?.username || "unknown";
       const batchResult = await tx.run(
-        "INSERT INTO batches (batch_number, description, created_by_user) VALUES (?, ?, ?)",
-        [batchNumber, description || "", createdByUser],
+        "INSERT INTO batches (batch_number, description, created_by_user, warehouse_id) VALUES (?, ?, ?, ?)",
+        [batchNumber, description || "", createdByUser, req.warehouseId],
       );
 
       await auditService.logAction(
@@ -180,10 +181,11 @@ async function getAllBatches(req, res) {
               SUM(CASE WHEN t.quantity_change < 0 THEN ABS(t.quantity_change) ELSE 0 END) as total_out
        FROM batches b
        LEFT JOIN transactions t ON b.id = t.batch_id
+       WHERE b.warehouse_id = ?
        GROUP BY b.id
        ORDER BY b.created_at DESC
        LIMIT ? OFFSET ?`,
-      [parseInt(limit), parseInt(offset)],
+      [req.warehouseId, parseInt(limit), parseInt(offset)],
     );
 
     res.json({ success: true, data: formatTimestamps(batches) });
@@ -198,24 +200,17 @@ async function getBatchById(req, res) {
   try {
     const { id } = req.params;
 
-    const batch = await db.get("SELECT * FROM batches WHERE id = ?", [id]);
+    const batch = await db.get("SELECT * FROM batches WHERE id = ? AND warehouse_id = ?", [id, req.warehouseId]);
 
     if (!batch) {
       return res.status(404).json({ success: false, error: "Batch not found" });
     }
 
-    const transactions = await db.all(
-      `SELECT t.*, 
-              p.name as product_name, 
-              p.sku, 
-              tg.display_name as tag_name, 
-              tg.color as tag_color
-       FROM transactions t
-       JOIN products p ON t.product_id = p.id
-       JOIN tags tg ON t.tag_id = tg.id
-       WHERE t.batch_id = ?
-       ORDER BY t.created_at ASC`,
-      [id],
+    const transactions = await transactionQuery.list(
+      db,
+      req.warehouseId,
+      { batch_id: id },
+      { sort: "created_at", order: "asc" },
     );
 
     res.json({

@@ -111,8 +111,8 @@ async function createOutbound(input, actor) {
     const soldAt = new Date().toISOString();
     const batchNumber = `BATCH-${Date.now()}`;
     const batch = await tx.run(
-      "INSERT INTO batches (batch_number, description, created_by_user) VALUES (?, ?, ?)",
-      [batchNumber, description, actor.username]
+      "INSERT INTO batches (batch_number, description, created_by_user, warehouse_id) VALUES (?, ?, ?, ?)",
+      [batchNumber, description, actor.username, actor.warehouseId]
     );
     await auditService.logAction(actor.userId, "CREATE", "batch", batch.id, actor.warehouseId);
 
@@ -132,9 +132,9 @@ async function createOutbound(input, actor) {
     if (createShipment) {
       shipmentNumber = await generateShipmentNumber(shipmentDate);
       const created = await tx.run(
-        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user)
-         VALUES (?, ?, ?, ?, ?)`,
-        [shipmentNumber, customer, projectCase, shipmentDate, actor.username]
+        `INSERT INTO shipments (shipment_number, customer, project_case, shipment_date, created_by_user, warehouse_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [shipmentNumber, customer, projectCase, shipmentDate, actor.username, actor.warehouseId]
       );
       shipmentId = created.id;
       for (const txId of transactionIds) {
