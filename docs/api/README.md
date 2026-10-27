@@ -1,6 +1,6 @@
 # API 端點清單
 
-**最後更新**：2026-05-30
+**最後更新**：2026-10-27
 
 所有 API 前綴為 `/api`，需 JWT Bearer Token（除 `/api/auth/login`、`/api/auth/provider`）。
 
@@ -34,13 +34,14 @@
 | 方法 | 路徑 | 角色 | 說明 |
 |------|------|------|------|
 | GET | `/api/products` | 已登入 | 列出商品 |
-| GET | `/api/products/lookup` | 已登入 | 依 SKU 查詢商品 |
+| GET | `/api/products/lookup` | 已登入 | 依 SKU 查詢商品（`?sku=&warehouse_id=`；可查有權限的其他倉庫，調撥用；無權限回 403） |
 | GET | `/api/products/:id` | 已登入 | 取得單一商品 |
 | POST | `/api/products` | manager/admin | 建立商品 |
 | PUT | `/api/products/:id` | manager/admin | 修改商品 |
 | DELETE | `/api/products/:id` | manager/admin | 軟刪除商品 |
 | GET | `/api/products/:sku/locations` | 已登入 | 查詢商品儲位 |
 | GET | `/api/transactions` | 已登入 | 列出庫存異動 |
+| GET | `/api/transactions/export` | 已登入 | 匯出篩選後的異動 CSV（Big5） |
 | GET | `/api/transactions/:id` | 已登入 | 取得單筆異動 |
 | GET | `/api/transactions/product/:productId` | 已登入 | 取得特定商品的異動 |
 | POST | `/api/transactions` | manager/admin | 建立庫存異動 |
@@ -57,8 +58,8 @@
 | GET | `/api/csv/export` | 已登入 | 匯出商品 CSV |
 | GET | `/api/csv/template` | 已登入 | 下載 CSV 匯入範本 |
 | POST | `/api/csv/import` | manager/admin | 匯入商品 CSV（multipart/form-data） |
-| GET | `/api/csv/imports` | 已登入 | 列出匯入歷史 |
-| GET | `/api/csv/imports/:importId` | 已登入 | 取得匯入詳情 |
+| GET | `/api/csv/imports` | 已登入 | 列出匯入歷史（⚠️ 全域，不限倉庫） |
+| GET | `/api/csv/imports/:importId` | 已登入 | 取得匯入詳情（⚠️ 全域，不限倉庫） |
 | GET | `/api/product-units` | 已登入 | 列出目前倉庫的序號品（AP） |
 | GET | `/api/product-units/:id` | 已登入 | 取得單筆 AP（其他倉庫的回 404） |
 | POST | `/api/product-units` | manager／admin | 建立單筆 AP（不動數量；商品須屬目前倉庫） |
@@ -69,10 +70,10 @@
 | PUT | `/api/product-units/:id` | manager／admin | 修改 AP 的出貨欄位與 remarks（不能改 status） |
 | DELETE | `/api/product-units/:id` | manager／admin | 刪除 AP（硬刪除，不動數量；其他倉庫的回 404） |
 | GET | `/api/product-units/export` | 已登入 | 匯出目前倉庫的 AP CSV |
-
-> **AP（`/api/product-units`）共通規則**：所有路由只看得到、改得到 `X-Warehouse-Id` 倉庫的序號品，倉庫取自序號品所屬商品；body 不接受 `warehouse_id`。序號一律正規化為「去頭尾空白 + 轉大寫」，前端可只做顯示用的整理，以後端回應為準。序號狀態只能經由出貨（`/api/outbound`）與退貨入庫（`/api/batches`，RETURN 標籤）改變。
 | GET | `/api/audit-logs` | admin | 查詢 audit log |
 | GET | `/api/reports/inventory` | 已登入 | 庫存報表 |
+
+> **AP（`/api/product-units`）共通規則**：所有路由只看得到、改得到 `X-Warehouse-Id` 倉庫的序號品，倉庫取自序號品所屬商品；body 不接受 `warehouse_id`。序號一律正規化為「去頭尾空白 + 轉大寫」，前端可只做顯示用的整理，以後端回應為準。序號狀態只能經由出貨（`/api/outbound`）與退貨入庫（`/api/batches`，RETURN 標籤）改變。
 
 ---
 
@@ -83,7 +84,10 @@ Authorization: Bearer <token>
 X-Warehouse-Id: <warehouse_id>   # 倉庫範圍路由必填
 ```
 
-倉庫範圍路由只看得到、改得到 `X-Warehouse-Id` 倉庫的資料：其他倉庫的資源一律回 404（綁定出貨單時回 409「not found」），列表不會列出。建立資料時倉庫一律取自標頭，body 的 `warehouse_id` 會被忽略。例外：`GET /api/products/lookup` 的 `warehouse_id` 可以是使用者有權限的其他倉庫（調撥時查目標倉庫），沒有權限回 403。
+倉庫範圍路由只看得到、改得到 `X-Warehouse-Id` 倉庫的資料：其他倉庫的資源一律回 404（綁定出貨單時回 409「not found」），列表不會列出。建立資料時倉庫一律取自標頭，body 的 `warehouse_id` 會被忽略。例外：
+
+- `GET /api/products/lookup` 的 `warehouse_id` 可以是使用者有權限的其他倉庫（調撥時查目標倉庫），沒有權限回 403。
+- `GET /api/csv/imports`、`/api/csv/imports/:importId` 是全域的（`csv_imports` 沒有 `warehouse_id`），見 `docs/tech-debt.md` B2。
 
 ## 角色說明
 
