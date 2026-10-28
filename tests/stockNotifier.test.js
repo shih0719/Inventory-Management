@@ -7,7 +7,7 @@ let createOutbound;
 let warehouseId;
 let actor;
 let outboundTagId;
-let loanTagId;
+let internalTagId;
 let fetchSpy;
 
 beforeAll(async () => {
@@ -20,7 +20,7 @@ beforeAll(async () => {
   const user = await db.get("SELECT id, username FROM users WHERE username = 'eric'");
   actor = { userId: user.id, username: user.username, warehouseId };
   outboundTagId = (await db.get("SELECT id FROM tags WHERE name = 'OUTBOUND'")).id;
-  loanTagId = (await db.get("SELECT id FROM tags WHERE name = 'LOAN'")).id;
+  internalTagId = (await db.get("SELECT id FROM tags WHERE name = 'INTERNAL'")).id;
 });
 
 afterAll(async () => {
@@ -94,7 +94,7 @@ it("出貨（一般品＋多個序號品）只發一則，帶出貨單號、客�
 
 it("不建立出貨單的出庫（非 OUTBOUND 標籤）不送", async () => {
   const p = await product(5);
-  await ship([{ id: p.id, quantity: 1 }], [], loanTagId);
+  await ship([{ id: p.id, quantity: 1 }], [], internalTagId);
   await settle();
   expect(fetchSpy).not.toHaveBeenCalled();
 });

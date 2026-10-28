@@ -124,7 +124,7 @@ export function useInventory(
     setRecentSkus((prev) => [product.sku, ...prev.filter((s) => s !== product.sku)].slice(0, RECENT_MAX));
   }, []);
 
-  const adjustTag = useMemo(() => tags.find((tg) => tg.name === 'ADJUST'), [tags]);
+  const adjustTag = useMemo(() => tags.find((tg) => tg.name === 'ADJUSTMENT'), [tags]);
 
   return {
     products,

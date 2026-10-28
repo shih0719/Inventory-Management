@@ -51,6 +51,8 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 ### Tag（交易標籤）
 預定義的交易類別（例如「入庫」、「出庫」），用於標示一筆 Transaction 的性質。系統初始化時建立，使用者選擇而非自由輸入。
 
+實際用到的標籤：進貨頁 `INBOUND`、`RETURN`；出貨頁 `OUTBOUND`（建立 Shipment）、`INTERNAL`（內部領用，不建 Shipment、不通知）；AP 移倉 `TRANSFER`；調整與 CSV 匯入 `ADJUSTMENT`。借出不另設標籤，以 `OUTBOUND` 出庫、`RETURN` 歸還。seeds 裡的其他標籤（`COUNT`、`DAMAGE`、`SCRAP`、`LOAN`、`RETURN_LOAN`）保留給舊資料，介面不提供選擇。
+
 > ⚠️ 此處的 Tag 為**交易分類**，與 GitHub issue 的 label 無關，雖然兩者程式中都叫 "tag"。
 
 ### Shipment（出貨單據）
@@ -110,7 +112,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountable_quantity`**——「無帳」庫存依定義不應計入可用庫存。`min_stock = 0` 表示停用該商品的預警（預設值）。
 
 ### Batch（批次）
-一次操作中產生的一組相關 Transaction（例如一次匯入、一次盤點），由 `batch_number`（格式 `BATCH-<timestamp>`）識別。
+一次操作中產生的一組相關 Transaction（例如一次匯入、一次出貨），由 `batch_number`（格式 `BATCH-<timestamp>`）識別。
 
 **Batch 的驗證策略（Strict Mode）**：任一 item 驗證失敗即**整批取消**（回傳 400，列出所有錯誤），不會部分提交。通過驗證後的所有 item 在單一資料庫 transaction 中原子執行，全有或全無。
 
@@ -203,4 +205,4 @@ Local User 由 admin 手動建立並設定密碼。
 
 ## 暫未納入範圍
 
-以下業務概念目前不在系統範圍內，未來若需擴充再評估是否新增 Tag 或專屬欄位：盤點、調撥、報廢。
+以下業務概念目前不在系統範圍內，未來若需擴充再評估是否新增 Tag 或專屬欄位：盤點、報廢。

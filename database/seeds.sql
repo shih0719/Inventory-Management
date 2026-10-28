@@ -11,4 +11,5 @@ INSERT OR IGNORE INTO tags (name, display_name, color) VALUES
 ('RETURN', '退貨', '#3B82F6'),
 ('LOAN', '借出', '#06B6D4'),
 ('RETURN_LOAN', '歸還', '#14B8A6'),
-('ADJUSTMENT', '調整', '#EC4899');
+('ADJUSTMENT', '調整', '#EC4899'),
+('INTERNAL', '內部領用', '#F97316');

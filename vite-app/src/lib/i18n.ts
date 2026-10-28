@@ -76,7 +76,8 @@ export const L = {
     outboundLbl: 'Outbound',
     adjustLbl: 'Adjust',
     returnLbl: 'Return',
-    internalLbl: 'Internal',
+    internalLbl: 'Internal use',
+    transferLbl: 'Transfer',
 
     apNote: 'AP item · serial numbers are tracked separately',
 
@@ -197,7 +198,8 @@ export const L = {
     outboundLbl: '出貨',
     adjustLbl: '調整',
     returnLbl: '退貨',
-    internalLbl: '內部',
+    internalLbl: '內部領用',
+    transferLbl: '移倉',
 
     apNote: 'AP 品 · 序號獨立追蹤',
 
@@ -314,7 +316,8 @@ export const L = {
     outboundLbl: '出荷',
     adjustLbl: '調整',
     returnLbl: '返品',
-    internalLbl: '内部',
+    internalLbl: '社内使用',
+    transferLbl: '移管',
 
     apNote: 'AP品 · 型番は個別に追跡',
 
@@ -431,7 +434,8 @@ export const L = {
     outboundLbl: '出库',
     adjustLbl: '调整',
     returnLbl: '退货',
-    internalLbl: '内部',
+    internalLbl: '内部领用',
+    transferLbl: '移仓',
 
     apNote: 'AP 品 · 序号独立追踪',
 
@@ -481,14 +485,18 @@ export const L = {
   },
 } as const;
 
+/** Tags the app writes; the others in seeds.sql are kept only for old data. */
+export const TAGS_IN_USE = ['INBOUND', 'RETURN', 'OUTBOUND', 'INTERNAL', 'TRANSFER', 'ADJUSTMENT'];
+
 export function tagLabel(tagName: string, lang: Lang): string {
   const t = L[lang];
   const map: Record<string, string> = {
     INBOUND: t.inboundLbl,
     OUTBOUND: t.outboundLbl,
-    ADJUST: t.adjustLbl,
+    ADJUSTMENT: t.adjustLbl,
     RETURN: t.returnLbl,
     INTERNAL: t.internalLbl,
+    TRANSFER: t.transferLbl,
   };
   return map[tagName] || tagName;
 }

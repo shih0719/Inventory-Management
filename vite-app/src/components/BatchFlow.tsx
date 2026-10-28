@@ -291,7 +291,7 @@ export function BatchFlow({
 
   const availableTags = isInbound
     ? tags.filter((tg) => ['INBOUND', 'RETURN'].includes(tg.name))
-    : tags.filter((tg) => ['OUTBOUND', 'INTERNAL', 'ADJUST'].includes(tg.name));
+    : tags.filter((tg) => ['OUTBOUND', 'INTERNAL'].includes(tg.name));
 
   return (
     <div className="batch-flow">

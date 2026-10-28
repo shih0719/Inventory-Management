@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import { useSearchParams } from 'react-router';
 import type { Transaction, Tag, Lang } from '../types';
 import { listTransactions, exportTransactionsCsv } from '../api/transactions';
-import { tagLabel, L } from '../lib/i18n';
+import { tagLabel, L, TAGS_IN_USE } from '../lib/i18n';
 import { fmtDateTime } from '../lib/format';
 
 type SortKey = 'created_at' | 'quantity_change' | 'sku' | 'product_name' | 'tag_name' | 'quantity_type' | 'created_by_user';
@@ -232,7 +232,7 @@ export function TransactionsPage({ lang, tags, onViewTransaction }: Transactions
             <label>{lang === 'en' ? 'Tag' : '標籤'}</label>
             <select value={tagId} style={inputStyle} onChange={(e) => setFilter('tag_id', e.target.value)}>
               <option value="">{lang === 'en' ? 'All' : '全部'}</option>
-              {tags.map((tg) => (
+              {tags.filter((tg) => TAGS_IN_USE.includes(tg.name)).map((tg) => (
                 <option key={tg.id} value={tg.id}>{tagLabel(tg.name, lang)}</option>
               ))}
             </select>

@@ -8,7 +8,7 @@ let warehouseId;
 let otherWarehouseId;
 let db;
 let outboundTagId;
-let loanTagId;
+let internalTagId;
 
 beforeAll(async () => {
   await setupTestDb();
@@ -33,7 +33,7 @@ beforeAll(async () => {
   token = loginRes.body.data.token;
 
   outboundTagId = (await db.get("SELECT id FROM tags WHERE name = 'OUTBOUND'")).id;
-  loanTagId = (await db.get("SELECT id FROM tags WHERE name = 'LOAN'")).id;
+  internalTagId = (await db.get("SELECT id FROM tags WHERE name = 'INTERNAL'")).id;
 });
 
 afterAll(async () => {
@@ -121,25 +121,34 @@ describe("POST /api/outbound", () => {
     expect(shipment).toEqual({ customer: "ACME", project_case: "CASE-A" });
   });
 
-  it("非 OUTBOUND 標籤 → 扣庫存但不建立出貨單", async () => {
-    const id = await createProduct("OB-LOAN", { qty: 5 });
+  it("INTERNAL 標籤 + 一般品 + AP 序號 → 扣庫存、AP 變 sold，但不建立出貨單", async () => {
+    const id = await createProduct("OB-INTERNAL", { qty: 5 });
+    const apId = await createProduct("OB-INTERNAL-AP", { serials: ["OB-INT-SN-1"] });
+    const shipmentsBefore = (await db.get("SELECT COUNT(*) AS n FROM shipments")).n;
 
     const res = await postOutbound({
-      tag_id: loanTagId,
+      tag_id: internalTagId,
       items: [{ product_id: id, quantity: 2, quantity_type: "accountable" }],
+      serial_numbers: ["OB-INT-SN-1"],
+      shipment: { project_case: "CASE-INT" },
     });
 
     expect(res.status).toBe(201);
     expect(res.body.data.shipment_id).toBeNull();
     expect(res.body.data.shipment_number).toBeNull();
     expect(await qtyOf(id)).toBe(3);
+    expect(await qtyOf(apId)).toBe(0);
+
+    const unit = await db.get("SELECT status, project_case FROM product_units WHERE serial_number = 'OB-INT-SN-1'");
+    expect(unit).toEqual({ status: "sold", project_case: "CASE-INT" });
+    expect((await db.get("SELECT COUNT(*) AS n FROM shipments")).n).toBe(shipmentsBefore);
   });
 
   it("同一商品出現兩行 → 合計檢查庫存", async () => {
     const id = await createProduct("OB-TWICE", { qty: 5 });
 
     const res = await postOutbound({
-      tag_id: loanTagId,
+      tag_id: internalTagId,
       items: [
         { product_id: id, quantity: 3, quantity_type: "accountable" },
         { product_id: id, quantity: 3, quantity_type: "accountable" },
@@ -190,7 +199,7 @@ describe("POST /api/outbound", () => {
     const apId = await createProduct("OB-APQTY", { serials: ["OB-AQ-1"] });
 
     const res = await postOutbound({
-      tag_id: loanTagId,
+      tag_id: internalTagId,
       items: [{ product_id: apId, quantity: 1, quantity_type: "accountable" }],
     });
 
