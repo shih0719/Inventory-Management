@@ -97,6 +97,6 @@ docker-compose restart app
 
 - 文檔首頁: [`../README.md`](../README.md)
 - 文檔組織說明: [`../ORGANIZATION.md`](../ORGANIZATION.md)
-- 系統架構優化: [`../improve.md`](../improve.md)
+- 技術債清單: [`../tech-debt.md`](../tech-debt.md)
 - 根目錄領域術語: [`../../CONTEXT.md`](../../CONTEXT.md)
 - 根目錄版本紀錄: [`../../CHANGELOG.md`](../../CHANGELOG.md)

@@ -1,43 +1,23 @@
 ---
-name: database-layer
-description: Rules for database, config, and schema (database/, src/config)
-path: database/** src/config/**
+paths:
+  - "database/**"
+  - "src/config/**"
 ---
 
-## Database & Config Guidelines
+# Database (SQLite)
 
-### Structure
-- **database/schema.sql** — Complete schema of a new database
-- **database/seeds.sql** — Predefined tags, loaded on every startup (`INSERT OR IGNORE`)
-- **src/config/database.js** — Connection, startup migrations, `transaction()`
-- **src/config/logger.js** — Logging configuration
+## Files
+- `database/schema.sql`: the full schema for a new database.
+- `database/seeds.sql`: the predefined tags, loaded on every startup with `INSERT OR IGNORE`. This is production data, not test fixtures.
+- `src/config/database.js`: the single connection, startup migrations (`initDatabase`), `run`/`get`/`all` and `transaction`.
 
-### When working here
+## Schema changes need both of these, in the same commit
+1. Change `database/schema.sql`, so new databases get it.
+2. Add a startup migration in `initDatabase`, so existing databases get it. Check `PRAGMA table_info` / `PRAGMA index_list` first, then `ALTER TABLE`. Rebuild the table when a constraint changes (see the products UNIQUE fix and the audit_logs rebuild in the same file).
 
-**Schema changes:** a change needs both of these, in the same commit:
-- `database/schema.sql` — so a new database is created with it
-- A startup migration in `src/config/database.js` (inside `initDatabase`) — so existing databases get it: check `PRAGMA table_info` / `sqlite_master` first, then `ALTER TABLE`, or rebuild the table when a constraint changes (see `fixProductsUniqueConstraint`, `rebuildLegacyAuditLogs`)
-- `tests/schemaDrift.test.js` fails when the two disagree
-- Test migrations on a copy of production data before running them
+There are no migration files. Migrations run on every startup, so each one must be idempotent. `tests/schemaDrift.test.js` fails when a new database and a migrated old one end up with different schemas.
 
-**Queries:**
-- Use `codegraph_search("Database")` to find the database module
-- Use `codegraph_callees("Database")` to see which services use it
-- Keep queries in services (not in routes or middleware)
-
-**Configuration:**
-- Environment variables in `.env` (not checked in)
-- Config files in `src/config/` for shared setup
-- Log levels configured at startup
-
-### Conventions
-- There are no migration files: migrations run on every startup, so each must be idempotent (safe to run multiple times)
-- Seeds are production data (the predefined tags), not test fixtures
-- Database connection is singleton (initialized once, reused)
-
-### Testing
-Integration tests use test database with fresh schema.
-
----
-
-See also: [[services-layer]] for services that perform database queries.
+## Transactions
+- All requests share one connection. `db.transaction(async (tx) => ...)` runs BEGIN/COMMIT, rolls back on throw, and runs one transaction at a time.
+- Inside the callback, query through `tx` and pass `tx` to services. A nested `db.transaction` call joins the open one.
+- `db.run/get/all` calls from other requests wait until the open transaction finishes, so keep transactions short and never wait on user input or I/O inside one.

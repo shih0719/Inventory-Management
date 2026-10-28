@@ -18,34 +18,33 @@ This project uses CodeGraph — a tree-sitter-parsed AST knowledge graph for fas
 
 ## 📁 Project Structure
 
-- **src/routes** — API endpoints
-- **src/controllers** — HTTP request handlers
-- **src/services** — Business logic layer
-- **src/middleware** — Auth, logging, error handling
-- **src/config** — Database, logger setup
-- **vite-app** — Frontend (React/Vue)
-- **database** — `schema.sql` (new databases) and seeds; migrations live in `src/config/database.js`
-- **tests** — Unit & integration tests
+Express + SQLite backend (CommonJS) and a React + TypeScript frontend, for a multi-warehouse inventory system.
 
-Module-specific rules are in `.claude/rules/` — loaded only when working in that directory.
+- **src/app.js**: `createApp()`, route mounting, auth and warehouse middleware; `server.js` starts it
+- **src/routes**, **src/controllers**: HTTP endpoints and handlers
+- **src/services**: domain logic: Stock Ledger, AP units, outbound, shipments, audit, auth, backup
+- **src/middleware/authMiddleware.js**: `verifyAuth` (JWT), `requireRole`, `requireWarehouse`
+- **src/utils**: `errorItem.js` (coded error responses), `formatTimestamps.js`
+- **src/config**: `database.js` (connection, startup migrations, `transaction`), `logger.js` (winston)
+- **database**: `schema.sql` (new databases), `seeds.sql` (predefined tags)
+- **vite-app**: the frontend, built into `public/` with `npm run build`
+- **tests**: Jest + supertest against an in-memory database (`npm test`)
 
----
+Terms: use the glossary in `CONTEXT.md` (Product, SKU, AP / 序號品, Quantity Type, Stock Ledger, ...). Decisions: `docs/adr/`.
 
-## 🔧 How to Use This Project
+## 🔧 Module rules
 
-Skills like `inventory-operations` and `inventory-query` are available for inventory-specific tasks.
+`.claude/rules/*.md` load only when you work on files matching their `paths:` frontmatter:
 
-### Module-specific Rules
+| Rule | Paths |
+|---|---|
+| `api.md` | `src/app.js`, `src/routes/`, `src/controllers/`, `src/middleware/` |
+| `services.md` | `src/services/`, `src/utils/` |
+| `database.md` | `database/`, `src/config/` |
+| `frontend.md` | `vite-app/` |
+| `tests.md` | `tests/` |
 
-When you edit code in a specific directory, module-specific rules from `.claude/rules/` are automatically loaded:
-
-- **`src/routes/`, `src/controllers/`** → [[api-layer]]
-- **`src/services/`** → [[services-layer]]
-- **`src/middleware/`** → [[middleware-layer]]
-- **`vite-app/`** → [[frontend-layer]]
-- **`database/`, `src/config/`** → [[database-layer]]
-
-See [`.claude/rules/README.md`](rules/README.md) for how the hierarchical rules system works.
+Write rules only from what the code actually does. When the code changes a convention, update its rule in the same commit.
 
 ---
 

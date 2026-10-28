@@ -1,38 +1,32 @@
 ---
-name: frontend-layer
-description: Rules for frontend code (vite-app/)
-path: vite-app/**
+paths:
+  - "vite-app/**"
 ---
 
-## Frontend Guidelines (Vite App)
+# Frontend (`vite-app/`: React 18 + TypeScript + Vite)
 
-### Setup
-- Vite bundler with HMR (hot module reloading)
-- Component-based architecture
-- API calls to backend via `/api/*` routes
+## Layout
+- `src/api/*.ts`: one module per backend resource; all calls go through `api` in `api/client.ts`.
+- `src/components/`: pages (`*Page.tsx`) and shared pieces; dialogs live in `components/modals/`.
+- `src/hooks/`: app state (`useSession`, `useInventory`, `useToast`, `useAppHandlers`, `useLang`).
+- `src/context/ActiveWarehouseContext.tsx`: the selected warehouse.
+- `src/lib/`: `routes.ts` (URL ↔ `View`), `i18n.ts`, `serial.ts`, `format.ts`, `tourConfig.ts`.
+- Shared types are in `src/types.ts`.
 
-### When working here
+## API calls
+- `api/client.ts` adds the token (`inv.token`) and `X-Warehouse-Id` (`inv.warehouseId`), unwraps `{ success, data }`, and throws `ApiError` on failure.
+- `ApiError.message` and coded items of `err.body.errors` are already translated, so components just display them and don't parse server strings.
 
-**Component development:**
-- Use `/run` skill to start the dev server and test changes
-- Check browser DevTools for errors and network requests
-- Test the feature end-to-end before marking complete
+## Text and language
+- UI text comes from `L[lang]` in `lib/i18n.ts` (`const t = L[lang]`), in four languages: `en`, `zh`, `zh-cn`, `ja`. Add every new key in all four.
+- Server error codes are translated in `SERVER_ERRORS` in the same file (ADR 0004).
 
-**API integration:**
-- Fetch from `fetch('/api/...')` or client SDK
-- Handle loading, error, and success states
-- Display user-friendly error messages from server responses
-- Server errors arrive already translated: `api/client.ts` turns each response's `code` into the UI language, so show `err.message` and the strings in `err.body.errors`. A new code needs its four translations in `SERVER_ERRORS` (`lib/i18n.ts`) — see `docs/adr/0004-error-codes.md`
+## Pages and routing
+- The URL decides which page shows. A new page needs a `View` kind and a path in `lib/routes.ts`.
 
-### Conventions
-- Components are modular and accept props
-- State management follows the framework pattern (React hooks, Vue composition API, etc.)
-- Styles scoped to components (avoid global CSS conflicts)
-- Test critical user flows (login, CRUD operations)
+## Styling
+- Global CSS in `src/styles.css` (plus `styles/tour.css`), with inline `style={{...}}` common in components. There are no CSS modules.
 
-### Testing
-Visual testing in the browser is primary; unit tests for utility functions.
-
----
-
-See also: [[api-layer]] for backend endpoints the frontend consumes.
+## Checks
+- There are no frontend unit tests. Run `npm run typecheck` (or `npm run build`) in `vite-app/`, then check the change in the running app (`/run`).
+- The dev server proxies `/api/*` to the backend (`vite.config.ts`).

@@ -1,7 +1,7 @@
 # 技術債追蹤清單
 
 來源：2026-10-22 架構審查（範圍：近 60 筆 commit 的熱點：Outbound、AP、Shipment、Batch、前端 `App.tsx`）。
-術語依 [`CONTEXT.md`](../CONTEXT.md)；較早的架構說明見 [`improve.md`](improve.md)。
+術語依 [`CONTEXT.md`](../CONTEXT.md)。
 
 完成一項就勾選，並在後面補上 PR / commit 連結。
 
