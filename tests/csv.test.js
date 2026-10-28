@@ -73,7 +73,7 @@ describe("POST /api/csv/import", () => {
   });
 
   it("manager 角色可匯入 CSV", async () => {
-    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-MGR-001,Manager Import,hardware\n");
+    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-MGR-001,Manager Import,normal\n");
     const res = await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${managerToken}`)
@@ -86,7 +86,7 @@ describe("POST /api/csv/import", () => {
 
   it("匯入的產品綁定到當前倉庫", async () => {
     const { get } = require("../src/config/database");
-    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-WH-001,Warehouse Bound,hardware\n");
+    const csvPath = writeTempCsv("SKU,Name,Type\nCSV-WH-001,Warehouse Bound,normal\n");
     await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${adminToken}`)
@@ -125,7 +125,7 @@ describe("POST /api/csv/import", () => {
   });
 
   it("每列都無效 → 400，逐列帶 code 的錯誤", async () => {
-    const csvPath = writeTempCsv("SKU,Name,Type,IsAccount\nBAD SKU,X,hardware,0\nCSV-NEG,X,hardware,-1\n");
+    const csvPath = writeTempCsv("SKU,Name,Type,IsAccount\nBAD SKU,X,normal,0\nCSV-NEG,X,normal,-1\n");
     const res = await request(app)
       .post("/api/csv/import")
       .set("Authorization", `Bearer ${adminToken}`)

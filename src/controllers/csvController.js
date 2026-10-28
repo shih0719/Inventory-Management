@@ -123,6 +123,15 @@ async function importCSV(req, res) {
               }
               duplicateSkus.add(trimmedSku);
 
+              // Type decides AP classification: type='ap' iff track_serial=1.
+              const productType = Type.trim().toLowerCase();
+              if (productType !== "ap" && productType !== "normal") {
+                errors.push(rowIssue(rowNumber, "INVALID_PRODUCT_TYPE",
+                  `Type must be ap or normal (received "${Type}")`, { value: Type.trim() }));
+                continue;
+              }
+              const trackSerial = productType === "ap" ? 1 : 0;
+
               // Validate quantities are non-negative numbers
               const accountableQty = parseInt(IsAccount) || 0;
               const nonAccountableQty = parseInt(NoAccount) || 0;
@@ -155,35 +164,48 @@ async function importCSV(req, res) {
               // movements through the Stock Ledger, and commits on its own.
               const wasExisting = await db.transaction(async (tx) => {
                 const existing = await tx.get(
-                  "SELECT id, min_stock, accountable_quantity, non_accountable_quantity FROM products WHERE sku = ? AND warehouse_id = ?",
+                  "SELECT id, min_stock, accountable_quantity, non_accountable_quantity, track_serial FROM products WHERE sku = ? AND warehouse_id = ?",
                   [trimmedSku, warehouseId],
                 );
+
+                // Same guard as editing a product: serial tracking stays on while APs exist.
+                if (existing?.track_serial && !trackSerial) {
+                  const { cnt } = await tx.get("SELECT COUNT(*) AS cnt FROM product_units WHERE product_id = ?", [existing.id]);
+                  if (cnt > 0) {
+                    errors.push(rowIssue(rowNumber, "PRODUCT_HAS_UNITS_TRACKING",
+                      `The product still has ${cnt} serial record(s); delete them before turning off serial tracking`,
+                      { count: cnt }));
+                    return null;
+                  }
+                }
 
                 let productId;
                 if (existing) {
                   const finalMinStock = hasMinStock ? minStockVal : existing.min_stock;
                   await tx.run(
-                    `UPDATE products SET name = ?, type = ?, model = ?, min_stock = ?
+                    `UPDATE products SET name = ?, type = ?, model = ?, min_stock = ?, track_serial = ?
                      WHERE id = ?`,
                     [
                       Name.trim(),
-                      Type.trim(),
+                      productType,
                       Model ? Model.trim() : "",
                       finalMinStock,
+                      trackSerial,
                       existing.id,
                     ],
                   );
                   productId = existing.id;
                 } else {
                   const created = await tx.run(
-                    `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock, warehouse_id)
-                     VALUES (?, ?, ?, ?, 0, 0, ?, ?)`,
+                    `INSERT INTO products (sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock, track_serial, warehouse_id)
+                     VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?)`,
                     [
                       trimmedSku,
                       Name.trim(),
-                      Type.trim(),
+                      productType,
                       Model ? Model.trim() : "",
                       hasMinStock ? minStockVal : 0,
+                      trackSerial,
                       warehouseId,
                     ],
                   );
@@ -205,6 +227,7 @@ async function importCSV(req, res) {
                 }
                 return Boolean(existing);
               });
+              if (wasExisting === null) continue;
               if (wasExisting) updated++;
               else imported++;
             } catch (error) {
@@ -333,7 +356,7 @@ async function exportCSV(req, res) {
     const { skus } = req.query;
 
     const products = await db.all(
-      `SELECT sku, name, type, model, accountable_quantity, non_accountable_quantity, min_stock
+      `SELECT sku, name, track_serial, model, accountable_quantity, non_accountable_quantity, min_stock
        FROM products
        WHERE is_deleted = 0 AND warehouse_id = ?
        ORDER BY sku ASC`,
@@ -357,7 +380,7 @@ async function exportCSV(req, res) {
     const rows = exportData.map((product) => ({
       SKU: product.sku,
       Name: product.name,
-      Type: product.type,
+      Type: product.track_serial ? "ap" : "normal",
       Model: product.model || "",
       IsAccount: product.accountable_quantity,
       NoAccount: product.non_accountable_quantity,

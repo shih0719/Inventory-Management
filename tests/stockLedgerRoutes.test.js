@@ -123,7 +123,7 @@ describe("POST /api/csv/import 的數量語意", () => {
 
   it("CSV 數量是目標值：寫入差額的 ADJUSTMENT Transaction", async () => {
     await createProduct({ sku: "RL-CSV-1", accountable_quantity: 5 });
-    const res = await importCsv(["RL-CSV-1,Renamed,hardware,8,0"]);
+    const res = await importCsv(["RL-CSV-1,Renamed,normal,8,0"]);
     expect(res.status).toBe(200);
 
     const product = await productBySku("RL-CSV-1");
@@ -134,13 +134,13 @@ describe("POST /api/csv/import 的數量語意", () => {
 
   it("數量沒變時不寫 Transaction", async () => {
     await createProduct({ sku: "RL-CSV-SAME", accountable_quantity: 2 });
-    await importCsv(["RL-CSV-SAME,Same,hardware,2,0"]);
+    await importCsv(["RL-CSV-SAME,Same,normal,2,0"]);
     const product = await productBySku("RL-CSV-SAME");
     expect((await txsOf(product.id)).filter((t) => t.source === "csv-import")).toHaveLength(0);
   });
 
   it("新 SKU：建立後以 Transaction 帶入數量", async () => {
-    await importCsv(["RL-CSV-NEW,New,hardware,0,6"]);
+    await importCsv(["RL-CSV-NEW,New,normal,0,6"]);
     const product = await productBySku("RL-CSV-NEW");
     expect(product.non_accountable_quantity).toBe(6);
     expect((await txsOf(product.id)).map((t) => [t.source, t.quantity_type, t.quantity_change])).toEqual([["csv-import", "non_accountable", 6]]);
@@ -148,11 +148,57 @@ describe("POST /api/csv/import 的數量語意", () => {
 
   it("AP 商品的有帳數量不能用 CSV 改 → 該列失敗、整列不變，其他列照常匯入", async () => {
     const { id } = (await createProduct({ sku: "RL-CSV-AP", track_serial: true })).body.data;
-    const res = await importCsv(["RL-CSV-AP,Changed,hardware,3,0", "RL-CSV-OK,Ok,hardware,1,0"]);
+    const res = await importCsv(["RL-CSV-AP,Changed,ap,3,0", "RL-CSV-OK,Ok,normal,1,0"]);
 
     // The row reports the ledger's own reason: AP accountable stock moves only with serials.
     expect(res.body.errors).toEqual([expect.objectContaining({ row: 1, label: "#1", code: "AP_SERIALS_REQUIRED" })]);
     expect(await db.get("SELECT name, accountable_quantity FROM products WHERE id = ?", [id])).toEqual({ name: "RL-CSV-AP", accountable_quantity: 0 });
     expect((await productBySku("RL-CSV-OK")).accountable_quantity).toBe(1);
+  });
+});
+
+describe("POST /api/csv/import 的 Type 決定 AP 分類", () => {
+  const importCsv = async (rows) => {
+    const filePath = path.join(os.tmpdir(), `type-import-${Date.now()}-${Math.random()}.csv`);
+    fs.writeFileSync(filePath, "﻿SKU,Name,Type\n" + rows.join("\n") + "\n", "utf8");
+    try {
+      return await auth(request(app).post("/api/csv/import")).attach("file", filePath);
+    } finally {
+      fs.unlinkSync(filePath);
+    }
+  };
+
+  it("新 SKU 的 Type=ap（不分大小寫）→ 建成 AP 商品", async () => {
+    const res = await importCsv(["RL-T-NEW-AP,New AP, AP "]);
+    expect(res.status).toBe(200);
+    expect(await productBySku("RL-T-NEW-AP")).toMatchObject({ type: "ap", track_serial: 1 });
+  });
+
+  it("既有商品改 Type → 同步更新 track_serial", async () => {
+    await createProduct({ sku: "RL-T-ON" });
+    await createProduct({ sku: "RL-T-OFF", track_serial: true });
+    const res = await importCsv(["RL-T-ON,On,ap", "RL-T-OFF,Off,normal"]);
+    expect(res.status).toBe(200);
+    expect(await productBySku("RL-T-ON")).toMatchObject({ type: "ap", track_serial: 1 });
+    expect(await productBySku("RL-T-OFF")).toMatchObject({ type: "normal", track_serial: 0 });
+  });
+
+  it("還有序號品的 AP 商品不能改成 normal → 該列失敗、商品不變", async () => {
+    const { id } = (await createProduct({ sku: "RL-T-UNITS", track_serial: true })).body.data;
+    await auth(request(app).post("/api/product-units/bulk")).send({ product_id: id, serial_numbers: ["RL-T-SN-1"] });
+    const res = await importCsv(["RL-T-UNITS,Renamed,normal", "RL-T-FINE,Fine,normal"]);
+    expect(res.body.errors).toEqual([
+      expect.objectContaining({ row: 1, code: "PRODUCT_HAS_UNITS_TRACKING", params: { count: 1 } }),
+    ]);
+    expect(await productBySku("RL-T-UNITS")).toMatchObject({ name: "RL-T-UNITS", type: "ap", track_serial: 1 });
+  });
+
+  it("Type 不是 ap / normal → INVALID_PRODUCT_TYPE", async () => {
+    const res = await importCsv(["RL-T-BAD,Bad,配件"]);
+    expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([
+      expect.objectContaining({ row: 1, code: "INVALID_PRODUCT_TYPE", params: { value: "配件" } }),
+    ]);
+    expect(await productBySku("RL-T-BAD")).toBeUndefined();
   });
 });

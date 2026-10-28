@@ -903,6 +903,12 @@ const SERVER_ERRORS: Record<string, Record<Lang, (p: Record<string, any>) => str
     'zh-cn': (p) => `${p.field} 必须是非负整数（收到：「${p.value}」）`,
     ja: (p) => `${p.field} は 0 以上の整数である必要があります（受信：「${p.value}」）`,
   },
+  INVALID_PRODUCT_TYPE: {
+    en: (p) => `Type must be ap or normal (received "${p.value}")`,
+    zh: (p) => `類型 (Type) 必須是 ap 或 normal（收到：「${p.value}」）`,
+    'zh-cn': (p) => `类型 (Type) 必须是 ap 或 normal（收到：「${p.value}」）`,
+    ja: (p) => `種類 (Type) は ap または normal である必要があります（受信：「${p.value}」）`,
+  },
   INVALID_MIN_STOCK: {
     en: (p) => `MinStock must be a non-negative integer (received "${p.value}")`,
     zh: (p) => `最低庫存量 (MinStock) 必須是非負整數（收到：「${p.value}」）`,

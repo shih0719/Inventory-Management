@@ -120,10 +120,11 @@ NODE_ENV=production
 
 ```csv
 SKU,Name,Type,Model,IsAccount,NoAccount,MinStock
-SKU-001,筆記型電腦,電子產品,Dell XPS 15,10,5,5
+SKU-001,筆記型電腦,normal,Dell XPS 15,10,5,5
 ```
 
 - 以 SKU 為 upsert key（存在則更新）
+- `Type` 只能是 `ap` 或 `normal`，決定商品是否為 AP（`track_serial`）
 - 編碼：**Big5**
 
 ## 備份

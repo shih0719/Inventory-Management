@@ -118,7 +118,7 @@ Product 的 `min_stock` 欄位，用於低庫存預警。**只比對 `accountabl
 ## 流程術語
 
 ### CSV Import / Export
-透過 Big5 編碼的 CSV 檔批量建立/更新 Product。匯入時以 SKU 為 upsert key——存在則更新，不存在則建立。
+透過 Big5 編碼的 CSV 檔批量建立/更新 Product。匯入時以 SKU 為 upsert key——存在則更新，不存在則建立。`Type` 欄只能是 `ap` 或 `normal`，直接設定 `track_serial`（與編輯 Product 相同：還有 AP 的商品不能關閉序號追蹤）；匯出時由 `track_serial` 產生。
 CSV 中的數量是**目標值**：匯入時計算與目前數量的差額，經 Stock Ledger 寫成 `ADJUSTMENT` 標籤、source `csv-import` 的 Transaction（差額為 0 則不寫）。逐列提交，失敗的列回報錯誤、不影響其他列。AP 商品的有帳數量不能用 CSV 改動（該列失敗）。
 
 ### Soft Delete（軟刪除）
