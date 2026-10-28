@@ -46,8 +46,11 @@ Inventory-Management/
 │   │
 │   ├── adr/
 │   │   ├── 0001-ap-no-history-tracking.md
-│   │   ├── 0001-auth-provider-abstraction.md
-│   │   └── 0002-frontend-modularization-with-vite.md
+│   │   ├── 0002-frontend-modularization-with-vite.md  # 已被 0006 取代
+│   │   ├── 0003-stock-ledger.md
+│   │   ├── 0004-error-codes.md
+│   │   ├── 0005-auth-provider-abstraction.md
+│   │   └── 0006-frontend-react-typescript.md
 │   │
 │   ├── api/
 │   │   └── README.md         # API 端點清單

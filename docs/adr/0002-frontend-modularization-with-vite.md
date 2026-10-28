@@ -1,7 +1,9 @@
 # ADR 0002：前端現代化 — Vite + 中央狀態 + 模板分割
 
-- 狀態：Accepted
+- 狀態：Superseded by [ADR 0006](0006-frontend-react-typescript.md)
 - 日期：2026-05-21
+
+> 本 ADR 描述的 vanilla JS 方案（`state.js` / `mutations.js`、`modules/*.js`、`templates/*.html`、Tailwind + PostCSS）沒有留在程式碼中。前端已改為 React + TypeScript，見 ADR 0006。
 
 ## 背景
 

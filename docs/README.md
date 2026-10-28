@@ -15,8 +15,11 @@
 | 檔案 | 標籤 | 描述 |
 |------|------|------|
 | [`adr/0001-ap-no-history-tracking.md`](adr/0001-ap-no-history-tracking.md) | 📋 **ADR** | AP (序號品) 設計決策：不追蹤歷史紀錄的理由與影響 |
-| [`adr/0001-auth-provider-abstraction.md`](adr/0001-auth-provider-abstraction.md) | 📋 **ADR** | Auth Provider 抽象層 + Role/Warehouse 存取控制設計決策 |
+| [`adr/0002-frontend-modularization-with-vite.md`](adr/0002-frontend-modularization-with-vite.md) | 📋 **ADR（已取代）** | vanilla JS 模組化方案，已被 0006 取代 |
+| [`adr/0003-stock-ledger.md`](adr/0003-stock-ledger.md) | 📋 **ADR** | Product 數量只能經由 Stock Ledger 改動 |
 | [`adr/0004-error-codes.md`](adr/0004-error-codes.md) | 📋 **ADR** | 後端錯誤訊息用英文加 code，由前端依介面語言翻譯 |
+| [`adr/0005-auth-provider-abstraction.md`](adr/0005-auth-provider-abstraction.md) | 📋 **ADR** | Auth Provider 抽象層 + Role/Warehouse 存取控制設計決策（Microsoft SSO 未實作） |
+| [`adr/0006-frontend-react-typescript.md`](adr/0006-frontend-react-typescript.md) | 📋 **ADR** | 前端改用 React + TypeScript + Vite |
 | [`SHIPMENT_FEATURE.md`](SHIPMENT_FEATURE.md) | 📝 **歷史規劃（已完成）** | Shipment 出貨單據功能設計規劃 |
 
 ### API

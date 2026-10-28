@@ -1,7 +1,17 @@
 # ADR 0001：AP（序號品）不保留變更歷史
 
-- 狀態：Accepted
+- 狀態：Accepted，數量移動部分已被 [ADR 0003](0003-stock-ledger.md) 取代
 - 日期：2026-05-05
+
+## 現況（2026-10-28 對照程式碼）
+
+自 ADR 0003 起，AP 的進出貨經 Stock Ledger 寫入 Transaction：
+- 每筆 Transaction 以 `transactions.product_unit_ids` 記錄動到哪些 AP
+- 出庫會建立 `shipments`（`customer`、`project_case`），經 `shipment_transactions` 連到這些 Transaction
+
+因此下文「AP 變更**不**寫入既有 `transactions` 表」與「先前持有過的客戶 A 不可考」已不完全成立：經由出貨流程的 `in_stock` → `sold` 會留下 Transaction 與出貨單。
+
+仍然成立的部分：`PUT /api/product-units/:id` 修改 `sold_to`、`project_case`、`remarks` 是直接 UPDATE，不留歷史，也不寫 audit。
 
 ## 背景
 

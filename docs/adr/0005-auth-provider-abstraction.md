@@ -1,7 +1,22 @@
-# ADR 0001 — Auth Provider 抽象層 + Role/Warehouse 存取控制
+# ADR 0005 — Auth Provider 抽象層 + Role/Warehouse 存取控制
 
 **日期**：2026-05-30  
-**狀態**：已採納
+**狀態**：已採納（部分實作）
+
+> 原編號 0001，與 `0001-ap-no-history-tracking.md` 重複，2026-10-28 改為 0005。
+
+## 現況（2026-10-28 對照程式碼）
+
+已實作：
+- `users` 的 `role`（CHECK `admin`/`manager`/`view`）、`provider`、`email` 欄位；`warehouses`、`user_warehouses` 表
+- JWT payload 帶 `role` 與 `warehouses`
+- `verifyAuth`、`requireRole`、`requireWarehouse` 三層 middleware（`src/middleware/authMiddleware.js`）。`requireWarehouse` 讀 `X-Warehouse-Id` header，第二階段已完成：Product 等資料都有 `warehouse_id`
+
+與下文決策不同：
+- **沒有 `AuthProvider` 介面**，也沒有 `LocalProvider` / `MicrosoftProvider`。`authService` 直接以 `provider = 'local'` 查使用者
+- Provider 由環境變數 `AUTH_PROVIDER` 決定（預設 `local`），經 `GET /api/auth/provider` 公開，不是在後台設定
+- **Microsoft SSO 與 SSO 首次登入自動建立帳號都尚未實作**
+- 不需登入的端點：`/api/health`、`/api/info`、`/api/auth/provider`、`/api/auth/login`
 
 ## 背景
 

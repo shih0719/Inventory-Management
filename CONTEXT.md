@@ -160,7 +160,7 @@ CSV 中的數量是**目標值**：匯入時計算與目前數量的差額，經
 目前實際支援的 provider：
 - **`local`** — username/password，bcrypt 驗証，帳號由 admin 手動建立
 
-> ⚠️ **`microsoft`**（Azure AD SSO）目前**尚未實作**，僅在設計層次（見 `docs/adr/0001-auth-provider-abstraction.md`）。請勿在文件或介面中宣稱已支援。
+> ⚠️ **`microsoft`**（Azure AD SSO）目前**尚未實作**，僅在設計層次（見 `docs/adr/0005-auth-provider-abstraction.md`）。請勿在文件或介面中宣稱已支援。
 
 Provider 透過抽象層設計，未來可新增 Google 等 provider 而不改動核心邏輯。
 
