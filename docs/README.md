@@ -45,6 +45,7 @@
 | [`operations/LOGGING.md`](operations/LOGGING.md) | 📝 **日誌系統** | 日誌架構、日誌等級、日誌查詢與分析 |
 | [`operations/UPDATE.md`](operations/UPDATE.md) | 🚀 **更新部署** | 版本更新與部署流程、回滾步驟 |
 | [`operations/DEPLOYMENT.md`](operations/DEPLOYMENT.md) | 🚀 **部署** | 本地開發、Docker 生產部署、環境變數 |
+| [`operations/NOTIFICATIONS.md`](operations/NOTIFICATIONS.md) | 🔔 **出貨單通知** | LINE Messaging API / Webhook 設定、用 webhook 取得群組 ID |
 
 另見根目錄的 [`DOCKER.md`](../DOCKER.md)（Docker 部署指南）與 [`DEPLOYMENT_VITE.md`](DEPLOYMENT_VITE.md)（前端 Vite 建置流程）。
 

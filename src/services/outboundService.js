@@ -3,6 +3,7 @@ const stockLedger = require("./stockLedger");
 const auditService = require("./auditService");
 const apUnits = require("./apUnits");
 const shipmentService = require("./shipmentService");
+const stockNotifier = require("./stockNotifier");
 const { errorItem } = require("../utils/errorItem");
 
 /** Messages are English; `code` + `params` let the frontend show its own text (vite-app/src/lib/i18n.ts). */
@@ -147,6 +148,7 @@ async function createOutbound(input, actor) {
         { transactionIds, customer, projectCase, shipmentDate },
         actor,
       ));
+      stockNotifier.annotate({ shipment: { id: shipmentId, shipmentNumber, customer, projectCase, shipmentDate } });
     }
 
     return {

@@ -21,3 +21,5 @@ There are no migration files. Migrations run on every startup, so each one must 
 - All requests share one connection. `db.transaction(async (tx) => ...)` runs BEGIN/COMMIT, rolls back on throw, and runs one transaction at a time.
 - Inside the callback, query through `tx` and pass `tx` to services. A nested `db.transaction` call joins the open one.
 - `db.run/get/all` calls from other requests wait until the open transaction finishes, so keep transactions short and never wait on user input or I/O inside one.
+- `db.afterCommit(fn)` runs `fn` after the outermost transaction commits and drops it on rollback; outside a transaction it runs at once. Errors are logged, never thrown. Use it for I/O that follows a write (the stock webhook / LINE push).
+- `db.transactionLocal(key, init)` returns one value per open transaction (created by `init` on first use), so several calls in one transaction can share it — `stockNotifier` uses it to send one message per transaction.

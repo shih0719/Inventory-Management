@@ -10,6 +10,7 @@
 | [`UPDATE.md`](UPDATE.md) | 🔄 | 應用更新機制、部署流程、驗證與回滾 | DevOps, Release Manager |
 | [`BACKUP.md`](BACKUP.md) | 💾 | 資料庫備份策略、位置、手動復原步驟與驗證 | DevOps, SRE |
 | [`LOGGING.md`](LOGGING.md) | 📝 | 日誌系統設定、日誌等級、查詢與故障排除 | 開發者, 運維, 支持 |
+| [`NOTIFICATIONS.md`](NOTIFICATIONS.md) | 🔔 | 出貨單 LINE / Webhook 通知設定、取得 LINE 群組 ID、疑難排解 | DevOps, 系統管理員 |
 
 ---
 

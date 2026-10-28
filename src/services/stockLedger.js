@@ -8,8 +8,10 @@
  * It does not open a DB transaction: callers pass the `tx` from db.transaction(),
  * so the ledger's writes commit together with their own (batch, AP status, shipment).
  * It does not check AP serial status — only that AP accountable stock moves with serials.
+ * Its changes are recorded for stockNotifier.js, which notifies only when the transaction also creates a shipment.
  */
 const auditService = require("./auditService");
+const stockNotifier = require("./stockNotifier");
 
 /**
  * Messages are English; `code` + `params` let the frontend show its own text (vite-app/src/lib/i18n.ts).
@@ -133,7 +135,7 @@ async function check(tx, movements) {
 /**
  * Validate and write `movements` inside the caller's DB transaction.
  *
- * @param {{run:Function, get:Function}} tx  from db.transaction()
+ * @param {{run:Function, get:Function, all:Function}} tx  from db.transaction()
  * @param {Array<Movement>} movements
  * @param {Object} ctx
  * @param {{id:number}|{name:string}} ctx.tag
@@ -146,8 +148,8 @@ async function check(tx, movements) {
 async function apply(tx, movements, ctx) {
   const { tag: tagRef, source, actor, batchId = null } = ctx;
   const tag = tagRef.id != null
-    ? await tx.get("SELECT id FROM tags WHERE id = ?", [tagRef.id])
-    : await tx.get("SELECT id FROM tags WHERE name = ?", [tagRef.name]);
+    ? await tx.get("SELECT id, name FROM tags WHERE id = ?", [tagRef.id])
+    : await tx.get("SELECT id, name FROM tags WHERE name = ?", [tagRef.name]);
   if (!tag) {
     throw new LedgerError("TAG_NOT_FOUND", `Tag ${tagRef.id ?? tagRef.name} not found`, { tag: tagRef.id ?? tagRef.name });
   }
@@ -158,6 +160,7 @@ async function apply(tx, movements, ctx) {
   }
 
   const results = [];
+  const notified = [];
   for (const { movement, product, field, before, after } of planned) {
     const inserted = await tx.run(
       `INSERT INTO transactions (product_id, tag_id, batch_id, quantity_change, quantity_type, quantity_before, quantity_after, source, location_id, remarks, product_unit_ids, warehouse_id, created_by_user)
@@ -180,7 +183,21 @@ async function apply(tx, movements, ctx) {
     }
     await auditService.logAction(actor.userId, "CREATE", "transaction", inserted.id, product.warehouse_id);
     results.push({ transactionId: inserted.id, productId: product.id, before, after });
+    notified.push({
+      transactionId: inserted.id, sku: product.sku, name: product.name, warehouseId: product.warehouse_id,
+      quantityType: movement.quantityType, delta: movement.delta, before, after, remarks: movement.remarks || "",
+    });
   }
+  if (notified.length === 0) return results;
+
+  const warehouseIds =[...new Set(notified.map((m) => m.warehouseId))];
+  const warehouses = await tx.all(
+    `SELECT id, name FROM warehouses WHERE id IN (${warehouseIds.map(() => "?").join(", ")})`,
+    warehouseIds,
+  );
+  const warehouseNames = new Map(warehouses.map((w) => [w.id, w.name]));
+  for (const m of notified) m.warehouse = warehouseNames.get(m.warehouseId) ?? null;
+  stockNotifier.record({ source, tag: tag.name, actor: actor.username, batchId, movements: notified });
   return results;
 }
 

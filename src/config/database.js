@@ -696,7 +696,8 @@ async function transaction(fn) {
 
   // No await between the last check and claiming openTransaction, or two callers could both start.
   while (openTransaction) await openTransaction.catch(() => {});
-  const work = txContext.run(true, async () => {
+  const scope = { onCommit: [], locals: new Map() };
+  const work = txContext.run(scope, async () => {
     await rawRun("BEGIN TRANSACTION");
     try {
       const result = await fn(txHandle);
@@ -708,11 +709,41 @@ async function transaction(fn) {
     }
   });
   openTransaction = work;
+  let result;
   try {
-    return await work;
+    result = await work;
   } finally {
     if (openTransaction === work) openTransaction = null;
   }
+  for (const callback of scope.onCommit) runAfterCommit(callback);
+  return result;
+}
+
+/**
+ * Run `callback` once the open transaction commits; dropped if it rolls back.
+ * Outside a transaction it runs now. Errors are logged, never thrown to the caller.
+ */
+function afterCommit(callback) {
+  const scope = txContext.getStore();
+  if (scope) scope.onCommit.push(callback);
+  else runAfterCommit(callback);
+}
+
+/**
+ * The open transaction's value for `key`, created by `init()` on first use, so
+ * several calls in one transaction can share it. Outside a transaction, a fresh `init()`.
+ */
+function transactionLocal(key, init) {
+  const scope = txContext.getStore();
+  if (!scope) return init();
+  if (!scope.locals.has(key)) scope.locals.set(key, init());
+  return scope.locals.get(key);
+}
+
+function runAfterCommit(callback) {
+  Promise.resolve()
+    .then(callback)
+    .catch((error) => console.error("❌ After-commit callback failed:", error.message));
 }
 
 // Close database connection
@@ -739,5 +770,7 @@ module.exports = {
   get,
   all,
   transaction,
+  afterCommit,
+  transactionLocal,
   closeDatabase,
 };

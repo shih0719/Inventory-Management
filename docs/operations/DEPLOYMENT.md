@@ -47,6 +47,8 @@ NODE_ENV=production
 DB_PATH=/app/data/inventory.db
 ```
 
+出貨單通知（選填）：`LINE_CHANNEL_ACCESS_TOKEN`、`LINE_TO`、`STOCK_WEBHOOK_URL`，設定步驟見 [NOTIFICATIONS.md](NOTIFICATIONS.md)。
+
 ## 前端建置
 
 前端（React/TS/Vite）位於 `vite-app/`。建置流程：

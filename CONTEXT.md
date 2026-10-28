@@ -93,6 +93,7 @@ AP 批次新增（`POST /api/product-units/bulk`）**會自動建立一筆入庫
 
 - 任何新的進出貨、調整、匯入路徑都必須經過 Stock Ledger，**不得直接 `UPDATE products SET *_quantity`**
 - AP 商品的有帳 movement 必須帶序號（序號數 = |delta|），或標記為 `reconcile`（只能朝在庫序號數對齊）；序號本身的狀態由 AP 流程負責，帳本不檢查
+- 只有「出貨」頁建立 Shipment 時會通知：commit 後，該次出貨的所有 movement 合併成一筆 `stock.changed` 事件（附 Shipment 單號、客戶、案件），POST 到 `STOCK_WEBHOOK_URL`，並以 LINE 推播摘要文字給 `LINE_TO`（`src/services/stockNotifier.js`，各自有設定才送）；其他數量異動不通知，rollback 的不送，送失敗只記 log
 - 決策紀錄見 `docs/adr/0003-stock-ledger.md`
 
 **AP 模組**（`src/services/apUnits.js`）是唯一寫入 `product_units` 的模組：負責序號正規化、倉庫範圍（序號品屬於其商品的倉庫）與 `in_stock` ↔ `sold` 轉換。數量仍由 Stock Ledger 寫入——AP 模組的 `plan*` 函式回傳建 movement 所需的序號，呼叫端在同一個 DB transaction 內交給帳本。

@@ -66,6 +66,12 @@ docker-compose up -d --build
 
 ## 🔐 環境變量
 
+### 出貨單通知（LINE / Webhook）
+
+`LINE_CHANNEL_ACCESS_TOKEN`、`LINE_TO`、`STOCK_WEBHOOK_URL` 的設定、取得 LINE 群組 ID 的步驟與 JSON 格式，見 [operations/NOTIFICATIONS.md](operations/NOTIFICATIONS.md)。
+
+### 前端
+
 敏感配置（API 密鑰等）在 `vite-app/.env.local` 中設置（不要提交 Git）：
 
 ```bash
