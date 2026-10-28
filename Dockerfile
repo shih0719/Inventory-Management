@@ -8,6 +8,8 @@ COPY vite-app/package*.json ./
 RUN npm ci
 
 COPY vite-app/ .
+# ManualPage imports ../../../docs/user-manual.md at build time
+COPY docs/user-manual.md ../docs/
 
 RUN npm run build
 
