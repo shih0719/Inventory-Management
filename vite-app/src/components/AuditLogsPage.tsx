@@ -33,6 +33,18 @@ const texts = {
     tabSystem: '系統事件',
     tabTransaction: '交易事件',
   },
+  'zh-cn': {
+    title: '操作日志',
+    noLogs: '暂无活动记录',
+    action: '操作',
+    resource: '资源',
+    user: '用户',
+    time: '时间',
+    loadError: '无法加载操作日志',
+    tabAll: '全部',
+    tabSystem: '系统事件',
+    tabTransaction: '交易事件',
+  },
   ja: {
     title: '操作ログ',
     noLogs: 'アクティビティが記録されていません',
@@ -144,32 +156,32 @@ export function AuditLogsPage({ lang, onResourceClick }: AuditLogsPageProps) {
   };
 
   const getResourceLabel = (resourceType: string) => {
-    const labels: Record<string, Record<'en' | 'zh' | 'ja', string>> = {
-      transaction: { en: 'Transaction', zh: '庫存異動', ja: '在庫異動' },
-      batch: { en: 'Batch', zh: '批次', ja: 'バッチ' },
-      shipment: { en: 'Shipment', zh: '出貨單據', ja: '配送' },
-      product: { en: 'Product', zh: '產品', ja: '製品' },
-      user: { en: 'User', zh: '使用者', ja: 'ユーザー' },
-      warehouse: { en: 'Warehouse', zh: '倉庫', ja: '倉庫' },
-      auth: { en: 'Auth', zh: '認證', ja: '認証' },
-      csv_import: { en: 'CSV Import', zh: 'CSV 匯入', ja: 'CSVインポート' },
+    const labels: Record<string, Record<'en' | 'zh' | 'zh-cn' | 'ja', string>> = {
+      transaction: { en: 'Transaction', zh: '庫存異動', 'zh-cn': '库存异动', ja: '在庫異動' },
+      batch: { en: 'Batch', zh: '批次', 'zh-cn': '批次', ja: 'バッチ' },
+      shipment: { en: 'Shipment', zh: '出貨單據', 'zh-cn': '出货单据', ja: '配送' },
+      product: { en: 'Product', zh: '產品', 'zh-cn': '产品', ja: '製品' },
+      user: { en: 'User', zh: '使用者', 'zh-cn': '用户', ja: 'ユーザー' },
+      warehouse: { en: 'Warehouse', zh: '倉庫', 'zh-cn': '仓库', ja: '倉庫' },
+      auth: { en: 'Auth', zh: '認證', 'zh-cn': '认证', ja: '認証' },
+      csv_import: { en: 'CSV Import', zh: 'CSV 匯入', 'zh-cn': 'CSV 导入', ja: 'CSVインポート' },
     };
     return labels[resourceType]?.[lang] || resourceType;
   };
 
   const getActionLabel = (action: string) => {
-    const labels: Record<string, Record<'en' | 'zh' | 'ja', string>> = {
-      CREATE: { en: 'Created', zh: '新增', ja: '作成' },
-      UPDATE: { en: 'Updated', zh: '修改', ja: '更新' },
-      DELETE: { en: 'Deleted', zh: '刪除', ja: '削除' },
-      LOGIN: { en: 'Login', zh: '登入', ja: 'ログイン' },
-      LOGOUT: { en: 'Logout', zh: '登出', ja: 'ログアウト' },
-      LOGIN_FAILED: { en: 'Login Failed', zh: '登入失敗', ja: 'ログイン失敗' },
-      USER_CREATE: { en: 'User Created', zh: '建立用戶', ja: 'ユーザー作成' },
-      USER_UPDATE: { en: 'User Updated', zh: '更新用戶', ja: 'ユーザー更新' },
-      USER_DELETE: { en: 'User Deleted', zh: '刪除用戶', ja: 'ユーザー削除' },
-      WAREHOUSE_CREATE: { en: 'Warehouse Created', zh: '建立倉庫', ja: '倉庫作成' },
-      WAREHOUSE_UPDATE: { en: 'Warehouse Updated', zh: '更新倉庫', ja: '倉庫更新' },
+    const labels: Record<string, Record<'en' | 'zh' | 'zh-cn' | 'ja', string>> = {
+      CREATE: { en: 'Created', zh: '新增', 'zh-cn': '新增', ja: '作成' },
+      UPDATE: { en: 'Updated', zh: '修改', 'zh-cn': '修改', ja: '更新' },
+      DELETE: { en: 'Deleted', zh: '刪除', 'zh-cn': '删除', ja: '削除' },
+      LOGIN: { en: 'Login', zh: '登入', 'zh-cn': '登录', ja: 'ログイン' },
+      LOGOUT: { en: 'Logout', zh: '登出', 'zh-cn': '退出登录', ja: 'ログアウト' },
+      LOGIN_FAILED: { en: 'Login Failed', zh: '登入失敗', 'zh-cn': '登录失败', ja: 'ログイン失敗' },
+      USER_CREATE: { en: 'User Created', zh: '建立用戶', 'zh-cn': '创建用户', ja: 'ユーザー作成' },
+      USER_UPDATE: { en: 'User Updated', zh: '更新用戶', 'zh-cn': '更新用户', ja: 'ユーザー更新' },
+      USER_DELETE: { en: 'User Deleted', zh: '刪除用戶', 'zh-cn': '删除用户', ja: 'ユーザー削除' },
+      WAREHOUSE_CREATE: { en: 'Warehouse Created', zh: '建立倉庫', 'zh-cn': '创建仓库', ja: '倉庫作成' },
+      WAREHOUSE_UPDATE: { en: 'Warehouse Updated', zh: '更新倉庫', 'zh-cn': '更新仓库', ja: '倉庫更新' },
     };
     return labels[action]?.[lang] || action;
   };

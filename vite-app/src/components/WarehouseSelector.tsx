@@ -25,6 +25,14 @@ const texts = {
     error: '無法載入倉庫列表',
     select: '選擇',
   },
+  'zh-cn': {
+    title: '选择仓库',
+    subtitle: '选择要操作的仓库',
+    noWarehouses: '您没有任何仓库的访问权限，请联系管理员。',
+    loading: '加载中...',
+    error: '无法加载仓库列表',
+    select: '选择',
+  },
   ja: {
     title: '倉庫を選択',
     subtitle: '操作する倉庫を選んでください',

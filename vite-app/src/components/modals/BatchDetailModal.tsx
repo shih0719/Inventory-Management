@@ -69,11 +69,11 @@ export function BatchDetailModal({ batchId, lang, onClose }: BatchDetailModalPro
     failed: { bg: '#fee2e220', color: '#ef4444' },
   };
 
-  const statusLabels: Record<string, Record<'en' | 'zh' | 'ja', string>> = {
-    pending: { en: 'Pending', zh: '待處理', ja: '保留中' },
-    processing: { en: 'Processing', zh: '處理中', ja: '処理中' },
-    completed: { en: 'Completed', zh: '已完成', ja: '完了' },
-    failed: { en: 'Failed', zh: '失敗', ja: '失敗' },
+  const statusLabels: Record<string, Record<'en' | 'zh' | 'zh-cn' | 'ja', string>> = {
+    pending: { en: 'Pending', zh: '待處理', 'zh-cn': '待处理', ja: '保留中' },
+    processing: { en: 'Processing', zh: '處理中', 'zh-cn': '处理中', ja: '処理中' },
+    completed: { en: 'Completed', zh: '已完成', 'zh-cn': '已完成', ja: '完了' },
+    failed: { en: 'Failed', zh: '失敗', 'zh-cn': '失败', ja: '失敗' },
   };
 
   const statusColor = statusColors[batch.status] || statusColors.pending;

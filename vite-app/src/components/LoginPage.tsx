@@ -31,6 +31,16 @@ const texts = {
     loading: '登入中...',
     microsoftLogin: '使用 Microsoft 登入',
   },
+  'zh-cn': {
+    title: '库存管理',
+    username: '用户名',
+    password: '密码',
+    login: '登录',
+    loginError: '登录失败',
+    loginErrorDetail: '用户名或密码不正确',
+    loading: '登录中...',
+    microsoftLogin: '使用 Microsoft 登录',
+  },
   ja: {
     title: 'インベントリ管理',
     username: 'ユーザー名',
