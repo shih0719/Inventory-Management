@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-28
+
+### 新增
+- **出貨單通知（LINE / Webhook）**：「出貨」頁以 OUTBOUND 標籤建立出貨單後，推播一則訊息（出貨單號、倉庫、客戶、案件、操作人、每項產品出貨前後數量）到 LINE 群組或個人，或 POST JSON 到 `STOCK_WEBHOOK_URL`。一張出貨單只發一則；其他數量異動不通知。設定見 `docs/operations/NOTIFICATIONS.md`
+- **系統內操作手冊**：使用者選單（手機版 ☰）新增「📖 操作手冊」，內容來自 `docs/user-manual.md`
+- **審計日誌支援 `action` 過濾**（`GET /api/audit-logs?action=...`）
+
 ### 重構與清理
 - **移除大量 dead code**：
   - 後端：刪除未使用的 `getOutboundQuantity` / `getInboundQuantity`（quantityStateService）、`authService.createUser` 與未使用的 export（`hashPassword` / `comparePassword` / `performBackup` / `weeklyBackupAndEmail`）、`database.getDb`、csvController 未使用變數、batchesController 未使用欄位
@@ -11,9 +18,6 @@
 - **修正 `transactionsController.js` 語法錯誤**：`getAll` 的 try/catch 曾被註解破壞，導致整個檔案無法解析
 - **修正 `Dashboard.tsx`**：移除 `useMemo` 內呼叫 `setState` 的副作用
 - **接上 App 的 retry 載入**：boot 失敗時的 Retry 按鈕原本是 no-op，現已接上真正的 `loadAll`
-
-### 新增
-- **審計日誌支援 `action` 過濾**（`GET /api/audit-logs?action=...`）
 
 ### 修正
 - 修正 `auditLog.test.js` / `csv.test.js` 過時的測試期望，全部測試（83 個）通過
