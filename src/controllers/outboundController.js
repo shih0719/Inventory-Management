@@ -4,7 +4,7 @@ const { createOutbound, OutboundError } = require("../services/outboundService")
 async function create(req, res) {
   const { tag_id, description, items, serial_numbers, shipment } = req.body;
   if (!tag_id) {
-    return res.status(400).json({ success: false, error: "tag_id is required" });
+    return res.status(400).json({ success: false, code: "TAG_ID_REQUIRED", params: {}, error: "tag_id is required" });
   }
   try {
     const data = await createOutbound(
@@ -20,7 +20,8 @@ async function create(req, res) {
     res.status(201).json({ success: true, data });
   } catch (error) {
     if (error instanceof OutboundError) {
-      return res.status(400).json({ success: false, error: error.message, errors: error.errors });
+      const { code, params, message, errors } = error;
+      return res.status(400).json({ success: false, code, params, error: message, errors });
     }
     console.error("Error creating outbound:", error);
     res.status(500).json({ success: false, error: error.message });

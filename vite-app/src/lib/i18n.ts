@@ -488,3 +488,157 @@ export function tagLabel(tagName: string, lang: Lang): string {
   };
   return map[tagName] || tagName;
 }
+
+/** A backend error: `error` is English; `code` + `params` pick the text shown in the UI language. */
+export interface ServerError {
+  code?: string;
+  params?: Record<string, any>;
+  error?: string;
+  /** Which line or item the error is about, e.g. a batch line. */
+  label?: string;
+}
+
+const qtyName = (lang: Lang, type: string) => (type === 'accountable' ? L[lang].accountable : L[lang].nonAccountable);
+
+const SERVER_ERRORS: Record<string, Record<Lang, (p: Record<string, any>) => string>> = {
+  INVALID_QUANTITY_TYPE: {
+    en: () => 'Quantity type must be accountable or non-accountable',
+    zh: () => '數量類型必須是有帳或無帳',
+    'zh-cn': () => '数量类型必须是有账或无账',
+    ja: () => '数量区分は会計対象または会計対象外である必要があります',
+  },
+  INVALID_DELTA: {
+    en: () => 'Quantity change must be a non-zero integer',
+    zh: () => '數量變動必須是非 0 的整數',
+    'zh-cn': () => '数量变动必须是非 0 的整数',
+    ja: () => '数量の変動は 0 以外の整数である必要があります',
+  },
+  PRODUCT_NOT_FOUND: {
+    en: () => 'Product not found',
+    zh: () => '商品不存在',
+    'zh-cn': () => '商品不存在',
+    ja: () => '商品が存在しません',
+  },
+  INSUFFICIENT_STOCK: {
+    en: (p) => `Insufficient ${qtyName('en', p.quantityType).toLowerCase()} stock (current: ${p.current}, requested: ${p.requested})`,
+    zh: (p) => `無法出庫：${qtyName('zh', p.quantityType)}庫存不足（目前：${p.current}，要出庫：${p.requested}）`,
+    'zh-cn': (p) => `无法出库：${qtyName('zh-cn', p.quantityType)}库存不足（目前：${p.current}，要出库：${p.requested}）`,
+    ja: (p) => `出庫できません：${qtyName('ja', p.quantityType)}の在庫が不足しています（現在：${p.current}、出庫数：${p.requested}）`,
+  },
+  SERIALS_NOT_ALLOWED: {
+    en: () => 'Only the accountable quantity of an AP product can carry serials',
+    zh: () => '只有 AP 商品的有帳數量可以帶序號',
+    'zh-cn': () => '只有 AP 商品的有账数量可以带序号',
+    ja: () => 'シリアルを付けられるのは AP 商品の会計対象数量のみです',
+  },
+  AP_RECONCILE_DIRECTION: {
+    en: (p) => `AP accountable quantity can only move toward the in-stock serial count (${p.inStock}); scan serials on the Inbound/Outbound page for regular stock movements`,
+    zh: (p) => `AP 商品的有帳數量只能朝在庫序號數（${p.inStock}）對齊；一般進出貨請在進貨/出貨頁掃描序號`,
+    'zh-cn': (p) => `AP 商品的有账数量只能朝在库序号数（${p.inStock}）对齐；一般入库/出库请在入库/出库页扫描序号`,
+    ja: (p) => `AP 商品の会計対象数量は在庫シリアル数（${p.inStock}）に近づける方向にのみ調整できます。通常の入荷/出荷は入荷/出荷ページでシリアルをスキャンしてください`,
+  },
+  AP_SERIALS_REQUIRED: {
+    en: () => 'AP accountable quantity must move with serials (serial count must equal the quantity)',
+    zh: () => 'AP 商品的有帳數量必須隨序號異動（序號數需等於數量）',
+    'zh-cn': () => 'AP 商品的有账数量必须随序号异动（序号数需等于数量）',
+    ja: () => 'AP 商品の会計対象数量はシリアルと共に変動させる必要があります（シリアル数＝数量）',
+  },
+  TAG_NOT_FOUND: {
+    en: (p) => `Tag ${p.tag} not found`,
+    zh: (p) => `Tag ${p.tag} 不存在`,
+    'zh-cn': (p) => `标签 ${p.tag} 不存在`,
+    ja: (p) => `タグ ${p.tag} が存在しません`,
+  },
+  LEDGER_INVALID: {
+    en: (p) => `${p.count} stock movement(s) failed validation`,
+    zh: (p) => `庫存異動驗證失敗，共 ${p.count} 筆錯誤`,
+    'zh-cn': (p) => `库存异动验证失败，共 ${p.count} 笔错误`,
+    ja: (p) => `在庫異動の検証に失敗しました（エラー ${p.count} 件）`,
+  },
+  STOCK_CHANGED: {
+    en: (p) => `Stock of ${p.sku} changed, please submit again`,
+    zh: (p) => `商品 ${p.sku} 庫存已變動，請重新送出`,
+    'zh-cn': (p) => `商品 ${p.sku} 库存已变动，请重新提交`,
+    ja: (p) => `商品 ${p.sku} の在庫が変更されました。もう一度送信してください`,
+  },
+  // Batches and outbound
+  VALIDATION_FAILED: {
+    en: (p) => `Validation failed with ${p.count} error(s); nothing was saved`,
+    zh: (p) => `驗證失敗，共 ${p.count} 筆錯誤，整批取消`,
+    'zh-cn': (p) => `验证失败，共 ${p.count} 笔错误，整批取消`,
+    ja: (p) => `検証に失敗しました（エラー ${p.count} 件）。すべて取り消されました`,
+  },
+  TAG_ID_REQUIRED: {
+    en: () => 'A tag is required',
+    zh: () => '請選擇標籤',
+    'zh-cn': () => '请选择标签',
+    ja: () => 'タグを選択してください',
+  },
+  ITEMS_REQUIRED: {
+    en: () => 'At least one item is required',
+    zh: () => '至少需要一筆品項',
+    'zh-cn': () => '至少需要一笔品项',
+    ja: () => '品目が 1 件以上必要です',
+  },
+  OUTBOUND_EMPTY: {
+    en: () => 'At least one item or serial is required',
+    zh: () => '至少需要一筆商品或序號',
+    'zh-cn': () => '至少需要一笔商品或序号',
+    ja: () => '商品またはシリアルが 1 件以上必要です',
+  },
+  BATCH_ITEM_FIELDS_REQUIRED: {
+    en: () => 'Product, quantity change and quantity type are required',
+    zh: () => '需要商品、數量變動與數量類型',
+    'zh-cn': () => '需要商品、数量变动与数量类型',
+    ja: () => '商品・数量の変動・数量区分が必要です',
+  },
+  LINE_QUANTITY_REQUIRED: {
+    en: () => 'A product and a quantity greater than 0 are required',
+    zh: () => '需要商品與大於 0 的數量',
+    'zh-cn': () => '需要商品与大于 0 的数量',
+    ja: () => '商品と 0 より大きい数量が必要です',
+  },
+  PRODUCT_NOT_IN_WAREHOUSE: {
+    en: (p) => `Product ${p.productId} not found in this warehouse`,
+    zh: (p) => `此倉庫找不到商品 ${p.productId}`,
+    'zh-cn': (p) => `此仓库找不到商品 ${p.productId}`,
+    ja: (p) => `この倉庫に商品 ${p.productId} が見つかりません`,
+  },
+  AP_SCAN_SERIALS: {
+    en: () => 'Scan serials to ship an AP product',
+    zh: () => 'AP 商品請掃描序號出貨',
+    'zh-cn': () => 'AP 商品请扫描序号出库',
+    ja: () => 'AP 商品はシリアルをスキャンして出荷してください',
+  },
+  NON_AP_SERIALS: {
+    en: () => 'Only AP products can carry serials',
+    zh: () => '非 AP 商品不能帶序號',
+    'zh-cn': () => '非 AP 商品不能带序号',
+    ja: () => 'AP 商品以外はシリアルを付けられません',
+  },
+  INVALID_SHIPMENT_DATE: {
+    en: () => 'Shipment date must be YYYY-MM-DD',
+    zh: () => '出貨日期格式錯誤（需為 YYYY-MM-DD）',
+    'zh-cn': () => '出货日期格式错误（需为 YYYY-MM-DD）',
+    ja: () => '出荷日の形式が正しくありません（YYYY-MM-DD）',
+  },
+  PROJECT_CASE_REQUIRED: {
+    en: () => 'A project case is required when shipping AP serials',
+    zh: () => '出貨含 AP 序號時，案子為必填',
+    'zh-cn': () => '出货含 AP 序号时，案子为必填',
+    ja: () => 'AP シリアルを出荷する場合、案件は必須です',
+  },
+  BATCH_NOT_FOUND: {
+    en: () => 'Batch not found',
+    zh: () => '找不到批次',
+    'zh-cn': () => '找不到批次',
+    ja: () => 'バッチが見つかりません',
+  },
+};
+
+/** `e` in `lang`, prefixed with its label; undefined when its code has no translation. */
+export function serverErrorText(e: ServerError, lang: Lang): string | undefined {
+  const text = e.code ? SERVER_ERRORS[e.code]?.[lang]?.(e.params ?? {}) : undefined;
+  if (text === undefined) return undefined;
+  return e.label ? `${e.label}: ${text}` : text;
+}

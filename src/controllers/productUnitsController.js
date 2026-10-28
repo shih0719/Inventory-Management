@@ -8,7 +8,7 @@ function sendError(res, error, context) {
     return res.status(error.status).json({ success: false, error: error.message });
   }
   if (error instanceof stockLedger.LedgerError) {
-    return res.status(400).json({ success: false, error: error.errors.map((e) => e.reason).join("; ") || error.message });
+    return res.status(400).json(error.toBody());
   }
   console.error(`Error ${context}:`, error);
   res.status(500).json({ success: false, error: error.message });

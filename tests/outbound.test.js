@@ -176,6 +176,10 @@ describe("POST /api/outbound", () => {
     });
 
     expect(res.status).toBe(400);
+    expect(res.body.errors).toContainEqual(expect.objectContaining({
+      code: "INSUFFICIENT_STOCK",
+      params: { quantityType: "accountable", current: 1, requested: 2 },
+    }));
     expect(await qtyOf(id)).toBe(1);
     expect(await statusOf("OB-SH-1")).toBe("in_stock");
     const shipments = await db.get("SELECT COUNT(*) AS n FROM shipments WHERE project_case = 'CASE-S'");
@@ -191,6 +195,11 @@ describe("POST /api/outbound", () => {
     });
 
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      params: { count: 1 },
+      errors: [{ label: "#1 (OB-APQTY)", code: "AP_SCAN_SERIALS" }],
+    });
     expect(await qtyOf(apId)).toBe(1);
   });
 

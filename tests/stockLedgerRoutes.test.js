@@ -77,6 +77,10 @@ describe("POST /api/batches", () => {
       ],
     });
     expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "VALIDATION_FAILED",
+      errors: [{ label: "#2 (RL-BATCH-2X)", code: "INSUFFICIENT_STOCK", params: { current: 1, requested: 2 } }],
+    });
     expect((await productBySku("RL-BATCH-2X")).accountable_quantity).toBe(3);
   });
 

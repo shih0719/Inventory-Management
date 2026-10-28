@@ -3,10 +3,15 @@
 // and throws a typed ApiError on failure.
 
 import type { ApiResponse, Pagination } from '../types';
+import { serverErrorText, type ServerError } from '../lib/i18n';
+import { loadLang } from '../hooks/useLang';
 
 export class ApiError extends Error {
   status: number;
-  /** Raw response body, useful for batch endpoints that return partial-failure detail. */
+  /**
+   * Response body, useful for batch endpoints that return partial-failure detail.
+   * Coded items of `errors` are already turned into text in the UI language (see localizeErrors).
+   */
   body: unknown;
   constructor(status: number, message: string, body: unknown) {
     super(message);
@@ -85,6 +90,24 @@ function buildUrl(path: string, query?: RequestOpts['query']): string {
   return qs ? `${url}?${qs}` : url;
 }
 
+/**
+ * Backend errors carry English text plus a `code`; show the UI-language text for the code.
+ * Returns the top-level message (undefined when it has no translation) and rewrites coded
+ * `errors` items to strings, so callers that display `body.errors` get them translated too.
+ */
+function localizeErrors(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const lang = loadLang();
+  const body = payload as ServerError & { errors?: unknown[] };
+  if (Array.isArray(body.errors)) {
+    body.errors = body.errors.map((e) => {
+      if (!e || typeof e !== 'object' || !('code' in e)) return e;
+      return serverErrorText(e as ServerError, lang) ?? (e as ServerError).error;
+    });
+  }
+  return serverErrorText(body, lang);
+}
+
 async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data: T; pagination?: Pagination }> {
   const { body, query, headers, ...rest } = opts;
   const token = getToken();
@@ -123,6 +146,7 @@ async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data:
     // Ends the session: useSession listens for the token being cleared.
     if (res.status === 401) clearToken();
     const message =
+      localizeErrors(payload) ||
       (payload && 'error' in payload && payload.error) ||
       (payload && 'message' in payload && payload.message) ||
       `${res.status} ${res.statusText}`;
@@ -135,7 +159,7 @@ async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data:
   }
 
   if (payload.success === false) {
-    const message = payload.error || payload.message || 'Request failed';
+    const message = localizeErrors(payload) || payload.error || payload.message || 'Request failed';
     throw new ApiError(res.status, message, payload);
   }
 

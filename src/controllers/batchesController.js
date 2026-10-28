@@ -13,6 +13,8 @@ async function createBatch(req, res) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
+        code: "ITEMS_REQUIRED",
+        params: {},
         error: "Items array is required and must not be empty",
       });
     }
@@ -20,9 +22,14 @@ async function createBatch(req, res) {
     if (!tag_id) {
       return res.status(400).json({
         success: false,
+        code: "TAG_ID_REQUIRED",
+        params: {},
         error: "tag_id is required",
       });
     }
+
+    // One error in the list, about `label` (a batch line); `code` lets the frontend translate it.
+    const issue = (label, code, params, reason) => ({ label, code, params, error: `${label}: ${reason}` });
 
     // ── Phase 1: Pre-validate ALL items before touching the DB ──────────────
     const validationErrors = [];
@@ -32,15 +39,15 @@ async function createBatch(req, res) {
 
     for (let i = 0; i < items.length; i++) {
       const { product_id, quantity_change, quantity_type, remarks, serial_numbers } = items[i];
-      const index = `Item[${i}] (product_id: ${product_id ?? "N/A"})`;
+      const index = `#${i + 1}`;
 
       if (!product_id || quantity_change === undefined || !quantity_type) {
-        validationErrors.push(`${index}: Missing product_id, quantity_change, or quantity_type`);
+        validationErrors.push(issue(index, "BATCH_ITEM_FIELDS_REQUIRED", {}, "Missing product_id, quantity_change, or quantity_type"));
         continue;
       }
 
       if (!["accountable", "non_accountable"].includes(quantity_type)) {
-        validationErrors.push(`${index}: quantity_type must be 'accountable' or 'non_accountable'`);
+        validationErrors.push(issue(index, "INVALID_QUANTITY_TYPE", {}, "quantity_type must be accountable or non_accountable"));
         continue;
       }
 
@@ -50,7 +57,8 @@ async function createBatch(req, res) {
       );
 
       if (!product) {
-        validationErrors.push(`${index}: Product not found`);
+        validationErrors.push(issue(index, "PRODUCT_NOT_IN_WAREHOUSE", { productId: product_id },
+          `Product ${product_id} not found in this warehouse`));
         continue;
       }
 
@@ -70,7 +78,7 @@ async function createBatch(req, res) {
         }
         serialPlan = planned.plan;
       } else if (serialList.length > 0) {
-        validationErrors.push(`${index} (${product.name}): 非 AP 商品不能帶序號`);
+        validationErrors.push(issue(`${index} (${product.name})`, "NON_AP_SERIALS", {}, "Only AP products can carry serials"));
         continue;
       }
 
@@ -96,16 +104,18 @@ async function createBatch(req, res) {
       unitIds,
     });
     const quantityErrors = await stockLedger.check(db, validatedItems.map((item) => toMovement(item, item.serialPlan || undefined)));
-    for (const { index, reason } of quantityErrors) {
+    for (const { index, code, params, reason } of quantityErrors) {
       const item = validatedItems[index];
-      validationErrors.push(`${item.label} (${item.product_name}): ${reason}`);
+      validationErrors.push(issue(`${item.label} (${item.product_name})`, code, params, reason));
     }
 
     // If ANY item failed validation → reject the entire batch
     if (validationErrors.length > 0) {
       return res.status(400).json({
         success: false,
-        error: `批次驗證失敗，共 ${validationErrors.length} 筆錯誤，整批取消`,
+        code: "VALIDATION_FAILED",
+        params: { count: validationErrors.length },
+        error: `Validation failed with ${validationErrors.length} error(s); nothing was saved`,
         errors: validationErrors,
       });
     }
@@ -160,8 +170,10 @@ async function createBatch(req, res) {
     if (error instanceof stockLedger.LedgerError) {
       return res.status(400).json({
         success: false,
+        code: error.code,
+        params: error.params,
         error: error.message,
-        errors: error.errors.map((e) => e.reason),
+        errors: error.errors.map(({ code, params, reason }) => ({ code, params, error: reason })),
       });
     }
     console.error("Error creating batch:", error);
@@ -203,7 +215,7 @@ async function getBatchById(req, res) {
     const batch = await db.get("SELECT * FROM batches WHERE id = ? AND warehouse_id = ?", [id, req.warehouseId]);
 
     if (!batch) {
-      return res.status(404).json({ success: false, error: "Batch not found" });
+      return res.status(404).json({ success: false, code: "BATCH_NOT_FOUND", params: {}, error: "Batch not found" });
     }
 
     const transactions = await transactionQuery.list(

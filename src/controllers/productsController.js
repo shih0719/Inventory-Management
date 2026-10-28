@@ -213,7 +213,7 @@ async function create(req, res) {
     res.status(201).json({ success: true, data: newProduct });
   } catch (error) {
     if (error instanceof stockLedger.LedgerError) {
-      return res.status(400).json({ success: false, error: error.errors.map((e) => e.reason).join("; ") || error.message });
+      return res.status(400).json(error.toBody());
     }
     console.error("Error creating product:", error);
     if (error.message.includes("UNIQUE constraint failed")) {

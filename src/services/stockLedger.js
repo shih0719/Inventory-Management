@@ -11,12 +11,26 @@
  */
 const auditService = require("./auditService");
 
+/**
+ * Messages are English; `code` + `params` let the frontend show its own text (vite-app/src/lib/i18n.ts).
+ * @typedef {{index:number, productId:number, code:string, params:Object, reason:string}} Issue
+ */
 class LedgerError extends Error {
-  /** @param {Array<{index:number, productId:number, reason:string}>} errors */
-  constructor(message, errors = []) {
+  /** @param {Array<Issue>} errors  per-movement issues */
+  constructor(code, message, params = {}, errors = []) {
     super(message);
     this.name = "LedgerError";
+    this.code = code;
+    this.params = params;
     this.errors = errors;
+  }
+
+  /** 400 response body: the first movement's issue, or the error itself when no movement failed. */
+  toBody() {
+    const [first] = this.errors;
+    return first
+      ? { success: false, code: first.code, params: first.params, error: first.reason }
+      : { success: false, code: this.code, params: this.params, error: this.message };
   }
 }
 
@@ -25,30 +39,31 @@ const QUANTITY_FIELDS = {
   non_accountable: "non_accountable_quantity",
 };
 const TYPE_LABELS = { accountable: "有帳", non_accountable: "無帳" };
+const TYPE_NAMES = { accountable: "accountable", non_accountable: "non-accountable" };
 
 /**
  * Validate movements against current stock without writing anything.
  *
  * @param {{get:Function}} tx
  * @param {Array<Movement>} movements
- * @returns {Promise<{errors: Array<{index:number, productId:number, reason:string}>, planned: Array}>}
+ * @returns {Promise<{errors: Array<Issue>, planned: Array}>}
  */
 async function plan(tx, movements) {
   const errors = [];
   const planned = [];
   const products = new Map();
   const running = new Map(); // `${productId}:${quantityType}` → balance after earlier movements
-  const fail = (index, productId, reason) => errors.push({ index, productId, reason });
+  const fail = (index, productId, code, params, reason) => errors.push({ index, productId, code, params, reason });
 
   for (let index = 0; index < movements.length; index++) {
     const { productId, quantityType, delta, unitIds, kind } = movements[index];
     const field = QUANTITY_FIELDS[quantityType];
     if (!field) {
-      fail(index, productId, "quantity_type 必須是 accountable 或 non_accountable");
+      fail(index, productId, "INVALID_QUANTITY_TYPE", {}, "quantity_type must be accountable or non_accountable");
       continue;
     }
     if (!Number.isInteger(delta) || delta === 0) {
-      fail(index, productId, "數量變動必須是非 0 的整數");
+      fail(index, productId, "INVALID_DELTA", {}, "Quantity change must be a non-zero integer");
       continue;
     }
     if (!products.has(productId)) {
@@ -56,22 +71,22 @@ async function plan(tx, movements) {
     }
     const product = products.get(productId);
     if (!product) {
-      fail(index, productId, "商品不存在");
+      fail(index, productId, "PRODUCT_NOT_FOUND", {}, "Product not found");
       continue;
     }
 
     const key = `${productId}:${quantityType}`;
     const before = running.has(key) ? running.get(key) : product[field];
     const after = before + delta;
-    const label = TYPE_LABELS[quantityType];
     if (after < 0) {
-      fail(index, productId, `無法出庫：${label}庫存不足（目前：${before}，要出庫：${-delta}）`);
+      fail(index, productId, "INSUFFICIENT_STOCK", { quantityType, current: before, requested: -delta },
+        `Insufficient ${TYPE_NAMES[quantityType]} stock (current: ${before}, requested: ${-delta})`);
       continue;
     }
 
     const apAccountable = Boolean(product.track_serial) && quantityType === "accountable";
     if (unitIds && !apAccountable) {
-      fail(index, productId, "只有 AP 商品的有帳數量可以帶序號");
+      fail(index, productId, "SERIALS_NOT_ALLOWED", {}, "Only the accountable quantity of an AP product can carry serials");
       continue;
     }
     if (apAccountable && kind === "reconcile") {
@@ -80,11 +95,13 @@ async function plan(tx, movements) {
         [productId],
       );
       if (Math.abs(after - inStock) >= Math.abs(before - inStock)) {
-        fail(index, productId, `AP 商品的有帳數量只能朝在庫序號數（${inStock}）對齊；一般進出貨請在進貨/出貨頁掃描序號`);
+        fail(index, productId, "AP_RECONCILE_DIRECTION", { inStock },
+          `AP accountable quantity can only move toward the in-stock serial count (${inStock}); scan serials on the Inbound/Outbound page for regular stock movements`);
         continue;
       }
     } else if (apAccountable && (!Array.isArray(unitIds) || unitIds.length !== Math.abs(delta))) {
-      fail(index, productId, "AP 商品的有帳數量必須隨序號異動（序號數需等於數量）");
+      fail(index, productId, "AP_SERIALS_REQUIRED", {},
+        "AP accountable quantity must move with serials (serial count must equal the quantity)");
       continue;
     }
 
@@ -131,11 +148,13 @@ async function apply(tx, movements, ctx) {
   const tag = tagRef.id != null
     ? await tx.get("SELECT id FROM tags WHERE id = ?", [tagRef.id])
     : await tx.get("SELECT id FROM tags WHERE name = ?", [tagRef.name]);
-  if (!tag) throw new LedgerError(`Tag ${tagRef.id ?? tagRef.name} 不存在`);
+  if (!tag) {
+    throw new LedgerError("TAG_NOT_FOUND", `Tag ${tagRef.id ?? tagRef.name} not found`, { tag: tagRef.id ?? tagRef.name });
+  }
 
   const { errors, planned } = await plan(tx, movements);
   if (errors.length > 0) {
-    throw new LedgerError(`庫存異動驗證失敗，共 ${errors.length} 筆錯誤`, errors);
+    throw new LedgerError("LEDGER_INVALID", `${errors.length} stock movement(s) failed validation`, { count: errors.length }, errors);
   }
 
   const results = [];
@@ -157,7 +176,7 @@ async function apply(tx, movements, ctx) {
       [after, product.id, before],
     );
     if (updated.changes !== 1) {
-      throw new LedgerError(`商品 ${product.sku} 庫存已變動，請重新送出`);
+      throw new LedgerError("STOCK_CHANGED", `Stock of ${product.sku} changed, please submit again`, { sku: product.sku });
     }
     await auditService.logAction(actor.userId, "CREATE", "transaction", inserted.id, product.warehouse_id);
     results.push({ transactionId: inserted.id, productId: product.id, before, after });

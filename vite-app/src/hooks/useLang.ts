@@ -4,7 +4,7 @@ import type { Lang } from '../types';
 const LANG_KEY = 'inv.lang';
 const LANGS: Lang[] = ['en', 'zh', 'zh-cn', 'ja'];
 
-function loadLang(): Lang {
+export function loadLang(): Lang {
   try {
     const saved = localStorage.getItem(LANG_KEY) as Lang | null;
     return saved && LANGS.includes(saved) ? saved : 'en';

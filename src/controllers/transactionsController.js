@@ -71,7 +71,7 @@ async function create(req, res) {
     res.status(201).json({ success: true, data: formatTimestamps(transaction) });
   } catch (error) {
     if (error instanceof stockLedger.LedgerError) {
-      return res.status(400).json({ success: false, error: error.errors[0]?.reason || error.message });
+      return res.status(400).json(error.toBody());
     }
     console.error("Error creating transaction:", error);
     res.status(500).json({ success: false, error: error.message });

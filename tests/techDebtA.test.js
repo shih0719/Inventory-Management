@@ -82,6 +82,8 @@ describe("A1 — POST /api/transactions 對 AP 有帳數量只允許朝在庫序
     const res = await postTx({ product_id: id, quantity_change: 3, quantity_type: "accountable" });
 
     expect(res.status).toBe(400);
+    // The frontend translates by code; `error` stays as the fallback text.
+    expect(res.body).toMatchObject({ code: "AP_RECONCILE_DIRECTION", params: { inStock: 2 } });
     expect(await qtyOf(id)).toBe(2);
   });
 
