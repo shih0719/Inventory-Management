@@ -2,10 +2,13 @@ const db = require("../config/database");
 const iconv = require("iconv-lite");
 const stockLedger = require("../services/stockLedger");
 const apUnits = require("../services/apUnits");
+const { errorItem, failure } = require("../utils/errorItem");
+
+const serialItems = (issues) => issues.map((e) => errorItem(e.serial_number, e));
 
 function sendError(res, error, context) {
   if (error instanceof apUnits.ApUnitError) {
-    return res.status(error.status).json({ success: false, error: error.message });
+    return res.status(error.status).json(failure(error.code, error.message, error.params));
   }
   if (error instanceof stockLedger.LedgerError) {
     return res.status(400).json(error.toBody());
@@ -44,7 +47,7 @@ async function getById(req, res) {
 async function lookupBySerial(req, res) {
   try {
     const unit = await apUnits.findBySerial(db, req.params.serial, req.warehouseId);
-    if (!unit) return res.status(404).json({ success: false, error: "此倉庫找不到序號" });
+    if (!unit) return res.status(404).json(failure("SERIAL_NOT_IN_WAREHOUSE", "Serial not found in this warehouse"));
     res.json({ success: true, data: unit });
   } catch (error) {
     sendError(res, error, "looking up serial");
@@ -56,7 +59,7 @@ async function create(req, res) {
   try {
     const { product_id, serial_number, remarks } = req.body;
     if (!product_id || !serial_number) {
-      return res.status(400).json({ success: false, error: "product_id 和 serial_number 為必填" });
+      return res.status(400).json(failure("UNIT_FIELDS_REQUIRED", "product_id and serial_number are required"));
     }
 
     const product = await apUnits.getApProduct(db, product_id, req.warehouseId);
@@ -74,7 +77,7 @@ async function bulkCreate(req, res) {
     const createdByUser = req.user?.username || "unknown";
 
     if (!product_id || !Array.isArray(serial_numbers) || serial_numbers.length === 0) {
-      return res.status(400).json({ success: false, error: "product_id 和 serial_numbers 陣列為必填" });
+      return res.status(400).json(failure("UNITS_FIELDS_REQUIRED", "product_id and a serial_numbers array are required"));
     }
 
     const product = await apUnits.getApProduct(db, product_id, req.warehouseId);
@@ -93,16 +96,17 @@ async function bulkCreate(req, res) {
     });
 
     const inserted = ids.length;
+    const items = serialItems(errors);
     if (inserted === 0 && errors.length > 0) {
-      const errorMsg = errors.map((e) => `${e.serial_number}: ${e.reason}`).join('; ');
-      return res.status(400).json({ success: false, error: errorMsg, errors });
+      return res.status(400).json(failure("UNITS_NONE_CREATED", `No units created; ${errors.length} serial(s) failed`,
+        { failed: errors.length }, items));
     }
 
     const message = errors.length > 0
-      ? `${inserted} unit${inserted !== 1 ? 's' : ''} created successfully. ${errors.length} failed: ${errors.map((e) => `${e.serial_number} (${e.reason})`).join(', ')}`
+      ? `${inserted} unit${inserted !== 1 ? 's' : ''} created successfully. ${errors.length} failed: ${items.map((e) => e.error).join(', ')}`
       : `${inserted} unit${inserted !== 1 ? 's' : ''} created successfully.`;
 
-    res.status(201).json({ success: true, data: { inserted, failed: errors.length, errors, message } });
+    res.status(201).json({ success: true, data: { inserted, failed: errors.length, errors: items, message } });
   } catch (error) {
     sendError(res, error, "bulk creating product units");
   }
@@ -115,21 +119,22 @@ async function transfer(req, res) {
     const createdByUser = req.user?.username || "unknown";
 
     if (!Array.isArray(serial_numbers) || serial_numbers.length === 0) {
-      return res.status(400).json({ success: false, error: "serial_numbers 為必填陣列" });
+      return res.status(400).json(failure("SERIALS_REQUIRED", "serial_numbers must be a non-empty array"));
     }
     if (!target_warehouse_id) {
-      return res.status(400).json({ success: false, error: "target_warehouse_id 為必填" });
+      return res.status(400).json(failure("TARGET_WAREHOUSE_REQUIRED", "target_warehouse_id is required"));
     }
 
     const warehouse = await db.get("SELECT id, name FROM warehouses WHERE id = ?", [target_warehouse_id]);
-    if (!warehouse) return res.status(400).json({ success: false, error: "目標倉庫不存在" });
+    if (!warehouse) return res.status(400).json(failure("TARGET_WAREHOUSE_NOT_FOUND", "Target warehouse not found"));
     if (!(req.user?.warehouses || []).includes(Number(target_warehouse_id))) {
-      return res.status(403).json({ success: false, error: "無目標倉庫的存取權限" });
+      return res.status(403).json(failure("TARGET_WAREHOUSE_FORBIDDEN", "No access to the target warehouse"));
     }
 
     const { errors, units } = await apUnits.planTransfer(db, serial_numbers, req.warehouseId, warehouse.id);
     if (errors.length > 0) {
-      return res.status(400).json({ success: false, errors });
+      return res.status(400).json(failure("TRANSFER_INVALID", `${errors.length} serial(s) cannot be transferred`,
+        { count: errors.length }, serialItems(errors)));
     }
 
     await db.transaction(async (tx) => {
@@ -152,7 +157,8 @@ async function update(req, res) {
   try {
     // 狀態只能經由出貨／退貨流程改變（數量才會經過 Stock Ledger）
     if (req.body.status !== undefined) {
-      return res.status(400).json({ success: false, error: "不能直接修改狀態，請使用出貨或退貨流程" });
+      return res.status(400).json(failure("UNIT_STATUS_READONLY",
+        "Status cannot be changed directly; use the outbound or return flow"));
     }
 
     const unit = await apUnits.getById(db, req.params.id, req.warehouseId);

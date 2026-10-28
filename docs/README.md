@@ -17,6 +17,7 @@
 | [`improve.md`](improve.md) | 📈 **優化建議** | 架構深化機會清單，列舉重構候選、優先級與實施建議 |
 | [`adr/0001-ap-no-history-tracking.md`](adr/0001-ap-no-history-tracking.md) | 📋 **ADR** | AP (序號品) 設計決策：不追蹤歷史紀錄的理由與影響 |
 | [`adr/0001-auth-provider-abstraction.md`](adr/0001-auth-provider-abstraction.md) | 📋 **ADR** | Auth Provider 抽象層 + Role/Warehouse 存取控制設計決策 |
+| [`adr/0004-error-codes.md`](adr/0004-error-codes.md) | 📋 **ADR** | 後端錯誤訊息用英文加 code，由前端依介面語言翻譯 |
 | [`MVP_RBAC_AUDIT.md`](MVP_RBAC_AUDIT.md) | 📝 **歷史規劃（已完成）** | 使用者登入與 Audit Trail 的 MVP 規劃文件 |
 | [`SHIPMENT_FEATURE.md`](SHIPMENT_FEATURE.md) | 📝 **歷史規劃（已完成）** | Shipment 出貨單據功能設計規劃 |
 

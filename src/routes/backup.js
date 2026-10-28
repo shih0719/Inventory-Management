@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { verifyAuth, requireRole } = require('../middleware/authMiddleware');
 const { loadEmailSettings, saveEmailSettings, sendTestEmail } = require('../services/backupService');
+const { failure } = require('../utils/errorItem');
 
 router.get('/settings', verifyAuth, requireRole(['admin']), (req, res) => {
   const settings = loadEmailSettings();
@@ -31,7 +32,7 @@ router.post('/test-email', verifyAuth, requireRole(['admin']), async (req, res) 
   const settings = loadEmailSettings();
 
   if (!settings.user || !settings.pass || !settings.to) {
-    return res.status(400).json({ error: '請先設定完整的 Email 資訊' });
+    return res.status(400).json(failure('EMAIL_SETTINGS_INCOMPLETE', 'Complete the email settings first'));
   }
 
   try {

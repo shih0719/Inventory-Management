@@ -3,10 +3,11 @@ const stockLedger = require("./stockLedger");
 const auditService = require("./auditService");
 const apUnits = require("./apUnits");
 const shipmentService = require("./shipmentService");
+const { errorItem } = require("../utils/errorItem");
 
 /** Messages are English; `code` + `params` let the frontend show its own text (vite-app/src/lib/i18n.ts). */
 class OutboundError extends Error {
-  /** @param {Array<string|{label:string, code:string, params:Object, error:string}>} errors */
+  /** @param {Array<{label:string, code:string, params:Object, error:string}>} errors  see utils/errorItem */
   constructor(code, message, params = {}, errors = []) {
     super(message);
     this.name = "OutboundError";
@@ -17,7 +18,7 @@ class OutboundError extends Error {
 }
 
 /** One error in the list, about `label` (a line or an AP SKU). */
-const issue = (label, code, params, reason) => ({ label, code, params, error: `${label}: ${reason}` });
+const issue = (label, code, params, reason) => errorItem(label, { code, params, reason });
 
 /**
  * Validate and execute one outbound (Strict Mode: all-or-nothing).
@@ -99,7 +100,7 @@ async function createOutbound(input, actor) {
       errors.push({ code: "PROJECT_CASE_REQUIRED", params: {}, error: "project_case is required when shipping AP serials" });
     }
     const serialPlan = await apUnits.planOutbound(tx, serials, actor.warehouseId);
-    errors.push(...serialPlan.errors);
+    errors.push(...serialPlan.errors.map((e) => errorItem(e.serial_number, e)));
     const apMovements = serialPlan.groups.map(({ productId, unitIds }) => ({
       productId, quantityType: "accountable", delta: -unitIds.length, remarks: description, unitIds,
     }));

@@ -4,6 +4,7 @@ const auditService = require("../services/auditService");
 const apUnits = require("../services/apUnits");
 const transactionQuery = require("../services/transactionQuery");
 const { formatTimestamps } = require("../utils/formatTimestamps");
+const { errorItem } = require("../utils/errorItem");
 
 // Create batch transaction (multiple products at once) — Strict Mode
 async function createBatch(req, res) {
@@ -29,7 +30,7 @@ async function createBatch(req, res) {
     }
 
     // One error in the list, about `label` (a batch line); `code` lets the frontend translate it.
-    const issue = (label, code, params, reason) => ({ label, code, params, error: `${label}: ${reason}` });
+    const issue = (label, code, params, reason) => errorItem(label, { code, params, reason });
 
     // ── Phase 1: Pre-validate ALL items before touching the DB ──────────────
     const validationErrors = [];
@@ -73,7 +74,8 @@ async function createBatch(req, res) {
           seenSerials,
         );
         if (planned.errors.length > 0) {
-          validationErrors.push(...planned.errors.map((e) => `${index} (${product.name}): ${e}`));
+          const line = `${index} (${product.name})`;
+          validationErrors.push(...planned.errors.map((e) => errorItem(e.serial_number ? `${line} ${e.serial_number}` : line, e)));
           continue;
         }
         serialPlan = planned.plan;

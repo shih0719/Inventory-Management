@@ -95,17 +95,20 @@ function buildUrl(path: string, query?: RequestOpts['query']): string {
  * Returns the top-level message (undefined when it has no translation) and rewrites coded
  * `errors` items to strings, so callers that display `body.errors` get them translated too.
  */
-function localizeErrors(payload: unknown): string | undefined {
+export function localizeErrors(payload: unknown): string | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
-  const lang = loadLang();
   const body = payload as ServerError & { errors?: unknown[] };
-  if (Array.isArray(body.errors)) {
-    body.errors = body.errors.map((e) => {
-      if (!e || typeof e !== 'object' || !('code' in e)) return e;
-      return serverErrorText(e as ServerError, lang) ?? (e as ServerError).error;
-    });
-  }
-  return serverErrorText(body, lang);
+  if (Array.isArray(body.errors)) body.errors = localizeErrorList(body.errors);
+  return serverErrorText(body, loadLang());
+}
+
+/** Coded items of an `errors` list as text in the UI language; other items unchanged. */
+export function localizeErrorList(errors: unknown[]): unknown[] {
+  const lang = loadLang();
+  return errors.map((e) => {
+    if (!e || typeof e !== 'object' || !('code' in e)) return e;
+    return serverErrorText(e as ServerError, lang) ?? (e as ServerError).error;
+  });
 }
 
 async function request<T>(path: string, opts: RequestOpts = {}): Promise<{ data: T; pagination?: Pagination }> {

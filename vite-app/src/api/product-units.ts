@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, localizeErrorList } from './client';
 import type { ProductUnit, SerialLookup } from '../types';
 
 export async function listProductUnits(productId: number, status?: string): Promise<ProductUnit[]> {
@@ -10,16 +10,19 @@ export async function listProductUnits(productId: number, status?: string): Prom
   return res.data;
 }
 
-/** The units belong to the product's warehouse, which must be the current one. */
+/**
+ * The units belong to the product's warehouse, which must be the current one.
+ * Partial success resolves; `errors` are the failed serials as text in the UI language.
+ */
 export async function bulkCreateUnits(
   productId: number,
   serialNumbers: string[],
-): Promise<{ inserted: number; failed: number; errors: unknown[]; message: string }> {
-  const res = await api.post<{ inserted: number; failed: number; errors: unknown[]; message: string }>(
+): Promise<{ inserted: number; failed: number; errors: string[] }> {
+  const res = await api.post<{ inserted: number; failed: number; errors: unknown[] }>(
     '/api/product-units/bulk',
     { product_id: productId, serial_numbers: serialNumbers },
   );
-  return res.data;
+  return { ...res.data, errors: localizeErrorList(res.data.errors) as string[] };
 }
 
 export async function transferUnits(

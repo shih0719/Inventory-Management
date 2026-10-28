@@ -124,6 +124,7 @@ describe("POST /api/batches — AP 序號進貨", () => {
     });
 
     expect(res.status).toBe(400);
+    expect(res.body.errors).toEqual([expect.objectContaining({ label: "#2 (BS-DUP) BS-DUP-1", code: "SERIAL_IN_STOCK" })]);
     expect(await qtyOf(cableId)).toBe(0);
     expect(await unitOf("BS-DUP-2")).toBeUndefined();
   });
@@ -145,10 +146,13 @@ describe("POST /api/batches — AP 序號進貨", () => {
       { product_id: apId, quantity_change: 2, quantity_type: "accountable", serial_numbers: ["BS-BAD-2", "bs-bad-2"] },
       { product_id: apId, quantity_change: 1, quantity_type: "non_accountable", serial_numbers: ["BS-BAD-3"] },
     ];
+    const codes = [];
     for (const item of bad) {
       const res = await postBatch({ tag_id: inboundTagId, items: [item] });
       expect(res.status).toBe(400);
+      codes.push(res.body.errors[0].code);
     }
+    expect(codes).toEqual(["SERIAL_COUNT_MISMATCH", "SERIAL_DUPLICATE_IN_BATCH", "AP_ACCOUNTABLE_ONLY"]);
     expect(await qtyOf(apId)).toBe(0);
   });
 

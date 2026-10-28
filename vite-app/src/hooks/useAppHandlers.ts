@@ -117,8 +117,8 @@ export function useAppHandlers({ lang, inventory, showToast, setModal, navigateT
             detail = ` (${body.data.failed.length} ${lang === 'en' ? 'failed' : lang.startsWith('zh') ? '失敗' : '失敗'})`;
           }
           if (Array.isArray(body?.errors) && body.errors.length > 0) {
-            const first = body.errors[0];
-            detail = ` — ${typeof first === 'string' ? first : `${first.serial_number}: ${first.reason}`}`;
+            // Already text in the UI language (see api/client.ts).
+            detail = ` — ${body.errors[0]}`;
           }
         }
         showToast(`❌ ${message}${detail}`, { kind: 'alert', duration: 6000 });
@@ -166,7 +166,10 @@ export function useAppHandlers({ lang, inventory, showToast, setModal, navigateT
         );
       } catch (err) {
         const message = err instanceof ApiError ? err.message : (err as Error).message;
-        showToast(`❌ ${message}`, { kind: 'alert', duration: 6000 });
+        // Show the first failed row, already in the UI language (see api/csv.ts).
+        const errors = err instanceof ApiError ? (err.body as { errors?: unknown[] } | null)?.errors : undefined;
+        const detail = Array.isArray(errors) && errors.length > 0 ? ` — ${errors[0]}` : '';
+        showToast(`❌ ${message}${detail}`, { kind: 'alert', duration: 6000 });
       }
     },
     [refetchProducts, showToast, lang, t.importDone, t.rows],

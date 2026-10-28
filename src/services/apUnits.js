@@ -10,14 +10,23 @@
  * Every function takes `conn` — `db`, or the `tx` from db.transaction().
  */
 
+/** Messages are English; `code` + `params` let the frontend show its own text (vite-app/src/lib/i18n.ts). */
 class ApUnitError extends Error {
   /** @param {number} status HTTP status the controller should answer with */
-  constructor(message, status = 400) {
+  constructor(code, message, status = 400, params = {}) {
     super(message);
     this.name = "ApUnitError";
+    this.code = code;
+    this.params = params;
     this.status = status;
   }
 }
+
+/**
+ * A per-serial validation error. `serial_number` is omitted when the error is about the whole line.
+ * @typedef {{serial_number?:string, code:string, params:Object, reason:string}} SerialIssue
+ */
+const serialIssue = (serial_number, code, reason, params = {}) => ({ serial_number, code, params, reason });
 
 function normalizeSerial(raw) {
   return String(raw ?? "").trim().toUpperCase();
@@ -63,7 +72,7 @@ async function list(conn, warehouseId, query, { limit, offset } = {}) {
 /** Unit by id in the warehouse; throws 404 otherwise. */
 async function getById(conn, id, warehouseId) {
   const unit = await conn.get(`${UNIT_SELECT} WHERE pu.id = ? AND p.warehouse_id = ?`, [id, warehouseId]);
-  if (!unit) throw new ApUnitError("序號品不存在", 404);
+  if (!unit) throw new ApUnitError("UNIT_NOT_FOUND", "Product unit not found", 404);
   return unit;
 }
 
@@ -83,8 +92,8 @@ async function getApProduct(conn, productId, warehouseId) {
     "SELECT * FROM products WHERE id = ? AND warehouse_id = ? AND is_deleted = 0",
     [productId, warehouseId],
   );
-  if (!product) throw new ApUnitError("商品不存在");
-  if (!product.track_serial) throw new ApUnitError("該商品未開啟序號追蹤");
+  if (!product) throw new ApUnitError("PRODUCT_NOT_FOUND", "Product not found");
+  if (!product.track_serial) throw new ApUnitError("PRODUCT_NOT_SERIAL_TRACKED", "Serial tracking is off for this product");
   return product;
 }
 
@@ -102,11 +111,11 @@ const isDuplicate = (e) => e.message.includes("UNIQUE constraint failed");
 
 async function create(conn, product, rawSerial, remarks) {
   const sn = normalizeSerial(rawSerial);
-  if (!sn) throw new ApUnitError("serial_number 不可為空");
+  if (!sn) throw new ApUnitError("SERIAL_EMPTY", "Serial number is empty");
   try {
     return await insertUnit(conn, product, sn, remarks);
   } catch (e) {
-    if (isDuplicate(e)) throw new ApUnitError("序號已存在");
+    if (isDuplicate(e)) throw new ApUnitError("SERIAL_EXISTS", "Serial number already exists");
     throw e;
   }
 }
@@ -118,9 +127,11 @@ async function edit(conn, unit, { project_case, sold_to, remarks }) {
   const newRemarks = remarks !== undefined ? remarks : unit.remarks;
 
   if (unit.status === "sold") {
-    if (!projectCase || !projectCase.trim()) throw new ApUnitError("案子（project_case）為必填");
+    if (!projectCase || !projectCase.trim()) {
+      throw new ApUnitError("UNIT_PROJECT_CASE_REQUIRED", "project_case is required for a shipped unit");
+    }
   } else if (project_case !== undefined || sold_to !== undefined) {
-    throw new ApUnitError("在庫的序號品沒有出貨資訊可修改");
+    throw new ApUnitError("UNIT_IN_STOCK_NO_SHIPMENT", "An in-stock unit has no shipment details to edit");
   }
 
   await conn.run(
@@ -137,7 +148,7 @@ async function remove(conn, unit) {
 
 /**
  * Insert new serials for one product, skipping bad ones (partial success).
- * Returns the inserted ids and per-serial errors.
+ * Returns the inserted ids and per-serial errors (Array<SerialIssue>).
  */
 async function createMany(conn, product, rawSerials, remarks) {
   const ids = [];
@@ -145,14 +156,14 @@ async function createMany(conn, product, rawSerials, remarks) {
   const seen = new Set();
   for (let i = 0; i < rawSerials.length; i++) {
     const sn = normalizeSerial(rawSerials[i]);
-    if (!sn) { errors.push({ index: i, serial_number: rawSerials[i], reason: "序號不可為空" }); continue; }
-    if (seen.has(sn)) { errors.push({ index: i, serial_number: sn, reason: "批次內序號重複" }); continue; }
+    if (!sn) { errors.push(serialIssue(`#${i + 1}`, "SERIAL_EMPTY", "Serial number is empty")); continue; }
+    if (seen.has(sn)) { errors.push(serialIssue(sn, "SERIAL_DUPLICATE_IN_BATCH", "Duplicate serial in this batch")); continue; }
     seen.add(sn);
     try {
       ids.push(await insertUnit(conn, product, sn, remarks));
     } catch (e) {
       if (!isDuplicate(e)) throw e;
-      errors.push({ index: i, serial_number: sn, reason: "序號已存在" });
+      errors.push(serialIssue(sn, "SERIAL_EXISTS", "Serial number already exists"));
     }
   }
   return { ids, errors };
@@ -162,22 +173,26 @@ async function createMany(conn, product, rawSerials, remarks) {
  * Validate the serials of one inbound line. New serials are created; a sold
  * serial of the same product comes back to stock only under the RETURN tag.
  * `seen` collects serials across the whole batch.
- * Returns { errors: string[], plan: Array<{ serial } | { returnUnitId }> }.
+ * Returns { errors: Array<SerialIssue>, plan: Array<{ serial } | { returnUnitId }> }.
  */
 async function planInbound(conn, product, { quantityChange, quantityType, serials, tagName }, seen) {
-  if (serials.length === 0) return { errors: ["AP 商品必須掃描序號進貨"], plan: [] };
-  if (parseInt(quantityChange) <= 0) return { errors: ["AP 商品出庫請使用出貨頁"], plan: [] };
-  if (quantityType !== "accountable") return { errors: ["AP 商品只能計入有帳數量"], plan: [] };
+  const lineError = (code, reason, params) => ({ errors: [serialIssue(undefined, code, reason, params)], plan: [] });
+  if (serials.length === 0) return lineError("AP_INBOUND_SERIALS_REQUIRED", "Scan serials to receive an AP product");
+  if (parseInt(quantityChange) <= 0) return lineError("AP_OUTBOUND_USE_SHIPMENT", "Use the Outbound page to ship an AP product");
+  if (quantityType !== "accountable") {
+    return lineError("AP_ACCOUNTABLE_ONLY", "AP products count toward the accountable quantity only");
+  }
   if (parseInt(quantityChange) !== serials.length) {
-    return { errors: [`數量 ${quantityChange} 與序號數 ${serials.length} 不符`], plan: [] };
+    return lineError("SERIAL_COUNT_MISMATCH", `Quantity ${quantityChange} does not match the serial count ${serials.length}`,
+      { quantity: parseInt(quantityChange), serials: serials.length });
   }
 
   const errors = [];
   const plan = [];
   for (const raw of serials) {
     const sn = normalizeSerial(raw);
-    if (!sn) { errors.push("序號不可為空"); continue; }
-    if (seen.has(sn)) { errors.push(`${sn} 批次內序號重複`); continue; }
+    if (!sn) { errors.push(serialIssue(undefined, "SERIAL_EMPTY", "Serial number is empty")); continue; }
+    if (seen.has(sn)) { errors.push(serialIssue(sn, "SERIAL_DUPLICATE_IN_BATCH", "Duplicate serial in this batch")); continue; }
     seen.add(sn);
 
     // serial_number is globally unique, so a new serial must not exist in any warehouse.
@@ -185,11 +200,11 @@ async function planInbound(conn, product, { quantityChange, quantityType, serial
     if (!unit) {
       plan.push({ serial: sn });
     } else if (unit.status === "in_stock") {
-      errors.push(`${sn} 已在庫`);
+      errors.push(serialIssue(sn, "SERIAL_IN_STOCK", "Already in stock"));
     } else if (tagName !== "RETURN") {
-      errors.push(`${sn} 已出庫，退貨請選「退貨」標籤`);
+      errors.push(serialIssue(sn, "SERIAL_SOLD_USE_RETURN", "Already shipped; use the RETURN tag to take it back"));
     } else if (unit.product_id !== product.id) {
-      errors.push(`${sn} 屬於其他商品`);
+      errors.push(serialIssue(sn, "SERIAL_OTHER_PRODUCT", "Belongs to another product"));
     } else {
       plan.push({ returnUnitId: unit.id });
     }
@@ -226,15 +241,15 @@ async function planOutbound(conn, rawSerials, warehouseId) {
   const seen = new Set();
   for (const raw of rawSerials) {
     const sn = normalizeSerial(raw);
-    if (!sn) { errors.push({ serial_number: "", reason: "序號不可為空" }); continue; }
-    if (seen.has(sn)) { errors.push({ serial_number: sn, reason: "批次內序號重複" }); continue; }
+    if (!sn) { errors.push(serialIssue(undefined, "SERIAL_EMPTY", "Serial number is empty")); continue; }
+    if (seen.has(sn)) { errors.push(serialIssue(sn, "SERIAL_DUPLICATE_IN_BATCH", "Duplicate serial in this batch")); continue; }
     seen.add(sn);
 
     const unit = await findBySerial(conn, sn, warehouseId);
     if (!unit) {
-      errors.push({ serial_number: sn, reason: "此倉庫找不到序號" });
+      errors.push(serialIssue(sn, "SERIAL_NOT_IN_WAREHOUSE", "Serial not found in this warehouse"));
     } else if (unit.status !== "in_stock") {
-      errors.push({ serial_number: sn, reason: "已出庫" });
+      errors.push(serialIssue(sn, "SERIAL_SOLD", "Already shipped"));
     } else {
       if (!groups.has(unit.product_id)) groups.set(unit.product_id, { productId: unit.product_id, sku: unit.sku, unitIds: [] });
       groups.get(unit.product_id).unitIds.push(unit.id);
@@ -268,18 +283,18 @@ async function planTransfer(conn, rawSerials, fromWarehouseId, toWarehouseId) {
       [sn, fromWarehouseId],
     );
     if (!unit) {
-      errors.push({ serial_number: sn, reason: "此倉庫找不到序號" });
+      errors.push(serialIssue(sn, "SERIAL_NOT_IN_WAREHOUSE", "Serial not found in this warehouse"));
     } else if (unit.status !== "in_stock") {
-      errors.push({ serial_number: sn, reason: "非在庫狀態" });
+      errors.push(serialIssue(sn, "SERIAL_NOT_IN_STOCK", "Not in stock"));
     } else if (unit.src_warehouse_id === toWarehouseId) {
-      errors.push({ serial_number: sn, reason: "已在目標倉庫" });
+      errors.push(serialIssue(sn, "SERIAL_ALREADY_IN_TARGET", "Already in the target warehouse"));
     } else {
       const targetProduct = await conn.get(
         "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
         [unit.sku, toWarehouseId],
       );
       if (!targetProduct) {
-        errors.push({ serial_number: sn, reason: `目標倉庫無此 SKU (${unit.sku})` });
+        errors.push(serialIssue(sn, "TARGET_SKU_MISSING", `The target warehouse has no product ${unit.sku}`, { sku: unit.sku }));
       } else {
         units.push({ ...unit, targetProduct });
       }

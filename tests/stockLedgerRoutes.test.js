@@ -150,7 +150,8 @@ describe("POST /api/csv/import 的數量語意", () => {
     const { id } = (await createProduct({ sku: "RL-CSV-AP", track_serial: true })).body.data;
     const res = await importCsv(["RL-CSV-AP,Changed,hardware,3,0", "RL-CSV-OK,Ok,hardware,1,0"]);
 
-    expect(res.body.errors).toEqual([expect.objectContaining({ row: 1, reason: "QUANTITY_REJECTED" })]);
+    // The row reports the ledger's own reason: AP accountable stock moves only with serials.
+    expect(res.body.errors).toEqual([expect.objectContaining({ row: 1, label: "#1", code: "AP_SERIALS_REQUIRED" })]);
     expect(await db.get("SELECT name, accountable_quantity FROM products WHERE id = ?", [id])).toEqual({ name: "RL-CSV-AP", accountable_quantity: 0 });
     expect((await productBySku("RL-CSV-OK")).accountable_quantity).toBe(1);
   });

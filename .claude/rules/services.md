@@ -34,6 +34,7 @@ Each service exports functions that:
 - Functions are pure or clearly document side effects
 - Database calls via single database module (not scattered)
 - Error messages include enough context to debug (what was attempted, why it failed)
+- Errors are English and carry a `code` + `params` (like `LedgerError`, `ApUnitError`); the frontend translates by code — see `docs/adr/0004-error-codes.md`
 
 ### Testing
 Unit tests mock dependencies; integration tests use a real test database.

@@ -31,7 +31,8 @@ export function APProductModal({
   const [transferSerialInput, setTransferSerialInput] = useState('');
   const [targetWarehouseId, setTargetWarehouseId] = useState<number | null>(null);
   const [transferring, setTransferring] = useState(false);
-  const [transferErrors, setTransferErrors] = useState<Array<{ serial_number: string; reason: string }> | string | null>(null);
+  // Per-serial errors arrive as "SERIAL: reason" text in the UI language (see api/client.ts).
+  const [transferErrors, setTransferErrors] = useState<string[] | string | null>(null);
   const [targetProduct, setTargetProduct] = useState<Product | null | undefined>(undefined);
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export function APProductModal({
         if (Array.isArray(body.errors)) {
           setTransferErrors(body.errors);
         } else {
-          setTransferErrors(body.error || err.message);
+          setTransferErrors(err.message);
         }
       } else {
         setTransferErrors(err instanceof Error ? err.message : String(err));
@@ -291,7 +292,7 @@ export function APProductModal({
                       </div>
                       {transferErrors.map((e, i) => (
                         <div key={i} style={{ fontFamily: 'var(--mono)', marginBottom: 2 }}>
-                          {e.serial_number} — {e.reason}
+                          {e}
                         </div>
                       ))}
                     </>

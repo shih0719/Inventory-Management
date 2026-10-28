@@ -105,6 +105,16 @@ describe("建立序號品", () => {
     expect((await db.get("SELECT warehouse_id FROM product_units WHERE serial_number = 'APW-A-1'")).warehouse_id).toBe(whA);
   });
 
+  it("POST /bulk 全部失敗 → 400，每個序號一項帶 code 的錯誤", async () => {
+    const res = await asA("post", "/api/product-units/bulk").send({ product_id: productA, serial_numbers: ["APW-A-1", " "] });
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "UNITS_NONE_CREATED",
+      params: { failed: 2 },
+      errors: [{ label: "APW-A-1", code: "SERIAL_EXISTS" }, { label: "#2", code: "SERIAL_EMPTY" }],
+    });
+  });
+
   it("POST / 接受數字序號並正規化", async () => {
     const res = await asA("post", "/api/product-units").send({ product_id: productA, serial_number: 12345 });
     expect(res.status).toBe(201);

@@ -1,16 +1,17 @@
 const db = require("../config/database");
 const auditService = require("../services/auditService");
 const stockLedger = require("../services/stockLedger");
+const { failure } = require("../utils/errorItem");
 
 // GET /api/products/lookup?sku=X&warehouse_id=Y — Y may be another warehouse the user can access (transfer target)
 async function lookup(req, res) {
   try {
     const { sku, warehouse_id } = req.query;
     if (!sku || !warehouse_id) {
-      return res.status(400).json({ success: false, error: "sku 和 warehouse_id 為必填" });
+      return res.status(400).json(failure("SKU_WAREHOUSE_REQUIRED", "sku and warehouse_id are required"));
     }
     if (!(req.user?.warehouses || []).includes(Number(warehouse_id))) {
-      return res.status(403).json({ success: false, error: "無該倉庫的存取權限" });
+      return res.status(403).json(failure("WAREHOUSE_FORBIDDEN", "No access to this warehouse"));
     }
     const product = await db.get(
       "SELECT * FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0",
@@ -124,7 +125,7 @@ async function getById(req, res) {
     if (!product) {
       return res
         .status(404)
-        .json({ success: false, error: "Product not found" });
+        .json(failure("PRODUCT_NOT_FOUND", "Product not found"));
     }
 
     res.json({ success: true, data: product });
@@ -149,10 +150,7 @@ async function create(req, res) {
     } = req.body;
 
     if (!sku || !name) {
-      return res.status(400).json({
-        success: false,
-        error: "SKU and Name are required",
-      });
+      return res.status(400).json(failure("SKU_NAME_REQUIRED", "SKU and Name are required"));
     }
 
     // type is derived from track_serial (they describe the same concept:
@@ -169,10 +167,7 @@ async function create(req, res) {
     );
 
     if (existing) {
-      return res.status(409).json({
-        success: false,
-        error: "此 SKU 已存在",
-      });
+      return res.status(409).json(failure("SKU_EXISTS", "This SKU already exists"));
     }
 
     // Starts at 0; the initial quantities are an ADJUSTMENT through the Stock Ledger,
@@ -217,10 +212,7 @@ async function create(req, res) {
     }
     console.error("Error creating product:", error);
     if (error.message.includes("UNIQUE constraint failed")) {
-      return res.status(400).json({
-        success: false,
-        error: "此 SKU 已存在",
-      });
+      return res.status(400).json(failure("SKU_EXISTS", "This SKU already exists"));
     }
     res.status(500).json({ success: false, error: error.message });
   }
@@ -239,7 +231,7 @@ async function update(req, res) {
     if (!product) {
       return res
         .status(404)
-        .json({ success: false, error: "Product not found" });
+        .json(failure("PRODUCT_NOT_FOUND", "Product not found"));
     }
 
     // Protect: cannot turn off track_serial if APs exist
@@ -250,10 +242,9 @@ async function update(req, res) {
           [id],
         );
         if (apCount.cnt > 0) {
-          return res.status(400).json({
-            success: false,
-            error: `該商品仍有 ${apCount.cnt} 筆序號紀錄，請先全部刪除後再關閉序號追蹤`,
-          });
+          return res.status(400).json(failure("PRODUCT_HAS_UNITS_TRACKING",
+            `The product still has ${apCount.cnt} serial record(s); delete them before turning off serial tracking`,
+            { count: apCount.cnt }));
         }
       }
     }
@@ -302,7 +293,7 @@ async function softDelete(req, res) {
     if (!product) {
       return res
         .status(404)
-        .json({ success: false, error: "Product not found" });
+        .json(failure("PRODUCT_NOT_FOUND", "Product not found"));
     }
 
     // Protect: cannot delete product if any APs exist
@@ -311,10 +302,9 @@ async function softDelete(req, res) {
       [id],
     );
     if (apCount.cnt > 0) {
-      return res.status(400).json({
-        success: false,
-        error: `該商品仍有 ${apCount.cnt} 筆序號紀錄，請先全部刪除後再下架商品`,
-      });
+      return res.status(400).json(failure("PRODUCT_HAS_UNITS_DELETE",
+        `The product still has ${apCount.cnt} serial record(s); delete them before removing the product`,
+        { count: apCount.cnt }));
     }
 
     await db.run("UPDATE products SET is_deleted = 1 WHERE id = ?", [id]);
@@ -332,7 +322,7 @@ async function getProductLocations(req, res) {
 
     const product = await db.get("SELECT id, name, sku FROM products WHERE sku = ? AND warehouse_id = ? AND is_deleted = 0", [sku, req.warehouseId]);
     if (!product) {
-      return res.status(404).json({ success: false, error: "Product not found" });
+      return res.status(404).json(failure("PRODUCT_NOT_FOUND", "Product not found"));
     }
 
     const sql = `

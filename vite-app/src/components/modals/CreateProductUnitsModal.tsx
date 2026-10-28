@@ -47,25 +47,26 @@ export function CreateProductUnitsModal({
     if (serialList.length === 0) return;
     setSubmitting(true);
     try {
-      const response = await bulkCreateUnits(product.id, serialList);
-      setResultModal({ type: 'success', message: response.message });
+      const { inserted, errors } = await bulkCreateUnits(product.id, serialList);
+      const created = {
+        en: `${inserted} unit${inserted !== 1 ? 's' : ''} created`,
+        zh: `已建立 ${inserted} 筆序號品`,
+        'zh-cn': `已建立 ${inserted} 笔序号品`,
+        ja: `シリアル品を ${inserted} 件作成しました`,
+      }[lang];
+      const failed = { en: 'Failed', zh: '失敗', 'zh-cn': '失败', ja: '失敗' }[lang];
+      setResultModal({
+        type: 'success',
+        message: errors.length > 0 ? `${created}. ${failed}: ${errors.join(', ')}` : created,
+      });
     } catch (err) {
       console.error('Failed to create units:', err);
       let errorMessage = lang === 'en' ? 'Failed to create units' : '建立序號品失敗';
 
       if (err instanceof ApiError) {
-        if (err.body && typeof err.body === 'object') {
-          const body = err.body as any;
-          if (body.error) {
-            errorMessage = body.error;
-          } else if (body.message) {
-            errorMessage = body.message;
-          } else {
-            errorMessage = err.message;
-          }
-        } else {
-          errorMessage = err.message;
-        }
+        // The client has already put the message and each failed serial into the UI language.
+        const errors = (err.body as { errors?: unknown[] } | null)?.errors;
+        errorMessage = Array.isArray(errors) && errors.length > 0 ? `${err.message}: ${errors.join(', ')}` : err.message;
       } else if (err instanceof Error) {
         errorMessage = err.message;
       }

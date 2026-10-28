@@ -108,6 +108,39 @@ describe("POST /api/csv/import", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .set("X-Warehouse-Id", warehouseId);
     expect(res.status).toBe(400);
+    expect(res.body.code).toBe("FILE_NOT_PROVIDED");
+  });
+
+  it("不是 .csv 的檔案 → 400 INVALID_FILE_TYPE", async () => {
+    const txtPath = path.join(os.tmpdir(), `notes-${Date.now()}.txt`);
+    fs.writeFileSync(txtPath, "x");
+    const res = await request(app)
+      .post("/api/csv/import")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .set("X-Warehouse-Id", warehouseId)
+      .attach("file", txtPath);
+    fs.unlinkSync(txtPath);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ code: "INVALID_FILE_TYPE", params: { fileName: path.basename(txtPath) } });
+  });
+
+  it("每列都無效 → 400，逐列帶 code 的錯誤", async () => {
+    const csvPath = writeTempCsv("SKU,Name,Type,IsAccount\nBAD SKU,X,hardware,0\nCSV-NEG,X,hardware,-1\n");
+    const res = await request(app)
+      .post("/api/csv/import")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .set("X-Warehouse-Id", warehouseId)
+      .attach("file", csvPath);
+    fs.unlinkSync(csvPath);
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({
+      code: "IMPORT_FAILED",
+      params: { count: 2 },
+      errors: [
+        { row: 1, label: "#1", code: "INVALID_SKU_FORMAT", params: { sku: "BAD SKU" } },
+        { row: 2, label: "#2", code: "INVALID_QUANTITY", params: { field: "IsAccount", value: "-1" } },
+      ],
+    });
   });
 
   it("缺少 X-Warehouse-Id 回傳 403", async () => {

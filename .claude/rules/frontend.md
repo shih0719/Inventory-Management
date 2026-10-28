@@ -22,6 +22,7 @@ path: vite-app/**
 - Fetch from `fetch('/api/...')` or client SDK
 - Handle loading, error, and success states
 - Display user-friendly error messages from server responses
+- Server errors arrive already translated: `api/client.ts` turns each response's `code` into the UI language, so show `err.message` and the strings in `err.body.errors`. A new code needs its four translations in `SERVER_ERRORS` (`lib/i18n.ts`) — see `docs/adr/0004-error-codes.md`
 
 ### Conventions
 - Components are modular and accept props

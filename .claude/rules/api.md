@@ -22,6 +22,7 @@ path: src/routes/** src/controllers/**
 - Error handling via middleware chain — don't try/catch inside controllers unless catching service errors
 - Use `res.status().json()` for responses
 - Validate req.body/params early in controller; delegate business logic to services
+- Error responses are English plus a code: `res.status(4xx).json(failure("CODE", "English message", params))` from `src/utils/errorItem.js`; error lists use `errorItem(label, issue)`. Add the code's four translations to `SERVER_ERRORS` in `vite-app/src/lib/i18n.ts` (`tests/errorCodes.test.js` checks). Never write Chinese error text in the backend — see `docs/adr/0004-error-codes.md`
 
 **Testing:** Integration tests in `tests/` hit real routes and check response codes.
 

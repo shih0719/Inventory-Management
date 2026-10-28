@@ -1,14 +1,13 @@
 // src/api/csv.ts — server-side CSV operations.
 
-import { ApiError, fetchWithAuth } from './client';
+import { ApiError, fetchWithAuth, localizeErrors } from './client';
+import type { ServerError } from '../lib/i18n';
 
 const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 
-export interface CsvErrorDetail {
+/** A per-row error or warning; `row` is the data row number, or "Header". */
+export interface CsvErrorDetail extends ServerError {
   row: string | number;
-  reason: string;
-  message: string;
-  details?: string;
 }
 
 export interface CsvImportResult {
@@ -17,7 +16,6 @@ export interface CsvImportResult {
   updated?: number;
   import_id?: number;
   message?: string;
-  reason?: string;
   encoding?: string;
   errors?: CsvErrorDetail[];
   warnings?: CsvErrorDetail[];
@@ -33,7 +31,8 @@ export async function importProductsCsv(file: File): Promise<CsvImportResult> {
   try { json = JSON.parse(text); } catch { /* ignore */ }
 
   if (!res.ok) {
-    const message = (json && (json.message || json.error || json.details)) || `${res.status} ${res.statusText}`;
+    // Like api/client.ts: the message and each row error in the UI language.
+    const message = localizeErrors(json) || (json && json.error) || `${res.status} ${res.statusText}`;
     throw new ApiError(res.status, String(message), json);
   }
 

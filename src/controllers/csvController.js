@@ -6,44 +6,35 @@ const path = require("path");
 const iconv = require("iconv-lite");
 const { logAction } = require("../services/auditService");
 const stockLedger = require("../services/stockLedger");
+const { errorItem, failure } = require("../utils/errorItem");
+
+/** A per-row error or warning; `row` is the data row number, or "Header". */
+const rowIssue = (row, code, reason, params = {}) => ({
+  row,
+  ...errorItem(row === "Header" ? undefined : `#${row}`, { code, params, reason }),
+});
 
 // Import products from CSV
 async function importCSV(req, res) {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: "No file uploaded",
-        reason: "FILE_NOT_PROVIDED",
-        message: "請選擇一個CSV檔案進行上傳",
-        details: "未偵測到上傳的檔案"
-      });
+      return res.status(400).json(failure("FILE_NOT_PROVIDED", "Choose a CSV file to upload"));
     }
 
     // Validate file type
     const fileExt = req.file.originalname.toLowerCase().endsWith('.csv');
     if (!fileExt) {
       fs.unlinkSync(req.file.path);
-      return res.status(400).json({
-        success: false,
-        error: "Invalid file type",
-        reason: "INVALID_FILE_TYPE",
-        message: "只接受CSV檔案格式",
-        details: `上傳的檔案格式為: ${req.file.originalname}. 請使用 .csv 檔案`
-      });
+      return res.status(400).json(failure("INVALID_FILE_TYPE",
+        `Only .csv files are accepted (received ${req.file.originalname})`, { fileName: req.file.originalname }));
     }
 
     // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024;
     if (req.file.size > maxSize) {
       fs.unlinkSync(req.file.path);
-      return res.status(400).json({
-        success: false,
-        error: "File too large",
-        reason: "FILE_TOO_LARGE",
-        message: "檔案大小超過限制",
-        details: `檔案大小: ${(req.file.size / 1024 / 1024).toFixed(2)}MB, 最大限制: 5MB`
-      });
+      const sizeMb = (req.file.size / 1024 / 1024).toFixed(2);
+      return res.status(400).json(failure("FILE_TOO_LARGE", `File is ${sizeMb}MB; the limit is 5MB`, { maxMb: 5 }));
     }
 
     const results = [];
@@ -78,12 +69,9 @@ async function importCSV(req, res) {
         const required = ['SKU', 'Name', 'Type'];
         const missing = required.filter(h => !headers.includes(h));
         if (missing.length > 0) {
-          errors.push({
-            row: "Header",
-            reason: "INVALID_HEADERS",
-            message: `缺少必要的欄位: ${missing.join(', ')}`,
-            details: `預期欄位: SKU, Name, Type\n實際欄位: ${headers.join(', ')}`
-          });
+          errors.push(rowIssue("Header", "INVALID_HEADERS",
+            `Missing columns: ${missing.join(', ')} (expected SKU, Name, Type; found ${headers.join(', ')})`,
+            { missing: missing.join(', ') }));
         }
       })
       .on("data", (data) => {
@@ -96,13 +84,7 @@ async function importCSV(req, res) {
           // Check if file is empty
           if (isEmptyFile || results.length === 0) {
             fs.unlinkSync(req.file.path);
-            return res.status(400).json({
-              success: false,
-              error: "Empty file",
-              reason: "EMPTY_FILE",
-              message: "CSV檔案為空",
-              details: "檔案沒有包含任何數據行。請確保CSV檔案至少包含標題行和一行數據"
-            });
+            return res.status(400).json(failure("EMPTY_FILE", "The CSV has no data rows; it needs a header row and at least one data row"));
           }
 
           let imported = 0;
@@ -121,35 +103,23 @@ async function importCSV(req, res) {
               if (!Type || Type.trim() === "") missingFields.push("Type");
 
               if (missingFields.length > 0) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "MISSING_REQUIRED_FIELDS",
-                  message: `缺少必要欄位: ${missingFields.join(', ')}`,
-                  details: `行 ${rowNumber} 的必要欄位不能為空。已收到: SKU="${SKU}", Name="${Name}", Type="${Type}"`
-                });
+                errors.push(rowIssue(rowNumber, "MISSING_REQUIRED_FIELDS", `Missing required fields: ${missingFields.join(', ')}`,
+                  { fields: missingFields.join(', ') }));
                 continue;
               }
 
               // Validate SKU format (alphanumeric, no spaces at start/end)
               const trimmedSku = SKU.trim().toUpperCase();
               if (!/^[A-Z0-9\-_]+$/.test(trimmedSku)) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "INVALID_SKU_FORMAT",
-                  message: "SKU格式無效",
-                  details: `SKU 只能包含字母、數字、連字號和下劃線。收到: "${SKU}"`
-                });
+                errors.push(rowIssue(rowNumber, "INVALID_SKU_FORMAT",
+                  `Invalid SKU "${SKU}": only letters, digits, - and _ are allowed`, { sku: SKU }));
                 continue;
               }
 
               // Check for duplicate SKUs in same import
               if (duplicateSkus.has(trimmedSku)) {
-                warnings.push({
-                  row: rowNumber,
-                  reason: "DUPLICATE_SKU_IN_IMPORT",
-                  message: `SKU 在此導入中重複: ${trimmedSku}`,
-                  details: `此 SKU 已在前面的行中出現。將使用最後一次出現的數據`
-                });
+                warnings.push(rowIssue(rowNumber, "DUPLICATE_SKU_IN_IMPORT",
+                  `SKU ${trimmedSku} appears more than once; the last row wins`, { sku: trimmedSku }));
               }
               duplicateSkus.add(trimmedSku);
 
@@ -158,22 +128,14 @@ async function importCSV(req, res) {
               const nonAccountableQty = parseInt(NoAccount) || 0;
 
               if (isNaN(accountableQty) || accountableQty < 0) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "INVALID_QUANTITY",
-                  message: "可計數數量 (IsAccount) 無效",
-                  details: `必須是非負整數。收到: "${IsAccount}"`
-                });
+                errors.push(rowIssue(rowNumber, "INVALID_QUANTITY",
+                  `IsAccount must be a non-negative integer (received "${IsAccount}")`, { field: "IsAccount", value: IsAccount }));
                 continue;
               }
 
               if (isNaN(nonAccountableQty) || nonAccountableQty < 0) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "INVALID_QUANTITY",
-                  message: "不可計數數量 (NoAccount) 無效",
-                  details: `必須是非負整數。收到: "${NoAccount}"`
-                });
+                errors.push(rowIssue(rowNumber, "INVALID_QUANTITY",
+                  `NoAccount must be a non-negative integer (received "${NoAccount}")`, { field: "NoAccount", value: NoAccount }));
                 continue;
               }
 
@@ -183,12 +145,8 @@ async function importCSV(req, res) {
               if (hasMinStock) {
                 minStockVal = parseInt(MinStock);
                 if (isNaN(minStockVal) || minStockVal < 0) {
-                  errors.push({
-                    row: rowNumber,
-                    reason: "INVALID_MIN_STOCK",
-                    message: "最低庫存量 (MinStock) 無效",
-                    details: `必須是非負整數。收到: "${MinStock}"`
-                  });
+                  errors.push(rowIssue(rowNumber, "INVALID_MIN_STOCK",
+                    `MinStock must be a non-negative integer (received "${MinStock}")`, { field: "MinStock", value: MinStock }));
                   continue;
                 }
               }
@@ -251,29 +209,17 @@ async function importCSV(req, res) {
               else imported++;
             } catch (error) {
               if (error instanceof stockLedger.LedgerError) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "QUANTITY_REJECTED",
-                  message: "數量異動被拒絕",
-                  details: error.errors.map((e) => e.reason).join("; ") || error.message
-                });
+                // The ledger's own code says why the quantity was rejected.
+                const { code, params, error: reason } = error.toBody();
+                errors.push(rowIssue(rowNumber, code, reason, params));
                 continue;
               }
               // Database constraint violation
               if (error.message.includes("UNIQUE constraint failed")) {
-                errors.push({
-                  row: rowNumber,
-                  reason: "DUPLICATE_SKU",
-                  message: "SKU 已存在於資料庫中",
-                  details: `SKU "${(row.SKU || '').trim()}" 在資料庫中已存在。如要更新，請確認 SKU 拼寫正確`
-                });
+                const sku = (row.SKU || '').trim();
+                errors.push(rowIssue(rowNumber, "DUPLICATE_SKU", `SKU ${sku} already exists`, { sku }));
               } else {
-                errors.push({
-                  row: rowNumber,
-                  reason: "DATABASE_ERROR",
-                  message: "資料庫操作失敗",
-                  details: error.message
-                });
+                errors.push(rowIssue(rowNumber, "DATABASE_ERROR", `Database operation failed: ${error.message}`));
               }
             }
           }
@@ -290,12 +236,9 @@ async function importCSV(req, res) {
           // Check if there are errors that prevent success
           if (errors.length > 0 && imported === 0 && updated === 0) {
             return res.status(400).json({
-              success: false,
-              reason: "IMPORT_FAILED",
-              message: "導入失敗。請修正以下問題:",
+              ...failure("IMPORT_FAILED", `Import failed with ${errors.length} error(s)`, { count: errors.length }, errors),
               imported: 0,
               updated: 0,
-              errors: errors,
               warnings: warnings.length > 0 ? warnings : undefined
             });
           }
@@ -337,7 +280,7 @@ async function importCSV(req, res) {
             // Partial success
             res.json({
               success: true,
-              message: `導入完成。新增 ${imported} 個產品，更新 ${updated} 個產品。`,
+              message: `Import complete: ${imported} added, ${updated} updated.`,
               import_id: importId,
               imported,
               updated,
@@ -350,7 +293,7 @@ async function importCSV(req, res) {
             // Still return success, but log the audit error
             res.json({
               success: true,
-              message: `導入完成。新增 ${imported} 個產品，更新 ${updated} 個產品。(警告：無法記錄審計日誌)`,
+              message: `Import complete: ${imported} added, ${updated} updated. (Warning: the audit log could not be recorded)`,
               imported,
               updated,
               encoding: detectedEncoding,
@@ -360,13 +303,7 @@ async function importCSV(req, res) {
           }
         } catch (error) {
           console.error("Error processing CSV:", error);
-          res.status(500).json({
-            success: false,
-            error: error.message,
-            reason: "PROCESSING_ERROR",
-            message: "處理CSV時發生錯誤",
-            details: error.message
-          });
+          res.status(500).json(failure("PROCESSING_ERROR", `Failed to process the CSV: ${error.message}`));
         }
       })
       .on("error", (error) => {
@@ -380,23 +317,12 @@ async function importCSV(req, res) {
         }
 
         console.error("CSV parsing error:", error);
-        res.status(400).json({
-          success: false,
-          error: error.message,
-          reason: "CSV_PARSE_ERROR",
-          message: "無法解析CSV檔案",
-          details: "檔案可能已損壞或編碼不正確。請確保是有效的CSV格式，並使用UTF-8或Big5編碼"
-        });
+        res.status(400).json(failure("CSV_PARSE_ERROR",
+          `Cannot parse the CSV (${error.message}); the file may be damaged or not UTF-8 / Big5 encoded`));
       });
   } catch (error) {
     console.error("Error importing CSV:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      reason: "SERVER_ERROR",
-      message: "伺服器錯誤",
-      details: error.message
-    });
+    res.status(500).json(failure("SERVER_ERROR", `Server error: ${error.message}`));
   }
 }
 
