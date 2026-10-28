@@ -76,6 +76,7 @@ export function Topbar({
   const onUsers = to({ kind: 'users' });
   const onWarehouses = to({ kind: 'warehouses' });
   const onBackupSettings = to({ kind: 'backup-settings' });
+  const onManual = to({ kind: 'manual' });
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -250,6 +251,7 @@ export function Topbar({
             {lang === 'en' ? 'Change Password' : lang.startsWith('zh') ? '修改密碼' : 'パスワード変更'}
           </DropdownItem>
         )}
+        <DropdownItem onClick={onManual}>📖 {t.manual}</DropdownItem>
         <DropdownItem onClick={onLogout}>
           {lang === 'en' ? 'Sign out' : lang.startsWith('zh') ? '登出' : 'ログアウト'}
         </DropdownItem>
@@ -353,6 +355,13 @@ export function Topbar({
                   {tx('Change Password', '修改密碼', 'パスワード変更')}
                 </button>
               )}
+              <button
+                className={'nav-sheet-item' + (currentView === 'manual' ? ' on' : '')}
+                aria-current={currentView === 'manual' ? 'page' : undefined}
+                onClick={go(onManual)}
+              >
+                {t.manual}
+              </button>
               <button className="nav-sheet-item danger" onClick={go(onLogout)}>
                 {tx('Sign out', '登出', 'ログアウト')}
               </button>

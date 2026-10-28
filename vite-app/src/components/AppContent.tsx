@@ -13,6 +13,7 @@ import { ReportsPage } from './ReportsPage';
 import { WarehousesPage } from './WarehousesPage';
 import { UsersPage } from './UsersPage';
 import { BackupSettingsPage } from './BackupSettingsPage';
+import { ManualPage } from './ManualPage';
 import { AdjustStockModal } from './modals/AdjustStockModal';
 import { ProductPickerModal } from './modals/ProductPickerModal';
 import { APProductModal } from './modals/APProductModal';
@@ -199,6 +200,7 @@ export function AppContent({
       {view.kind === 'warehouses' && <WarehousesPage lang={lang} />}
       {view.kind === 'users' && <UsersPage lang={lang} />}
       {view.kind === 'backup-settings' && <BackupSettingsPage lang={lang} />}
+      {view.kind === 'manual' && <ManualPage />}
 
       {modal && modal.kind === 'adjust' && (
         <AdjustStockModal

@@ -11,7 +11,8 @@ export type View =
   | { kind: 'reports' }
   | { kind: 'warehouses' }
   | { kind: 'users' }
-  | { kind: 'backup-settings' };
+  | { kind: 'backup-settings' }
+  | { kind: 'manual' };
 
 const PATHS: Record<Exclude<View['kind'], 'batch'>, string> = {
   dashboard: '/',
@@ -24,6 +25,7 @@ const PATHS: Record<Exclude<View['kind'], 'batch'>, string> = {
   warehouses: '/warehouses',
   users: '/users',
   'backup-settings': '/backup-settings',
+  manual: '/manual',
 };
 
 export function pathForView(view: View): string {

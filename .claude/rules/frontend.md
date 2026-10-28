@@ -23,6 +23,7 @@ paths:
 
 ## Pages and routing
 - The URL decides which page shows. A new page needs a `View` kind and a path in `lib/routes.ts`.
+- `/manual` (`ManualPage`) renders `docs/user-manual.md` at build time (`?raw` + `marked`), so editing the doc updates the page.
 
 ## Styling
 - Global CSS in `src/styles.css`, with inline `style={{...}}` common in components. There are no CSS modules.

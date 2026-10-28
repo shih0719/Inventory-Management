@@ -5,6 +5,7 @@ export type Lang = 'en' | 'zh' | 'zh-cn' | 'ja';
 export const L = {
   en: {
     appName: 'Stockroom',
+    manual: 'User manual',
     search: 'Search SKU, name, model…',
     inbound: '+ Inbound',
     outbound: '+ Outbound',
@@ -125,6 +126,7 @@ export const L = {
   },
   zh: {
     appName: '小倉庫存',
+    manual: '操作手冊',
     search: '搜尋 SKU、名稱、型號…',
     inbound: '+ 進貨',
     outbound: '+ 出貨',
@@ -241,6 +243,7 @@ export const L = {
   },
   ja: {
     appName: '在庫管理室',
+    manual: '操作マニュアル',
     search: 'SKU、名前、型番で検索…',
     inbound: '+ 入荷',
     outbound: '+ 出荷',
@@ -357,6 +360,7 @@ export const L = {
   },
   'zh-cn': {
     appName: '小仓库存',
+    manual: '操作手册',
     search: '搜索 SKU、名称、型号…',
     inbound: '+ 入库',
     outbound: '+ 出库',

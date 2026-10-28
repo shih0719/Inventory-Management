@@ -17,7 +17,7 @@ cd vite-app
 npm run build     # 執行 tsc -b + vite build，輸出到 dist/
 ```
 
-## 🔄 建置流程（整合後端）
+## 🔄 建置流程（不用 Docker，直接以 Node 執行）
 
 後端 build script 會建置前端並複製靜態資源到 `public/`（供 Express 伺服）：
 
@@ -44,18 +44,25 @@ app.get('*', (req, res, next) => {
 
 ## 🐳 Docker 部署
 
-`Dockerfile` 多階段建置：先建置 `vite-app/`，再將 `dist/` 複製為最終映像的 `public/`。
+`Dockerfile` 多階段建置：先在容器內建置 `vite-app/`，再將 `dist/` 複製為最終映像的 `public/`。
+
+**不需要先在本機執行 `npm run build`**：映像不會用到本機的 `public/` 或 `vite-app/dist/`。
 
 ```bash
 docker-compose up -d --build
 ```
 
+`--build` 是重建 Docker 映像（前端也會在這一步重新建置）。程式碼更新後一定要加，否則會沿用舊映像。
+
 ## 🔍 環境檢查清單
 
-### 部署前驗證
+### 部署前驗證（Docker）
+- [ ] `docker-compose up -d --build` 建置無錯誤
+- [ ] 專案根目錄有 `.env`（`docker-compose.yml` 以 `env_file` 讀取）
+
+### 部署前驗證（直接以 Node 執行）
 - [ ] `npm run build` 無錯誤
-- [ ] `vite-app/dist/` 存在，包含 `index.html` 和 `assets/`
-- [ ] API 後端已部署並在 http://localhost:3000/api 可訪問
+- [ ] `public/` 存在，包含 `index.html` 和 `assets/`
 - [ ] Node.js 版本 ≥ 18
 
 ### 部署後驗證
@@ -102,4 +109,4 @@ npm run build
 
 ---
 
-**備註**：所有前端程式碼更新後，需執行 `npm run build` 產生新的靜態資源。開發過程使用 `npm run dev` 進行熱更新。
+**備註**：前端程式碼更新後，Docker 部署執行 `docker-compose up -d --build`；直接以 Node 執行則需先 `npm run build` 產生新的靜態資源。開發過程使用 `npm run dev` 進行熱更新。
