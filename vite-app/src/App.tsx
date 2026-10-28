@@ -9,11 +9,9 @@ import { useLang } from './hooks/useLang';
 import { useToast } from './hooks/useToast';
 import { useInventory } from './hooks/useInventory';
 import { useAppHandlers } from './hooks/useAppHandlers';
-import { getTourSteps } from './lib/tourConfig';
 import { L } from './lib/i18n';
 import { pathForView, viewFromPath, type View } from './lib/routes';
 import type { Modal } from './types';
-import './styles/tour.css';
 
 export function App() {
   const [lang, setLang] = useLang();
@@ -57,7 +55,6 @@ export function App() {
 
   const canWrite = currentUser?.role === 'manager' || currentUser?.role === 'admin';
   const isAdmin = currentUser?.role === 'admin';
-  const tourSteps = getTourSteps(view.kind, lang);
 
   // ---- Render ----
 
@@ -124,7 +121,6 @@ export function App() {
         onAdjustSubmit={handleAdjustSubmit}
         onAdjustTopbar={handleTopbarPick}
         onOpenPicker={openPicker}
-        tourSteps={tourSteps}
         canWrite={canWrite}
         onImportClick={handleImportClick}
         onExport={handleExport}

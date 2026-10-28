@@ -10,7 +10,7 @@ paths:
 - `src/components/`: pages (`*Page.tsx`) and shared pieces; dialogs live in `components/modals/`.
 - `src/hooks/`: app state (`useSession`, `useInventory`, `useToast`, `useAppHandlers`, `useLang`).
 - `src/context/ActiveWarehouseContext.tsx`: the selected warehouse.
-- `src/lib/`: `routes.ts` (URL ↔ `View`), `i18n.ts`, `serial.ts`, `format.ts`, `tourConfig.ts`.
+- `src/lib/`: `routes.ts` (URL ↔ `View`), `i18n.ts`, `serial.ts`, `format.ts`.
 - Shared types are in `src/types.ts`.
 
 ## API calls
@@ -25,7 +25,7 @@ paths:
 - The URL decides which page shows. A new page needs a `View` kind and a path in `lib/routes.ts`.
 
 ## Styling
-- Global CSS in `src/styles.css` (plus `styles/tour.css`), with inline `style={{...}}` common in components. There are no CSS modules.
+- Global CSS in `src/styles.css`, with inline `style={{...}}` common in components. There are no CSS modules.
 
 ## Checks
 - There are no frontend unit tests. Run `npm run typecheck` (or `npm run build`) in `vite-app/`, then check the change in the running app (`/run`).

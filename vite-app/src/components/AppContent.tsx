@@ -22,7 +22,6 @@ import { ShipmentDetailModal } from './modals/ShipmentDetailModal';
 import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { CreateProductModal } from './modals/CreateProductModal';
 import { Toast } from './Toast';
-import { Tour, type TourStep } from './Tour';
 import type { View } from '../lib/routes';
 
 interface AppContentProps {
@@ -40,7 +39,6 @@ interface AppContentProps {
   onAdjustSubmit: (input: any) => Promise<void>;
   onAdjustTopbar: (id: number | '', product: Product | null) => void;
   onOpenPicker: (callback: (p: Product) => void) => void;
-  tourSteps: TourStep[];
   canWrite: boolean;
   onImportClick: () => void;
   onExport: (skus?: string[]) => void;
@@ -63,7 +61,6 @@ export function AppContent({
   onAdjustSubmit,
   onAdjustTopbar,
   onOpenPicker,
-  tourSteps,
   canWrite,
   onImportClick,
   onExport,
@@ -283,8 +280,6 @@ export function AppContent({
           <Toast toast={toast} onDismiss={onDismissToast} />
         </div>
       )}
-
-      {bootState === 'ready' && <Tour steps={tourSteps} />}
     </>
   );
 }
